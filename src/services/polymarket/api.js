@@ -40,5 +40,6 @@ export async function getMidpointPrice(tokenId) {
 }
 
 export async function getLeaderboard({ limit = 50, offset = 0 } = {}) {
-  return get(`${DATA_API}/leaderboard`, { limit, offset, sortBy: 'profit' });
+  // Endpoint correcto del leaderboard de Polymarket
+  return get(`${GAMMA_BASE}/leaderboard`, { limit, offset });
 }
