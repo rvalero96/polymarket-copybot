@@ -7,11 +7,22 @@ const require = createRequire(import.meta.url);
 
 let _db = null;
 
+function initSqlite() {
+  return new Promise((resolve) => {
+    const sqlite = require('node-sqlite3-wasm');
+    if (sqlite.calledRun) {
+      resolve(sqlite);
+    } else {
+      sqlite.onRuntimeInitialized = () => resolve(sqlite);
+    }
+  });
+}
+
 export async function getDb() {
   if (_db) return _db;
 
-  const sqlite = require('node-sqlite3-wasm');
-  const Database = sqlite.Database;
+  const sqlite = await initSqlite();
+  const { Database } = sqlite;
 
   const dir = dirname(CONFIG.DB_PATH);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
