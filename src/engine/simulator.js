@@ -20,16 +20,22 @@ async function main() {
     return;
   }
 
-  const openCount = all(db, `SELECT COUNT(*) as n FROM positions`)[0].n;
-  if (openCount >= MAX_OPEN_POSITIONS) {
-    logger.warn('simulator:max positions reached', { openCount, max: MAX_OPEN_POSITIONS });
-    return;
-  }
-
-  const latest = all(db, `SELECT bankroll FROM snapshots ORDER BY date DESC LIMIT 1`)[0];
-  let bankroll = latest?.bankroll ?? PAPER_BANKROLL;
+  const today = new Date().toISOString().slice(0, 10);
+  const snapshots = all(db, `SELECT * FROM snapshots ORDER BY date DESC LIMIT 2`);
+  const todaySnap = snapshots.find(s => s.date === today);
+  const prevSnap  = snapshots.find(s => s.date !== today);
+  let bankroll = todaySnap?.bankroll ?? prevSnap?.bankroll ?? PAPER_BANKROLL;
+  const dayStartBankroll = prevSnap?.bankroll ?? PAPER_BANKROLL;
 
   for (const signal of signals) {
+    // Re-check limit each iteration: block opens but always allow closes
+    if (signal.action === 'open' || signal.action === 'increase') {
+      const openCount = all(db, `SELECT COUNT(*) as n FROM positions`)[0].n;
+      if (openCount >= MAX_OPEN_POSITIONS) {
+        logger.warn('simulator:max positions reached, skipping open', { openCount, max: MAX_OPEN_POSITIONS });
+        continue;
+      }
+    }
     try {
       bankroll = await executeSignal(db, signal, bankroll);
     } catch (err) {
@@ -37,7 +43,20 @@ async function main() {
     }
   }
 
-  db.persist();
+  // Persist updated bankroll so the next run reads the correct value
+  const openPositionCount = all(db, `SELECT COUNT(*) as n FROM positions`)[0].n;
+  run(db,
+    `INSERT INTO snapshots (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?)
+     ON CONFLICT(date) DO UPDATE SET
+       bankroll       = excluded.bankroll,
+       pnl_day        = excluded.pnl_day,
+       pnl_total      = excluded.pnl_total,
+       open_positions = excluded.open_positions,
+       created_at     = excluded.created_at`,
+    [today, bankroll, bankroll - dayStartBankroll, bankroll - PAPER_BANKROLL, openPositionCount, Date.now()]
+  );
+
   logger.info('simulator:done', { bankroll });
 }
 
