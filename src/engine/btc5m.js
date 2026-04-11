@@ -99,6 +99,7 @@ function pickTargetMarket(markets, now) {
 
 // ── Settle: cerrar posiciones resueltas o que han tocado TP/SL ──────────────
 
+// Retorna el capital recuperado: size_usdc + pnl - fee
 function closeBtc5mPosition(db, pos, exitPrice, reason) {
   const now = Date.now();
   const pnl = pos.size_usdc * (exitPrice - pos.entry_price) / pos.entry_price;
@@ -121,24 +122,26 @@ function closeBtc5mPosition(db, pos, exitPrice, reason) {
     entry: pos.entry_price, exit: exitPrice,
     pnl: (pnl - fee).toFixed(4), reason,
   });
+
+  return pos.size_usdc + pnl - fee;
 }
 
+// Retorna el capital neto recuperado de todas las posiciones cerradas
 async function settlePositions(db) {
   const positions = all(db, `SELECT * FROM btc5m_positions`);
-  if (positions.length === 0) return;
+  if (positions.length === 0) return 0;
 
   logger.info('btc5m:settle', { open: positions.length });
 
+  let recovered = 0;
+
   for (const pos of positions) {
     try {
-      // Reconstruir slug desde asset y ventana de 5min para evitar el bug
-      // de condition_id ignorado por la Gamma API
       const windowTs = Math.floor(pos.opened_at / 1000 / 300) * 300;
       const slug = `${pos.asset.toLowerCase()}-updown-5m-${windowTs}`;
       const market = await getMarketBySlug(slug);
       if (!market) continue;
 
-      // Mercado resuelto → calcular P&L final
       if (market.closed || !market.active) {
         const outcomeIdx = pos.outcome === 'UP' ? 0 : 1;
         const rawPrices = market.outcomePrices ?? [];
@@ -147,19 +150,18 @@ async function settlePositions(db) {
           ? parseFloat(prices[outcomeIdx])
           : (market.winner === pos.outcome ? 1.0 : 0.01);
 
-        closeBtc5mPosition(db, pos, finalPrice, 'resolved');
+        recovered += closeBtc5mPosition(db, pos, finalPrice, 'resolved');
         continue;
       }
 
-      // Mercado aún abierto → comprobar TP/SL via CLOB midpoint
       if (pos.token_id) {
         const mid = await getMidpointPrice(pos.token_id);
         if (mid > 0) {
           const pnlPct = (mid - pos.entry_price) / pos.entry_price;
           if (pnlPct >= STRATEGY.TAKE_PROFIT) {
-            closeBtc5mPosition(db, pos, mid, 'tp');
+            recovered += closeBtc5mPosition(db, pos, mid, 'tp');
           } else if (pnlPct <= STRATEGY.STOP_LOSS) {
-            closeBtc5mPosition(db, pos, mid, 'sl');
+            recovered += closeBtc5mPosition(db, pos, mid, 'sl');
           }
         }
       }
@@ -167,6 +169,8 @@ async function settlePositions(db) {
       logger.warn('btc5m:settle-error', { market_id: pos.market_id, error: err.message });
     }
   }
+
+  return recovered;
 }
 
 // ── Enter: abrir nueva posición ──────────────────────────────────────────────
@@ -310,26 +314,29 @@ async function main() {
   const snap = all(db, `SELECT bankroll FROM snapshots ORDER BY date DESC LIMIT 1`)[0];
   const bankroll = snap?.bankroll ?? CONFIG.PAPER_BANKROLL;
 
-  // Paso 1: cerrar posiciones resueltas / TP / SL
-  await settlePositions(db);
+  // Paso 1: cerrar posiciones resueltas / TP / SL y recuperar capital
+  const recovered = await settlePositions(db);
 
   // Capturar now DESPUÉS del settle para que el cálculo de ventana sea preciso
   const nowAfterSettle = Date.now();
+
+  // Bankroll actualizado con capital recuperado de cierres
+  let currentBankroll = bankroll + recovered;
 
   // Paso 2: buscar entradas en cada activo
   let spent = 0;
   for (const asset of STRATEGY.ASSETS) {
     try {
-      spent += await processAsset(db, asset, bankroll - spent, nowAfterSettle);
+      spent += await processAsset(db, asset, currentBankroll - spent, nowAfterSettle);
     } catch (err) {
       logger.error('btc5m:asset-error', { asset: asset.name, error: err.message });
     }
   }
 
-  // Actualizar bankroll en el snapshot si se ha gastado algo
-  if (spent > 0) {
+  // Actualizar bankroll en el snapshot si hubo cambios (cierres o aperturas)
+  if (recovered !== 0 || spent > 0) {
     const today = new Date().toISOString().slice(0, 10);
-    const newBankroll = bankroll - spent;
+    const newBankroll = currentBankroll - spent;
     const openPositions = all(db, `SELECT COUNT(*) as n FROM positions`)[0].n;
     const prevSnap = all(db, `SELECT * FROM snapshots ORDER BY date DESC LIMIT 2`);
     const dayStart = prevSnap.find(s => s.date !== today)?.bankroll ?? CONFIG.PAPER_BANKROLL;
@@ -344,10 +351,10 @@ async function main() {
          created_at     = excluded.created_at`,
       [today, newBankroll, newBankroll - dayStart, newBankroll - CONFIG.PAPER_BANKROLL, openPositions, Date.now()],
     );
-    logger.info('btc5m:bankroll-updated', { before: bankroll.toFixed(2), after: newBankroll.toFixed(2), spent: spent.toFixed(2) });
+    logger.info('btc5m:bankroll-updated', { before: bankroll.toFixed(2), after: newBankroll.toFixed(2), recovered: recovered.toFixed(2), spent: spent.toFixed(2) });
   }
 
-  logger.info('btc5m:done', { bankroll: (bankroll - spent).toFixed(2), spent: spent.toFixed(2) });
+  logger.info('btc5m:done', { bankroll: (currentBankroll - spent).toFixed(2), spent: spent.toFixed(2) });
 }
 
 main().catch(err => {
