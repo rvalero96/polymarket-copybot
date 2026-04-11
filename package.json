@@ -1,0 +1,15 @@
+{
+  "name": "polymarket-copybot",
+  "version": "1.0.0",
+  "description": "Automated copy trading system on Polymarket via GitHub Actions",
+  "type": "module",
+  "scripts": {
+    "trade": "node src/engine/simulator.js",
+    "discover": "node src/discovery/ranker.js",
+    "report": "node src/reports/daily.js"
+  },
+  "dependencies": {
+    "node-sqlite3-wasm": "^0.8.20",
+    "node-fetch": "^3.3.2"
+  }
+}
