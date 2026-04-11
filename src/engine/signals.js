@@ -44,7 +44,7 @@ async function processWalletPositions(db, wallet, positions, now) {
       signals.push(insertSignal(db, { wallet, pos, action: 'open', now }));
     } else {
       const known = knownPos.get(key);
-      if (pos.size > known.size_usdc * 1.1) {
+      if ((pos.currentValue ?? pos.size) > known.size_usdc * 1.1) {
         signals.push(insertSignal(db, { wallet, pos, action: 'increase', now }));
       }
     }
@@ -66,11 +66,10 @@ async function processWalletPositions(db, wallet, positions, now) {
 }
 
 function shouldFilter(pos) {
-  const price = pos.currentPrice ?? 0;
+  const price = pos.curPrice ?? pos.currentPrice ?? 0;
   return (
     price < FILTERS.MIN_SIGNAL_PRICE ||
-    price > FILTERS.MAX_SIGNAL_PRICE ||
-    (pos.volume24h ?? 0) < FILTERS.MIN_MARKET_VOLUME_24H
+    price > FILTERS.MAX_SIGNAL_PRICE
   );
 }
 
@@ -80,8 +79,8 @@ function insertSignal(db, { wallet, pos, action, now }) {
     market_id:   pos.conditionId,
     outcome:     pos.outcome,
     action,
-    price:       pos.currentPrice ?? 0,
-    size:        pos.size ?? 0,
+    price:       pos.curPrice ?? pos.currentPrice ?? 0,
+    size:        pos.currentValue ?? pos.size ?? 0,
     detected_at: now,
   };
   run(db,
@@ -90,6 +89,6 @@ function insertSignal(db, { wallet, pos, action, now }) {
     [signal.wallet, signal.market_id, signal.outcome, signal.action,
      signal.price, signal.size, signal.detected_at]
   );
-  logger.info('signal:new', { action, wallet, market: pos.conditionId, price: pos.currentPrice });
+  logger.info('signal:new', { action, wallet, market: pos.conditionId, price: pos.curPrice ?? pos.currentPrice });
   return signal;
 }
