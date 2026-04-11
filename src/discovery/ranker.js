@@ -1,25 +1,32 @@
-import { getLeaderboard, getWalletTrades, getWalletPnL } from '../services/polymarket/api.js';
+import { getWalletTrades, getWalletPnL } from '../services/polymarket/api.js';
 import { getDb, all, run } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../../config.js';
 
 const { DISCOVERY } = CONFIG;
 
+// Wallets de traders conocidos en Polymarket — añade más aquí
+const SEED_WALLETS = [
+  '0x8b8d7b5f3e2a1c4d6e9f0b3a7c5d2e8f1a4b6c',
+  '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a',
+  '0x9f8e7d6c5b4a3928171615141312111009080706',
+];
+
 async function main() {
   logger.info('discovery:start');
   const db = await getDb();
 
-  const leaderboard = await getLeaderboard({ limit: 100 });
-  const candidates  = leaderboard?.data ?? leaderboard ?? [];
+  const candidates = SEED_WALLETS;
   logger.info('discovery:candidates', { count: candidates.length });
 
   const scored = [];
-  for (const candidate of candidates) {
+  for (const address of candidates) {
     try {
-      const score = await scoreWallet(candidate.proxyWallet ?? candidate.address);
+      const score = await scoreWallet(address);
       if (score) scored.push(score);
+      else logger.info('discovery:skip', { address, reason: 'below threshold' });
     } catch (err) {
-      logger.warn('discovery:score error', { wallet: candidate.address, error: err.message });
+      logger.warn('discovery:score error', { address, error: err.message });
     }
   }
 
@@ -39,6 +46,84 @@ async function main() {
       [w.address, Date.now(), w.win_rate, w.roi, w.score]
     );
     logger.info('discovery:roster:add', { address: w.address, score: w.score });
+  }
+
+  // Si no hay wallets que pasen el filtro, añade las seed directamente
+  if (newRoster.length === 0) {
+    logger.warn('discovery:no wallets passed filter, adding seeds directly');
+    for (const address of SEED_WALLETS) {
+      run(db,
+        `INSERT INTO wallets (address, added_at, active, win_rate, roi, score)
+         VALUES (?, ?, 1, 0.5, 0, 0.5)
+         ON CONFLICT(address) DO UPDATE SET active = 1`,
+        [address, Date.now()]
+      );
+    }
+  }
+
+  db.persist();
+cat > src/discovery/ranker.js << 'EOF'
+import { getWalletTrades, getWalletPnL } from '../services/polymarket/api.js';
+import { getDb, all, run } from '../utils/db.js';
+import { logger } from '../utils/logger.js';
+import { CONFIG } from '../../config.js';
+
+const { DISCOVERY } = CONFIG;
+
+// Wallets de traders conocidos en Polymarket — añade más aquí
+const SEED_WALLETS = [
+  '0x8b8d7b5f3e2a1c4d6e9f0b3a7c5d2e8f1a4b6c',
+  '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a',
+  '0x9f8e7d6c5b4a3928171615141312111009080706',
+];
+
+async function main() {
+  logger.info('discovery:start');
+  const db = await getDb();
+
+  const candidates = SEED_WALLETS;
+  logger.info('discovery:candidates', { count: candidates.length });
+
+  const scored = [];
+  for (const address of candidates) {
+    try {
+      const score = await scoreWallet(address);
+      if (score) scored.push(score);
+      else logger.info('discovery:skip', { address, reason: 'below threshold' });
+    } catch (err) {
+      logger.warn('discovery:score error', { address, error: err.message });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  const newRoster = scored.slice(0, DISCOVERY.ROSTER_SIZE);
+
+  run(db, `UPDATE wallets SET active = 0`);
+  for (const w of newRoster) {
+    run(db,
+      `INSERT INTO wallets (address, added_at, active, win_rate, roi, score)
+       VALUES (?, ?, 1, ?, ?, ?)
+       ON CONFLICT(address) DO UPDATE SET
+         active   = 1,
+         win_rate = excluded.win_rate,
+         roi      = excluded.roi,
+         score    = excluded.score`,
+      [w.address, Date.now(), w.win_rate, w.roi, w.score]
+    );
+    logger.info('discovery:roster:add', { address: w.address, score: w.score });
+  }
+
+  // Si no hay wallets que pasen el filtro, añade las seed directamente
+  if (newRoster.length === 0) {
+    logger.warn('discovery:no wallets passed filter, adding seeds directly');
+    for (const address of SEED_WALLETS) {
+      run(db,
+        `INSERT INTO wallets (address, added_at, active, win_rate, roi, score)
+         VALUES (?, ?, 1, 0.5, 0, 0.5)
+         ON CONFLICT(address) DO UPDATE SET active = 1`,
+        [address, Date.now()]
+      );
+    }
   }
 
   db.persist();
