@@ -9,7 +9,7 @@
     "report": "node src/reports/daily.js"
   },
   "dependencies": {
-    "node-sqlite3-wasm": "^0.8.20",
+    "better-sqlite3": "^12.8.0",
     "node-fetch": "^3.3.2"
   }
 }

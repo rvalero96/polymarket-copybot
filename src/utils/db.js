@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { CONFIG } from '../../config.js';
 import { createRequire } from 'module';
@@ -7,31 +7,16 @@ const require = createRequire(import.meta.url);
 
 let _db = null;
 
-function initSqlite() {
-  return new Promise((resolve) => {
-    const sqlite = require('node-sqlite3-wasm');
-    if (sqlite.calledRun) {
-      resolve(sqlite);
-    } else {
-      sqlite.onRuntimeInitialized = () => resolve(sqlite);
-    }
-  });
-}
-
 export async function getDb() {
   if (_db) return _db;
 
-  const sqlite = await initSqlite();
-  const { Database } = sqlite;
+  const Database = require('better-sqlite3');
 
   const dir = dirname(CONFIG.DB_PATH);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  const db = new Database(
-    existsSync(CONFIG.DB_PATH) ? readFileSync(CONFIG.DB_PATH) : undefined
-  );
-
-  db.persist = () => writeFileSync(CONFIG.DB_PATH, db.export());
+  const db = new Database(CONFIG.DB_PATH);
+  db.persist = () => {};  // better-sqlite3 escribe directo al disco
 
   db.exec(`
     PRAGMA journal_mode = WAL;
@@ -94,15 +79,14 @@ export async function getDb() {
     );
   `);
 
-  db.persist();
   _db = db;
   return db;
 }
 
 export function all(db, sql, params = []) {
-  return db.all(sql, params);
+  return db.prepare(sql).all(...params);
 }
 
 export function run(db, sql, params = []) {
-  return db.run(sql, params);
+  return db.prepare(sql).run(...params);
 }
