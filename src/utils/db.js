@@ -77,6 +77,34 @@ export async function getDb() {
       win_rate      REAL,
       created_at    INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS btc5m_positions (
+      market_id    TEXT NOT NULL,
+      outcome      TEXT NOT NULL,
+      asset        TEXT NOT NULL DEFAULT 'BTC',
+      size_usdc    REAL NOT NULL,
+      entry_price  REAL NOT NULL,
+      token_id     TEXT,
+      opened_at    INTEGER NOT NULL,
+      PRIMARY KEY (market_id, outcome)
+    );
+
+    CREATE TABLE IF NOT EXISTS btc5m_trades (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      market_id    TEXT NOT NULL,
+      asset        TEXT NOT NULL DEFAULT 'BTC',
+      outcome      TEXT NOT NULL,
+      side         TEXT NOT NULL,
+      size_usdc    REAL NOT NULL,
+      entry_price  REAL NOT NULL,
+      exit_price   REAL,
+      fee          REAL NOT NULL DEFAULT 0,
+      slippage     REAL NOT NULL DEFAULT 0,
+      status       TEXT NOT NULL DEFAULT 'open',
+      pnl          REAL,
+      opened_at    INTEGER NOT NULL,
+      closed_at    INTEGER
+    );
   `);
 
   _db = db;

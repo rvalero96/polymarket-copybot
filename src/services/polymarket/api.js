@@ -39,6 +39,18 @@ export async function getMidpointPrice(tokenId) {
   return parseFloat(data?.mid ?? 0);
 }
 
+export async function get5mMarkets(slugContains) {
+  const data = await get(`${GAMMA_BASE}/markets`, {
+    active: 'true',
+    closed: 'false',
+    slug_contains: slugContains,
+    limit: 10,
+  });
+  const list = Array.isArray(data) ? data : (data?.data ?? []);
+  // Client-side filter in case the API ignores slug_contains
+  return list.filter(m => (m.slug ?? '').includes(slugContains));
+}
+
 export async function getLeaderboard({ limit = 50, offset = 0 } = {}) {
   // Endpoint correcto del leaderboard de Polymarket
   return get(`${GAMMA_BASE}/leaderboard`, { limit, offset });
