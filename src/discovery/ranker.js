@@ -1,4 +1,4 @@
-import { getWalletPositions, getWalletTrades } from '../services/polymarket/api.js';
+import { getWalletPositions, getWalletTrades, getWalletPnL } from '../services/polymarket/api.js';
 import { getDb, all, run } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../../config.js';
@@ -63,45 +63,59 @@ const SEED_WALLETS = [
 
 async function scoreWallet(address) {
   try {
-    // /positions devuelve cashPnl y percentPnl por posición
-    const [rawPositions, rawTrades] = await Promise.all([
+    const [rawPositions, rawTrades, rawPnl] = await Promise.all([
       getWalletPositions(address),
       getWalletTrades(address, 500),
+      getWalletPnL(address).catch(() => null),
     ]);
 
     const positions = Array.isArray(rawPositions) ? rawPositions : (rawPositions?.data ?? []);
     const trades    = Array.isArray(rawTrades)    ? rawTrades    : (rawTrades?.data    ?? []);
 
-    // Necesitamos actividad mínima
     if (trades.length < DISCOVERY.MIN_CLOSED_POSITIONS) {
       logger.debug('ranker:skip', { address, reason: 'not enough trades', count: trades.length });
       return null;
     }
 
-    // Win rate desde posiciones abiertas (cashPnl > 0 = ganando)
-    const posWithPnl = positions.filter(p => p.cashPnl !== undefined || p.percentPnl !== undefined);
-    let wins = 0;
-    let totalPnl = 0;
-    let totalInvested = 0;
+    // Intentar métricas del endpoint de portfolio primero
+    let winRate, roi, totalPnl;
 
-    for (const p of posWithPnl) {
-      const pnl      = parseFloat(p.cashPnl    ?? 0);
-      const invested = parseFloat(p.initialValue ?? p.totalBought ?? 0);
-      totalPnl      += pnl;
-      totalInvested += invested;
-      if (pnl > 0) wins++;
+    const pfWinRate = rawPnl?.winRate ?? rawPnl?.win_rate;
+    const pfRoi     = rawPnl?.roi     ?? rawPnl?.percentPnl;
+    const pfPnl     = rawPnl?.pnl     ?? rawPnl?.cashPnl ?? rawPnl?.totalPnl;
+
+    if (pfWinRate != null && pfRoi != null) {
+      winRate  = parseFloat(pfWinRate);
+      roi      = parseFloat(pfRoi);
+      totalPnl = parseFloat(pfPnl ?? 0);
+      logger.debug('ranker:using portfolio endpoint', { address, winRate, roi });
+    } else {
+      // Fallback: calcular desde posiciones abiertas
+      const posWithPnl = positions.filter(p => p.cashPnl !== undefined || p.percentPnl !== undefined);
+
+      if (posWithPnl.length === 0) {
+        logger.debug('ranker:skip', { address, reason: 'no PnL data available' });
+        return null;
+      }
+
+      let wins = 0, invested = 0, pnlSum = 0;
+      for (const p of posWithPnl) {
+        const pnl = parseFloat(p.cashPnl ?? 0);
+        pnlSum   += pnl;
+        invested += parseFloat(p.initialValue ?? p.totalBought ?? 0);
+        if (pnl > 0) wins++;
+      }
+      winRate  = wins / posWithPnl.length;
+      roi      = invested > 0 ? pnlSum / invested : 0;
+      totalPnl = pnlSum;
     }
 
-    // Si no hay posiciones con PnL, usar trade count como proxy
-    const winRate = posWithPnl.length > 0 ? wins / posWithPnl.length : 0;
-    const roi        = totalInvested > 0 ? totalPnl / totalInvested : 0;
-
-    if (posWithPnl.length > 0 && winRate < DISCOVERY.MIN_WIN_RATE) {
+    if (winRate < DISCOVERY.MIN_WIN_RATE) {
       logger.debug('ranker:skip', { address, reason: 'low winRate', winRate: winRate.toFixed(3) });
       return null;
     }
 
-    if (posWithPnl.length > 0 && roi < DISCOVERY.MIN_ROI) {
+    if (roi < DISCOVERY.MIN_ROI) {
       logger.debug('ranker:skip', { address, reason: 'low ROI', roi: roi.toFixed(3) });
       return null;
     }
@@ -114,7 +128,6 @@ async function scoreWallet(address) {
       winRate: winRate.toFixed(3),
       roi: roi.toFixed(3),
       trades: trades.length,
-      openPositions: positions.length,
       score: score.toFixed(4),
     });
 
