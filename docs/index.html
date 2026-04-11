@@ -69,7 +69,7 @@
 <body>
   <header>
     <h1>Polymarket Copybot <span>paper trading</span></h1>
-    <div class="updated">Actualizado: 12 abr 2026, 0:23</div>
+    <div class="updated">Actualizado: 12 abr 2026, 1:05</div>
   </header>
 
   <main>
@@ -77,17 +77,17 @@
     
     <div class="card">
       <div class="label">Bankroll</div>
-      <div class="value ">$546.36</div>
+      <div class="value ">$468.28</div>
     </div>
     
     <div class="card">
       <div class="label">P&amp;L hoy</div>
-      <div class="value ">+$0.00</div>
+      <div class="value neg">-$531.72</div>
     </div>
     
     <div class="card">
       <div class="label">P&amp;L total</div>
-      <div class="value neg">-$453.64</div>
+      <div class="value neg">-$531.72</div>
     </div>
     
     <div class="card">
@@ -102,7 +102,7 @@
     
     <div class="card">
       <div class="label">5m positions</div>
-      <div class="value ">0</div>
+      <div class="value ">3</div>
     </div>
   </div>
 
@@ -258,13 +258,34 @@
       <h2>Posiciones abiertas — 5m</h2>
       <table>
         <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
-        <tbody><tr><td colspan="5" class="empty">Sin posiciones abiertas</td></tr></tbody>
+        <tbody>
+        <tr>
+          <td>BTC</td>
+          <td><span class="badge badge-no">DOWN</span></td>
+          <td>0.4965</td>
+          <td>$27.32</td>
+          <td>11 abr, 22:52</td>
+        </tr>
+        <tr>
+          <td>ETH</td>
+          <td><span class="badge badge-no">DOWN</span></td>
+          <td>0.4865</td>
+          <td>$25.95</td>
+          <td>11 abr, 22:52</td>
+        </tr>
+        <tr>
+          <td>SOL</td>
+          <td><span class="badge badge-no">DOWN</span></td>
+          <td>0.4965</td>
+          <td>$24.65</td>
+          <td>11 abr, 22:52</td>
+        </tr></tbody>
       </table>
     </div>
   </main>
 
   <script>
-    const SNAPS = [{"date":"2026-04-11","bankroll":546.3563372715159,"pnlDay":0}];
+    const SNAPS = [{"date":"2026-04-11","bankroll":468.28435426045894,"pnlDay":-531.7156457395411}];
 
     const chartDefaults = {
       responsive: true,
