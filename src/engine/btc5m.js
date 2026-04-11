@@ -9,7 +9,8 @@ import { CONFIG } from '../../config.js';
 import { computeRSI, computeATR, generateSignal } from '../strategies/early-bird.js';
 import { getMarketBySlug, getMidpointPrice, get5mMarkets } from '../services/polymarket/api.js';
 
-const BINANCE_BASE = 'https://api.binance.com/api/v3';
+// api.binance.com bloquea IPs de EEUU (GitHub Actions) con 451
+const BINANCE_BASE = 'https://api.binance.us/api/v3';
 
 const STRATEGY = {
   POSITION_SIZE_PCT: CONFIG.POSITION_SIZE_PCT,  // 5% del bankroll por trade
