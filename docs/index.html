@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polymarket Copybot · Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f1f5f9; color: #1e293b; font-size: 14px; }
+
+    header {
+      background: #1e293b; color: white;
+      padding: .875rem 2rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    header h1 { font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+    header h1 span { opacity: .5; font-weight: 400; margin-left: .5rem; font-size: .85rem; }
+    .updated { font-size: .75rem; opacity: .5; }
+
+    main { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: .75rem;
+      margin-bottom: 1.25rem;
+    }
+    .card { background: white; border-radius: 10px; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+    .label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: .4rem; }
+    .value { font-size: 1.6rem; font-weight: 700; color: #1e293b; }
+
+    .pos { color: #10b981; }
+    .neg { color: #ef4444; }
+
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1.25rem; }
+    .chart-card { background: white; border-radius: 10px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+    .chart-card h2 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 1rem; }
+    .chart-wrap { position: relative; height: 180px; }
+
+    .table-card { background: white; border-radius: 10px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.07); margin-bottom: .75rem; }
+    .table-card h2 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: .875rem; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: .4rem .75rem; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+    td { padding: .55rem .75rem; border-bottom: 1px solid #f8fafc; }
+    tr:last-child td { border-bottom: none; }
+    code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: .8rem; background: #f1f5f9; padding: .1rem .3rem; border-radius: 3px; }
+
+    .badge { display: inline-block; padding: .15rem .45rem; border-radius: 4px; font-size: .7rem; font-weight: 700; letter-spacing: .03em; }
+    .badge-yes { background: #d1fae5; color: #065f46; }
+    .badge-no  { background: #fee2e2; color: #991b1b; }
+
+    .empty { color: #94a3b8; font-style: italic; padding: 1.5rem; text-align: center; }
+
+    .section-header {
+      font-size: .65rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: #6366f1;
+      border-top: 1px solid #e2e8f0; padding-top: 1.25rem;
+      margin: 1.25rem 0 .875rem;
+    }
+
+    @media (max-width: 700px) {
+      main { padding: 1rem; }
+      .charts { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Polymarket Copybot <span>paper trading</span></h1>
+    <div class="updated">Actualizado: 11 abr 2026, 17:57</div>
+  </header>
+
+  <main>
+    <div class="cards">
+    
+    <div class="card">
+      <div class="label">Bankroll</div>
+      <div class="value ">$1,000.00</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">P&amp;L hoy</div>
+      <div class="value ">+$0.00</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">P&amp;L total</div>
+      <div class="value ">+$0.00</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">Win rate</div>
+      <div class="value ">0.0%</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">Copy positions</div>
+      <div class="value ">0</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">5m positions</div>
+      <div class="value ">0</div>
+    </div>
+  </div>
+
+    <div class="charts">
+      <div class="chart-card">
+        <h2>Bankroll (USDC)</h2>
+        <div class="chart-wrap"><canvas id="bankrollChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>P&amp;L diario (USDC)</h2>
+        <div class="chart-wrap"><canvas id="pnlChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-header">Copy Trading</div>
+
+    <div class="table-card">
+      <h2>Posiciones abiertas</h2>
+      <p class="empty">No hay posiciones abiertas</p>
+    </div>
+
+    <div class="table-card">
+      <h2>Wallets activos — top 0</h2>
+      <p class="empty">Sin wallets activos todavía</p>
+    </div>
+
+    
+    <div class="section-header">Early-Bird 5m</div>
+    <div class="cards" style="margin-bottom:1rem">
+      <div class="card"><div class="label">Trades cerrados</div><div class="value">0</div></div>
+      <div class="card"><div class="label">Win rate</div><div class="value">—</div></div>
+      <div class="card"><div class="label">P&amp;L acumulado</div><div class="value ">—</div></div>
+    </div>
+    <div class="table-card">
+      <h2>Posiciones abiertas — 5m</h2>
+      <table>
+        <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
+        <tbody><tr><td colspan="5" class="empty">Sin posiciones abiertas</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const SNAPS = [];
+
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } },
+        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+      },
+    };
+
+    if (SNAPS.length) {
+      const labels = SNAPS.map(s => s.date);
+
+      new Chart(document.getElementById('bankrollChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: SNAPS.map(s => s.bankroll),
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99,102,241,.08)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: SNAPS.length > 20 ? 0 : 3,
+            pointHoverRadius: 5,
+            borderWidth: 2,
+          }],
+        },
+        options: { ...chartDefaults },
+      });
+
+      new Chart(document.getElementById('pnlChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data: SNAPS.map(s => s.pnlDay),
+            backgroundColor: SNAPS.map(s => s.pnlDay >= 0
+              ? 'rgba(16,185,129,.75)'
+              : 'rgba(239,68,68,.75)'),
+            borderRadius: 3,
+          }],
+        },
+        options: { ...chartDefaults },
+      });
+    }
+  </script>
+</body>
+</html>

@@ -6,7 +6,8 @@
   "scripts": {
     "trade": "node src/engine/simulator.js",
     "discover": "node src/discovery/ranker.js",
-    "report": "node src/reports/daily.js"
+    "report": "node src/reports/daily.js",
+    "dashboard": "node src/reports/dashboard.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
