@@ -326,7 +326,28 @@ async function main() {
     }
   }
 
-  logger.info('btc5m:done', { bankroll, spent: spent.toFixed(2) });
+  // Actualizar bankroll en el snapshot si se ha gastado algo
+  if (spent > 0) {
+    const today = new Date().toISOString().slice(0, 10);
+    const newBankroll = bankroll - spent;
+    const openPositions = all(db, `SELECT COUNT(*) as n FROM positions`)[0].n;
+    const prevSnap = all(db, `SELECT * FROM snapshots ORDER BY date DESC LIMIT 2`);
+    const dayStart = prevSnap.find(s => s.date !== today)?.bankroll ?? CONFIG.PAPER_BANKROLL;
+    run(db,
+      `INSERT INTO snapshots (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
+       VALUES (?, ?, ?, ?, ?, 0, ?)
+       ON CONFLICT(date) DO UPDATE SET
+         bankroll       = excluded.bankroll,
+         pnl_day        = excluded.pnl_day,
+         pnl_total      = excluded.pnl_total,
+         open_positions = excluded.open_positions,
+         created_at     = excluded.created_at`,
+      [today, newBankroll, newBankroll - dayStart, newBankroll - CONFIG.PAPER_BANKROLL, openPositions, Date.now()],
+    );
+    logger.info('btc5m:bankroll-updated', { before: bankroll.toFixed(2), after: newBankroll.toFixed(2), spent: spent.toFixed(2) });
+  }
+
+  logger.info('btc5m:done', { bankroll: (bankroll - spent).toFixed(2), spent: spent.toFixed(2) });
 }
 
 main().catch(err => {
