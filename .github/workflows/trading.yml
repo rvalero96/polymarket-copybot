@@ -34,10 +34,22 @@ jobs:
           LOG_LEVEL: info
         run: node src/engine/simulator.js
 
-      - name: Persist DB state
+      - name: Generate report
+        env:
+          TRADING_MODE: paper
+        run: node src/reports/daily.js
+
+      - name: Persist DB state and report
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit report to main
+          git add reports/
+          git diff --cached --quiet || git commit -m "chore: report $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          git push origin main
+
+          # Persist DB to paper-state
           git fetch origin paper-state 2>/dev/null || true
           git checkout -B paper-state origin/paper-state 2>/dev/null || git checkout -b paper-state
           git add -f data/state.db
