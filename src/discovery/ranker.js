@@ -8,13 +8,26 @@ const { DISCOVERY } = CONFIG;
 // Wallets reales extraídas de polymarketanalytics.com/traders
 // Actualiza desde: https://polymarket.com/leaderboard/overall/monthly/profit
 const SEED_WALLETS = [
-  '0x63ce342161250d705dc0b16df89036c8e5f9ba9a', // 0x8dxd
-  '0x006cc834cc092684f1b56626e23bedb3835c16ea',
-  '0x492442eab586f242b53bda933fd5de859c8a3782',
-  '0x45bc74efa620b45c02308acaecdff1f7c06f978b',
-  '0xee00ba338c59557141789b127927a55f5cc5cea1', // S-Works
-  '0xd0d6053c3c37e727402d84c14069780d360993aa',
-  '0x594edb9112f526fa6a80b8f858a6379c8a2c1c11', // ColdMath
+'0x492442eab586f242b53bda933fd5de859c8a3782', // #1 - +$3M P/L
+'0xc2e7800b5af46e6093872b177b7a5e7f0563be51', // #2 - beachboy4
+'0x6a72f61820b26b1fe4d956e17b6dc2a1ea3033ee', // #3 - kch123
+'0x003932bc605249fbfeb9ea6c3e15ec6e868a6beb', // #4 - PuzzleTricker
+'0xd25c72ac0928385610611c8148803dc717334d20', // #5 - FeatherLeather
+'0xdb27bf2ac5d428a9c63dbc914611036855a6c56e', // #6 - DrPufferfish
+'0x876426b52898c295848f56760dd24b55eda2604a', // #7 - +$1.5M P/L
+'0x03e8a544e97eeff5753bc1e90d46e5ef22af1697', // #8 - weflyhigh
+'0x96489abcb9f583d6835c8ef95ffc923d05a86825', // #9 - anoin123
+'0x14964aefa2cd7caff7878b3820a690a03c5aa429', // #10 - gmpm
+'0x1d8a377c5020f612ce63a0a151970df64baae842', // #11 - +$878K P/L
+'0xd0b4c4c020abdc88ad9a884f999f3d8cff8ffed6', // #12 - MrSparklySimpsons
+'0x9976874011b081e1e408444c579f48aa5b5967da', // #13 - BWArmageddon
+'0x4bd74aef0ee5f1ec0718890f55c15f047e28373e', // #14 - tbs8t
+'0x13414a77a4be48988851c73dfd824d0168e70853', // #15 - WOMENBESHOPPING
+'0x63ce342161250d705dc0b16df89036c8e5f9ba9a', // #16 - 0x8dxd
+'0x7744bfd749a70020d16a1fcbac1d064761c9999e', // #17 - chungguskhan
+'0x91654fd592ea5339fc0b1b2f2b30bfffa5e75b98', // #18 - C.SIN
+'0xccb290b1c145d1c95695d3756346bba9f1398586', // #19 - hioa
+'0x9c16127eccf031df45461ef1e04b52ea286a09cb', // #20 - Vanchalkenstein
 ];
 
 async function scoreWallet(address) {
