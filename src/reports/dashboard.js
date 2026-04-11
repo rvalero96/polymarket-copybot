@@ -277,7 +277,7 @@ function render(d) {
 async function main() {
   const db  = await getDb();
   const now = new Date().toLocaleString('es-ES', {
-    dateStyle: 'medium', timeStyle: 'short',
+    dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Madrid',
   });
 
   const snapshots   = all(db, `SELECT date, bankroll, pnl_day FROM snapshots ORDER BY date ASC`);
