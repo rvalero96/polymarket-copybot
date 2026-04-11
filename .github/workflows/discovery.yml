@@ -30,7 +30,7 @@ jobs:
 
       - name: Run discovery
         env:
-          LOG_LEVEL: debug
+          LOG_LEVEL: info
         run: node src/discovery/ranker.js
 
       - name: Persist DB state
