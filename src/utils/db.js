@@ -1,13 +1,18 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { CONFIG } from '../../config.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 let _db = null;
 
 export async function getDb() {
   if (_db) return _db;
 
-  const { Database } = await import('node-sqlite3-wasm');
+  const sqlite = require('node-sqlite3-wasm');
+  const Database = sqlite.Database;
+
   const dir = dirname(CONFIG.DB_PATH);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
