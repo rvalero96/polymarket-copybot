@@ -27,7 +27,19 @@ export async function getWalletPnL(address) {
 
 export async function getMarket(conditionId) {
   const data = await get(`${GAMMA_BASE}/markets`, { condition_id: conditionId });
-  return data?.[0] ?? null;
+  const list = Array.isArray(data) ? data : (data?.data ?? []);
+  // condition_id param may be ignored by the API — filter client-side
+  return list.find(m => m.conditionId === conditionId) ?? null;
+}
+
+export async function getMarketBySlug(slug) {
+  // Buscar primero entre activos, luego entre cerrados (mercados resueltos)
+  for (const closed of ['false', 'true']) {
+    const data = await get(`${GAMMA_BASE}/markets`, { slug, closed });
+    const list = Array.isArray(data) ? data : (data?.data ?? []);
+    if (list.length > 0) return list[0];
+  }
+  return null;
 }
 
 export async function getActiveMarkets({ limit = 100, offset = 0 } = {}) {

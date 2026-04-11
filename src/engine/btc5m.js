@@ -7,7 +7,7 @@ import { getDb, all, run } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../../config.js';
 import { computeRSI, computeATR, generateSignal } from '../strategies/early-bird.js';
-import { getMarket, getMidpointPrice, get5mMarkets } from '../services/polymarket/api.js';
+import { getMarketBySlug, getMidpointPrice, get5mMarkets } from '../services/polymarket/api.js';
 
 const BINANCE_BASE = 'https://api.binance.com/api/v3';
 
@@ -130,13 +130,18 @@ async function settlePositions(db) {
 
   for (const pos of positions) {
     try {
-      const market = await getMarket(pos.market_id);
+      // Reconstruir slug desde asset y ventana de 5min para evitar el bug
+      // de condition_id ignorado por la Gamma API
+      const windowTs = Math.floor(pos.opened_at / 1000 / 300) * 300;
+      const slug = `${pos.asset.toLowerCase()}-updown-5m-${windowTs}`;
+      const market = await getMarketBySlug(slug);
       if (!market) continue;
 
       // Mercado resuelto → calcular P&L final
       if (market.closed || !market.active) {
         const outcomeIdx = pos.outcome === 'UP' ? 0 : 1;
-        const prices = market.outcomePrices ?? [];
+        const rawPrices = market.outcomePrices ?? [];
+        const prices = typeof rawPrices === 'string' ? JSON.parse(rawPrices) : rawPrices;
         const finalPrice = prices[outcomeIdx] != null
           ? parseFloat(prices[outcomeIdx])
           : (market.winner === pos.outcome ? 1.0 : 0.01);
@@ -300,8 +305,6 @@ async function main() {
 
   logger.info('btc5m:start', { mode: CONFIG.TRADING_MODE });
   const db  = await getDb();
-  const now = Date.now();
-
   // Leer bankroll del último snapshot (compartido con copy-trading)
   const snap = all(db, `SELECT bankroll FROM snapshots ORDER BY date DESC LIMIT 1`)[0];
   const bankroll = snap?.bankroll ?? CONFIG.PAPER_BANKROLL;
@@ -309,11 +312,14 @@ async function main() {
   // Paso 1: cerrar posiciones resueltas / TP / SL
   await settlePositions(db);
 
+  // Capturar now DESPUÉS del settle para que el cálculo de ventana sea preciso
+  const nowAfterSettle = Date.now();
+
   // Paso 2: buscar entradas en cada activo
   let spent = 0;
   for (const asset of STRATEGY.ASSETS) {
     try {
-      spent += await processAsset(db, asset, bankroll - spent, now);
+      spent += await processAsset(db, asset, bankroll - spent, nowAfterSettle);
     } catch (err) {
       logger.error('btc5m:asset-error', { asset: asset.name, error: err.message });
     }
