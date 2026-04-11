@@ -57,7 +57,14 @@ export function generateSignal({ spotPrice, priceToBeat, rsi, atr, upPrice, down
     if (atrPct < 0.005 || atrPct > 0.5) return null;
   }
 
-  // Spot divergence from the price-to-beat threshold
+  // "Up or Down" markets: no price threshold, use pure RSI + outcome pricing
+  if (priceToBeat === null) {
+    if (rsi >= 58 && upPrice !== null && upPrice < 0.52) return { outcome: 'UP' };
+    if (rsi <= 42 && downPrice !== null && downPrice < 0.52) return { outcome: 'DOWN' };
+    return null;
+  }
+
+  // Markets with explicit threshold (e.g. "Will BTC be above $82,000?")
   const divergence = (spotPrice - priceToBeat) / priceToBeat;
 
   // BUY UP: momentum bullish + spot trending above threshold + UP side is cheap

@@ -17,7 +17,7 @@ const STRATEGY = {
   STOP_LOSS:   -0.10,   // cerrar si loss <= -10%
   MAX_POSITIONS: 3,     // máximo de posiciones btc5m abiertas simultáneas
   // Ventana de entrada: mercado debe haber empezado hace menos de X ms
-  ENTRY_WINDOW_MS: 4 * 60 * 1000,  // 4 minutos tras el inicio del mercado
+  ENTRY_WINDOW_MS: 3 * 60 * 1000,  // 3 minutos tras el inicio del mercado
   ASSETS: [
     { name: 'BTC', symbol: 'BTCUSDT', slug: 'btc-updown-5m' },
     { name: 'ETH', symbol: 'ETHUSDT', slug: 'eth-updown-5m' },
@@ -53,13 +53,22 @@ async function fetchCandles(symbol, interval = '1m', limit = 20) {
 
 // Extrae el precio umbral de la pregunta del mercado
 // Ej: "Will BTC be above $82,000?" → 82000
+// Ej: "Bitcoin Up or Down - April 11, ..." → null (no hay umbral)
 function extractPriceToBeat(question = '') {
   const match = question.match(/\$?([\d,]+(?:\.\d+)?)/);
   if (!match) return null;
-  return parseFloat(match[1].replace(/,/g, ''));
+  const value = parseFloat(match[1].replace(/,/g, ''));
+  // Descartar números pequeños (días del mes, horas, etc.)
+  if (value < 100) return null;
+  return value;
 }
 
 function startOf(m) {
+  // 5m markets encode the window start as a Unix timestamp at the end of the slug
+  // e.g. "btc-updown-5m-1775931000" → 1775931000 * 1000 ms
+  // startDate is the market creation date, not the window start — ignore it
+  const slugTs = parseInt((m.slug ?? '').split('-').pop(), 10);
+  if (!isNaN(slugTs) && slugTs > 1e9) return slugTs * 1000;
   return new Date(m.startDate ?? m.startDateIso ?? 0).getTime();
 }
 
@@ -160,11 +169,14 @@ function enterPosition(db, asset, market, outcome, bankroll, now) {
   const sizeUsdc   = bankroll * STRATEGY.POSITION_SIZE_PCT;
   const outcomeIdx = outcome === 'UP' ? 0 : 1;
 
-  const tokenId = market.clobTokenIds?.[outcomeIdx]
+  const rawTokenIds = market.clobTokenIds ?? [];
+  const tokenIds = typeof rawTokenIds === 'string' ? JSON.parse(rawTokenIds) : rawTokenIds;
+  const tokenId = tokenIds[outcomeIdx]
     ?? (Array.isArray(market.tokens) ? market.tokens[outcomeIdx]?.token_id : null)
     ?? null;
 
-  const prices    = market.outcomePrices ?? [];
+  const rawOutcomePrices = market.outcomePrices ?? [];
+  const prices    = typeof rawOutcomePrices === 'string' ? JSON.parse(rawOutcomePrices) : rawOutcomePrices;
   const rawPrice  = prices[outcomeIdx] != null ? parseFloat(prices[outcomeIdx]) : 0.5;
   const effectivePrice = rawPrice * (1 + CONFIG.SLIPPAGE_PCT);
   const fee      = sizeUsdc * CONFIG.FEE_PCT;
@@ -226,10 +238,15 @@ async function processAsset(db, asset, bankroll, now) {
     return 0;
   }
 
-  // 3. Seleccionar el mercado objetivo (siguiente disponible)
+  // 3. Seleccionar el mercado objetivo: solo entrar si está dentro de la ventana de entrada
   const target = pickTargetMarket(markets, now);
   if (!target) {
     logger.info('btc5m:no-target-market', { asset: name });
+    return 0;
+  }
+  const targetStart = startOf(target);
+  if (targetStart > now) {
+    logger.info('btc5m:market-not-started', { asset: name, startsIn: Math.round((targetStart - now) / 1000) + 's' });
     return 0;
   }
 
@@ -243,15 +260,13 @@ async function processAsset(db, asset, bankroll, now) {
     return 0;
   }
 
-  // 5. Extraer precio umbral del enunciado del mercado
+  // 5. Extraer precio umbral del enunciado del mercado (null para mercados "Up or Down")
   const priceToBeat = extractPriceToBeat(target.question ?? '');
-  if (!priceToBeat) {
-    logger.warn('btc5m:no-price-to-beat', { market: target.conditionId, question: target.question });
-    return 0;
-  }
 
   // 6. Generar señal
-  const prices    = target.outcomePrices ?? [];
+  // outcomePrices y clobTokenIds llegan como string JSON desde la Gamma API
+  const rawPrices = target.outcomePrices ?? [];
+  const prices    = typeof rawPrices === 'string' ? JSON.parse(rawPrices) : rawPrices;
   const upPrice   = prices[0] != null ? parseFloat(prices[0]) : null;
   const downPrice = prices[1] != null ? parseFloat(prices[1]) : null;
 
@@ -259,6 +274,7 @@ async function processAsset(db, asset, bankroll, now) {
   if (!signal) {
     logger.info('btc5m:no-signal', {
       asset: name, rsi: rsi?.toFixed(2), spotPrice, priceToBeat,
+      upPrice, downPrice, atrPct: atr ? ((atr / spotPrice) * 100).toFixed(4) : null,
     });
     return 0;
   }

@@ -39,16 +39,24 @@ export async function getMidpointPrice(tokenId) {
   return parseFloat(data?.mid ?? 0);
 }
 
-export async function get5mMarkets(slugContains) {
-  const data = await get(`${GAMMA_BASE}/markets`, {
-    active: 'true',
-    closed: 'false',
-    slug_contains: slugContains,
-    limit: 10,
-  });
-  const list = Array.isArray(data) ? data : (data?.data ?? []);
-  // Client-side filter in case the API ignores slug_contains
-  return list.filter(m => (m.slug ?? '').includes(slugContains));
+export async function get5mMarkets(baseSlug) {
+  // 5m markets follow the pattern: {baseSlug}-{unix_window_start}
+  // where unix_window_start is the nearest 5-min boundary (divisible by 300).
+  // We try the current window + the next 2 upcoming windows.
+  const nowSec = Math.floor(Date.now() / 1000);
+  const currentWindow = Math.floor(nowSec / 300) * 300;
+  const windows = [currentWindow, currentWindow + 300, currentWindow + 600];
+
+  const markets = [];
+  for (const ts of windows) {
+    const slug = `${baseSlug}-${ts}`;
+    try {
+      const data = await get(`${GAMMA_BASE}/markets`, { slug });
+      const list = Array.isArray(data) ? data : (data?.data ?? []);
+      markets.push(...list);
+    } catch (_) { /* window may not exist yet */ }
+  }
+  return markets;
 }
 
 export async function getLeaderboard({ limit = 50, offset = 0 } = {}) {
