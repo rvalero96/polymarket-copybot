@@ -14,47 +14,58 @@ const money = (n, sign = false) => {
   return `$${abs}`;
 };
 
-const pct = n => (n == null ? '—' : (n * 100).toFixed(1) + '%');
-
-const addr = a => (!a ? '—' : `${a.slice(0, 6)}…${a.slice(-4)}`);
-
-const ts = ms => {
+const pct  = n  => (n == null ? '—' : (n * 100).toFixed(1) + '%');
+const addr = a  => (!a ? '—' : `${a.slice(0, 6)}…${a.slice(-4)}`);
+const cls  = n  => (n > 0 ? 'pos' : n < 0 ? 'neg' : '');
+const ts   = ms => {
   if (!ms) return '—';
   return new Date(ms).toLocaleString('es-ES', {
-    month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 };
 
-const cls = n => (n > 0 ? 'pos' : n < 0 ? 'neg' : '');
+const card = (label, value, colorClass = '') => `
+  <div class="card">
+    <div class="label">${label}</div>
+    <div class="value ${colorClass}">${value}</div>
+  </div>`;
 
-// ── HTML sections ─────────────────────────────────────────────────────────────
+// ── Section card grids ────────────────────────────────────────────────────────
 
-function statCards(bankroll, pnlDay, pnlTotal, winRate, openPos, btc5mOpen, globalInvested, globalClosed, globalOpen) {
-  const card = (label, value, colorClass = '') => `
-    <div class="card">
-      <div class="label">${label}</div>
-      <div class="value ${colorClass}">${value}</div>
-    </div>`;
-
-  const wide = (label, value, colorClass = '') => `
-    <div class="card" style="grid-column: span 2;">
-      <div class="label">${label}</div>
-      <div class="value ${colorClass}">${value}</div>
-    </div>`;
-
-  return `<div class="cards" style="grid-template-columns: repeat(6, 1fr);">
-    ${card('Bankroll', money(bankroll))}
-    ${card('P&amp;L hoy', money(pnlDay, true), cls(pnlDay))}
-    ${card('P&amp;L total', money(pnlTotal, true), cls(pnlTotal))}
-    ${card('Win rate', pct(winRate))}
-    ${card('Copy positions', openPos)}
-    ${card('5m positions', btc5mOpen)}
-    ${wide('Total invertido', money(globalInvested))}
-    ${wide('Cerrado', money(globalClosed))}
-    ${wide('En curso', money(globalOpen))}
+function globalCards(portfolio, bankroll, pnlDay, pnlTotal, winRate, openPos, btc5mOpen, invested, closedUsdc, openUsdc) {
+  return `<div class="section" data-type="global">
+    <div class="cards">
+      <div class="card card-wide">
+        <div class="label">Valor del portfolio</div>
+        <div class="value value-accent card-hero-value">${money(portfolio)}</div>
+        <div class="card-sub">Cash libre <b>${money(bankroll)}</b> · En posiciones <b>${money(openUsdc)}</b></div>
+      </div>
+      ${card('Cash libre',        money(bankroll),       'value-accent')}
+      ${card('P&amp;L del día',   money(pnlDay, true),   cls(pnlDay))}
+      ${card('P&amp;L total',     money(pnlTotal, true), cls(pnlTotal))}
+      ${card('Win rate global',   pct(winRate))}
+      ${card('Pos. copy abiertas', openPos)}
+      ${card('Pos. 5m abiertas',  btc5mOpen)}
+      ${card('Capital total',     money(invested))}
+      ${card('Capital cerrado',   money(closedUsdc))}
+      ${card('Capital activo',    money(openUsdc))}
+    </div>
   </div>`;
 }
+
+// Reusable 6-card block shared by Copy Trading and Early-Bird 5m sections
+function sectionCards(winRate, closedCount, pnl, invested, closedUsdc, openUsdc) {
+  return `<div class="cards">
+    ${card('Win rate',              pct(winRate))}
+    ${card('Operaciones cerradas',  closedCount)}
+    ${card('P&amp;L acumulado',     money(pnl, true), cls(pnl))}
+    ${card('Capital invertido',     money(invested))}
+    ${card('Capital cerrado',       money(closedUsdc))}
+    ${card('Capital activo',        money(openUsdc))}
+  </div>`;
+}
+
+// ── Tables ────────────────────────────────────────────────────────────────────
 
 function positionsTable(positions) {
   if (!positions.length) return '<p class="empty">No hay posiciones abiertas</p>';
@@ -93,42 +104,28 @@ function walletsTable(wallets) {
   </table>`;
 }
 
-function btc5mSection(positions, stats) {
-  const winRate = stats.closed > 0 ? pct(stats.wins / stats.closed) : '—';
-  const posRows = positions.length
-    ? positions.map(p => `
-        <tr>
-          <td>${p.asset}</td>
-          <td><span class="badge ${p.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${p.outcome}</span></td>
-          <td>${p.entry_price?.toFixed(4) ?? '—'}</td>
-          <td>${money(p.size_usdc)}</td>
-          <td>${ts(p.opened_at)}</td>
-        </tr>`).join('')
-    : `<tr><td colspan="5" class="empty">Sin posiciones abiertas</td></tr>`;
-
-  return `
-    <div class="section-header">Early-Bird 5m</div>
-    <div class="cards" style="margin-bottom:1rem">
-      <div class="card"><div class="label">Trades cerrados</div><div class="value">${stats.closed ?? 0}</div></div>
-      <div class="card"><div class="label">Win rate</div><div class="value">${winRate}</div></div>
-      <div class="card"><div class="label">P&amp;L acumulado</div><div class="value ${cls(stats.total_pnl)}">${money(stats.total_pnl, true)}</div></div>
-      <div class="card"><div class="label">Total invertido</div><div class="value">${money(stats.total_invested)}</div></div>
-      <div class="card"><div class="label">Cerrado</div><div class="value">${money(stats.total_closed)}</div></div>
-      <div class="card"><div class="label">En curso</div><div class="value">${money(stats.total_open)}</div></div>
-    </div>
-    <div class="table-card">
-      <h2>Posiciones abiertas — 5m</h2>
-      <table>
-        <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
-        <tbody>${posRows}</tbody>
-      </table>
-    </div>`;
+function btc5mTable(positions) {
+  if (!positions.length) return '<p class="empty">Sin posiciones abiertas</p>';
+  return `<table>
+    <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
+    <tbody>${positions.map(p => `
+      <tr>
+        <td>${p.asset}</td>
+        <td><span class="badge ${p.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${p.outcome}</span></td>
+        <td>${p.entry_price?.toFixed(4) ?? '—'}</td>
+        <td>${money(p.size_usdc)}</td>
+        <td>${ts(p.opened_at)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
 }
 
-// ── Main render ───────────────────────────────────────────────────────────────
+// ── HTML page ─────────────────────────────────────────────────────────────────
 
 function render(d) {
   const snapsJSON = JSON.stringify(d.snapshots).replace(/</g, '\\u003c');
+  const cs = d.copyStats;
+  const bs = d.btc5mStats;
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -152,44 +149,64 @@ function render(d) {
 
     main { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem; }
 
+    /* ── Section theming via CSS custom properties ── */
+    .section { --accent: #6366f1; }
+    .section[data-type="copy"]   { --accent: #10b981; }
+    .section[data-type="btc5m"]  { --accent: #f59e0b; }
+
+    /* ── 3-column card grid ── */
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: .75rem;
       margin-bottom: 1.25rem;
     }
-    .card { background: white; border-radius: 10px; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.07);
+      border-top: 3px solid var(--accent, #e2e8f0);
+    }
     .label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: .4rem; }
     .value { font-size: 1.6rem; font-weight: 700; color: #1e293b; }
-
+    .section:not([data-type="global"]) .value { font-size: 1.35rem; }
+    .value-accent { color: var(--accent); }
+    .card-wide { grid-column: 1 / -1; }
+    .card-hero-value { font-size: 2.4rem !important; }
+    .card-sub { font-size: .75rem; color: #64748b; margin-top: .4rem; }
+    .card-sub b { color: #475569; font-weight: 600; }
     .pos { color: #10b981; }
     .neg { color: #ef4444; }
 
+    /* ── Charts ── */
     .charts { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1.25rem; }
     .chart-card { background: white; border-radius: 10px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
     .chart-card h2 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 1rem; }
     .chart-wrap { position: relative; height: 180px; }
 
+    /* ── Tables ── */
     .table-card { background: white; border-radius: 10px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.07); margin-bottom: .75rem; }
     .table-card h2 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: .875rem; }
-
     table { width: 100%; border-collapse: collapse; }
     th { text-align: left; padding: .4rem .75rem; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
     td { padding: .55rem .75rem; border-bottom: 1px solid #f8fafc; }
     tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    tr:hover td { background: #f1f5f9; }
     code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: .8rem; background: #f1f5f9; padding: .1rem .3rem; border-radius: 3px; }
-
     .badge { display: inline-block; padding: .15rem .45rem; border-radius: 4px; font-size: .7rem; font-weight: 700; letter-spacing: .03em; }
     .badge-yes { background: #d1fae5; color: #065f46; }
     .badge-no  { background: #fee2e2; color: #991b1b; }
-
     .empty { color: #94a3b8; font-style: italic; padding: 1.5rem; text-align: center; }
     a { color: inherit; text-decoration: none; }
     a:hover code { background: #e2e8f0; }
 
+    /* ── Section dividers ── */
     .section-header {
       font-size: .65rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .1em; color: #6366f1;
+      letter-spacing: .1em; color: var(--accent, #6366f1);
       border-top: 1px solid #e2e8f0; padding-top: 1.25rem;
       margin: 1.25rem 0 .875rem;
     }
@@ -197,6 +214,7 @@ function render(d) {
     @media (max-width: 700px) {
       main { padding: 1rem; }
       .charts { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -207,7 +225,7 @@ function render(d) {
   </header>
 
   <main>
-    ${statCards(d.bankroll, d.pnlDay, d.pnlTotal, d.winRate, d.openPositions, d.btc5mOpen, d.globalInvested, d.globalClosed, d.globalOpen)}
+    ${globalCards(d.portfolio, d.bankroll, d.pnlDay, d.pnlTotal, d.winRate, d.openPositions, d.btc5mOpen, d.globalInvested, d.globalClosed, d.globalOpen)}
 
     <div class="charts">
       <div class="chart-card">
@@ -220,26 +238,41 @@ function render(d) {
       </div>
     </div>
 
-    <div class="section-header">Copy Trading</div>
-
-    <div class="cards" style="margin-bottom:1rem">
-      <div class="card"><div class="label">Win rate (copy)</div><div class="value">${d.copyStats.closed_count > 0 ? pct(d.copyStats.wins / d.copyStats.closed_count) : '—'}</div></div>
-      <div class="card"><div class="label">Total invertido</div><div class="value">${money(d.copyStats.total_invested)}</div></div>
-      <div class="card"><div class="label">Cerrado</div><div class="value">${money(d.copyStats.total_closed)}</div></div>
-      <div class="card"><div class="label">En curso</div><div class="value">${money(d.copyStats.total_open)}</div></div>
+    <div class="section" data-type="copy">
+      <div class="section-header">Copy Trading</div>
+      ${sectionCards(
+        cs.closed_count > 0 ? cs.wins / cs.closed_count : null,
+        cs.closed_count ?? 0,
+        cs.pnl_total    ?? 0,
+        cs.total_invested,
+        cs.total_closed,
+        cs.total_open
+      )}
+      <div class="table-card">
+        <h2>Posiciones abiertas</h2>
+        ${positionsTable(d.positions)}
+      </div>
+      <div class="table-card">
+        <h2>Wallets activos — top ${d.wallets.length}</h2>
+        ${walletsTable(d.wallets)}
+      </div>
     </div>
 
-    <div class="table-card">
-      <h2>Posiciones abiertas</h2>
-      ${positionsTable(d.positions)}
+    <div class="section" data-type="btc5m">
+      <div class="section-header">Early-Bird 5m</div>
+      ${sectionCards(
+        bs.closed > 0 ? bs.wins / bs.closed : null,
+        bs.closed    ?? 0,
+        bs.total_pnl ?? 0,
+        bs.total_invested,
+        bs.total_closed,
+        bs.total_open
+      )}
+      <div class="table-card">
+        <h2>Posiciones abiertas — 5m</h2>
+        ${btc5mTable(d.btc5mPositions)}
+      </div>
     </div>
-
-    <div class="table-card">
-      <h2>Wallets activos — top ${d.wallets.length}</h2>
-      ${walletsTable(d.wallets)}
-    </div>
-
-    ${btc5mSection(d.btc5mPositions, d.btc5mStats)}
   </main>
 
   <script>
@@ -304,11 +337,12 @@ async function main() {
     dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Madrid',
   });
 
-  const snapshots   = all(db, `SELECT date, bankroll, pnl_day FROM snapshots ORDER BY date ASC`);
-  const positions   = all(db, `SELECT * FROM positions ORDER BY opened_at DESC`);
-  const wallets     = all(db, `SELECT * FROM wallets WHERE active = 1 ORDER BY score DESC`);
-  const btc5mPos    = all(db, `SELECT * FROM btc5m_positions ORDER BY opened_at DESC`);
-  const btc5mStats  = all(db, `
+  const snapshots  = all(db, `SELECT date, bankroll, pnl_day FROM snapshots ORDER BY date ASC`);
+  const positions  = all(db, `SELECT * FROM positions ORDER BY opened_at DESC`);
+  const wallets    = all(db, `SELECT * FROM wallets WHERE active = 1 ORDER BY score DESC`);
+  const btc5mPos   = all(db, `SELECT * FROM btc5m_positions ORDER BY opened_at DESC`);
+
+  const btc5mStats = all(db, `
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN status != 'open' THEN 1 ELSE 0 END) as closed,
@@ -326,19 +360,19 @@ async function main() {
       SUM(CASE WHEN status = 'closed' THEN size_usdc ELSE 0 END)           AS total_closed,
       SUM(CASE WHEN status = 'open'   THEN size_usdc ELSE 0 END)           AS total_open,
       SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END)                   AS closed_count,
-      SUM(CASE WHEN status = 'closed' AND pnl > 0 THEN 1 ELSE 0 END)      AS wins
+      SUM(CASE WHEN status = 'closed' AND pnl > 0 THEN 1 ELSE 0 END)      AS wins,
+      SUM(COALESCE(pnl, 0))                                                 AS pnl_total
     FROM trades
-  `)[0] ?? { total_invested: 0, total_closed: 0, total_open: 0, closed_count: 0, wins: 0 };
+  `)[0] ?? { total_invested: 0, total_closed: 0, total_open: 0, closed_count: 0, wins: 0, pnl_total: 0 };
 
-  const latest  = snapshots[snapshots.length - 1];
-  const prev    = snapshots[snapshots.length - 2];
+  const latest   = snapshots[snapshots.length - 1];
+  const prev     = snapshots[snapshots.length - 2];
   const bankroll = latest?.bankroll ?? CONFIG.PAPER_BANKROLL;
   const pnlTotal = bankroll - CONFIG.PAPER_BANKROLL;
   const pnlDay   = prev ? bankroll - prev.bankroll : (latest?.pnl_day ?? 0);
 
   const winRateRow = all(db, `
-    SELECT
-      (SUM(w) * 1.0 / SUM(t)) as win_rate
+    SELECT (SUM(w) * 1.0 / SUM(t)) as win_rate
     FROM (
       SELECT SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as w, COUNT(*) as t
         FROM trades WHERE status = 'closed' AND pnl IS NOT NULL
@@ -353,10 +387,10 @@ async function main() {
     bankroll,
     pnlTotal,
     pnlDay,
-    winRate:      winRateRow?.win_rate ?? 0,
-    openPositions: positions.length,
-    btc5mOpen:    btc5mPos.length,
-    snapshots:    snapshots.map(s => ({ date: s.date, bankroll: s.bankroll, pnlDay: s.pnl_day })),
+    winRate:        winRateRow?.win_rate ?? null,
+    openPositions:  positions.length,
+    btc5mOpen:      btc5mPos.length,
+    snapshots:      snapshots.map(s => ({ date: s.date, bankroll: s.bankroll, pnlDay: s.pnl_day })),
     positions,
     wallets,
     btc5mPositions: btc5mPos,
@@ -365,6 +399,7 @@ async function main() {
     globalInvested: (copyStats.total_invested ?? 0) + (btc5mStats.total_invested ?? 0),
     globalClosed:   (copyStats.total_closed   ?? 0) + (btc5mStats.total_closed   ?? 0),
     globalOpen:     (copyStats.total_open     ?? 0) + (btc5mStats.total_open     ?? 0),
+    portfolio:      bankroll + ((copyStats.total_open ?? 0) + (btc5mStats.total_open ?? 0)),
   };
 
   mkdirSync('docs', { recursive: true });
