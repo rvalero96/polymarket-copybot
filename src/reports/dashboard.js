@@ -51,11 +51,14 @@ function positionsTable(positions) {
   if (!positions.length) return '<p class="empty">No hay posiciones abiertas</p>';
   const rows = positions.map(p => `
     <tr>
-      <td><code>${addr(p.market_id)}</code></td>
+      <td>${p.slug
+        ? `<a href="https://polymarket.com/event/${p.slug}" target="_blank" rel="noopener"><code>${addr(p.market_id)}</code></a>`
+        : `<code>${addr(p.market_id)}</code>`
+      }</td>
       <td><span class="badge ${p.outcome === 'Yes' ? 'badge-yes' : 'badge-no'}">${p.outcome}</span></td>
       <td>${p.avg_price?.toFixed(3) ?? '—'}</td>
       <td>${money(p.size_usdc)}</td>
-      <td><code>${addr(p.wallet)}</code></td>
+      <td><a href="https://polymarket.com/profile/${p.wallet}" target="_blank" rel="noopener"><code>${addr(p.wallet)}</code></a></td>
       <td>${ts(p.opened_at)}</td>
     </tr>`).join('');
   return `<table>
@@ -69,7 +72,7 @@ function walletsTable(wallets) {
   const rows = wallets.map((w, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td><code>${addr(w.address)}</code></td>
+      <td><a href="https://polymarket.com/profile/${w.address}" target="_blank" rel="noopener"><code>${addr(w.address)}</code></a></td>
       <td>${w.score?.toFixed(3) ?? '—'}</td>
       <td>${pct(w.win_rate)}</td>
       <td class="${cls(w.roi)}">${pct(w.roi)}</td>
@@ -169,6 +172,8 @@ function render(d) {
     .badge-no  { background: #fee2e2; color: #991b1b; }
 
     .empty { color: #94a3b8; font-style: italic; padding: 1.5rem; text-align: center; }
+    a { color: inherit; text-decoration: none; }
+    a:hover code { background: #e2e8f0; }
 
     .section-header {
       font-size: .65rem; font-weight: 700; text-transform: uppercase;

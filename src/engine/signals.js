@@ -78,6 +78,7 @@ function insertSignal(db, { wallet, pos, action, now }) {
     wallet,
     market_id:   pos.conditionId,
     outcome:     pos.outcome,
+    slug:        pos.eventSlug ?? null,
     action,
     price:       pos.curPrice ?? pos.currentPrice ?? 0,
     size:        pos.currentValue ?? pos.size ?? 0,
