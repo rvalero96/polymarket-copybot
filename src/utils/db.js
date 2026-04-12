@@ -54,7 +54,8 @@ export async function getDb() {
       fee           REAL NOT NULL,
       slippage      REAL NOT NULL,
       executed_at   INTEGER NOT NULL,
-      status        TEXT NOT NULL DEFAULT 'open'
+      status        TEXT NOT NULL DEFAULT 'open',
+      pnl           REAL
     );
 
     CREATE TABLE IF NOT EXISTS positions (
@@ -108,8 +109,9 @@ export async function getDb() {
     );
   `);
 
-  // Migrate existing DBs that predate the slug column
+  // Migrate existing DBs that predate new columns
   try { db.exec('ALTER TABLE positions ADD COLUMN slug TEXT'); } catch (_) {}
+  try { db.exec('ALTER TABLE trades ADD COLUMN pnl REAL'); } catch (_) {}
 
   _db = db;
   return db;

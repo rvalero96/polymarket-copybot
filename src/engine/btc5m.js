@@ -340,16 +340,21 @@ async function main() {
     const openPositions = all(db, `SELECT COUNT(*) as n FROM positions`)[0].n;
     const prevSnap = all(db, `SELECT * FROM snapshots ORDER BY date DESC LIMIT 2`);
     const dayStart = prevSnap.find(s => s.date !== today)?.bankroll ?? CONFIG.PAPER_BANKROLL;
+    const copy  = all(db, `SELECT COUNT(*) as total, SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins FROM trades WHERE status = 'closed' AND pnl IS NOT NULL`)[0];
+    const btc5m = all(db, `SELECT COUNT(*) as total, SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins FROM btc5m_trades WHERE status != 'open'`)[0];
+    const totalTrades = (copy.total ?? 0) + (btc5m.total ?? 0);
+    const winRate = totalTrades > 0 ? ((copy.wins ?? 0) + (btc5m.wins ?? 0)) / totalTrades : 0;
     run(db,
       `INSERT INTO snapshots (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
-       VALUES (?, ?, ?, ?, ?, 0, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(date) DO UPDATE SET
          bankroll       = excluded.bankroll,
          pnl_day        = excluded.pnl_day,
          pnl_total      = excluded.pnl_total,
          open_positions = excluded.open_positions,
+         win_rate       = excluded.win_rate,
          created_at     = excluded.created_at`,
-      [today, newBankroll, newBankroll - dayStart, newBankroll - CONFIG.PAPER_BANKROLL, openPositions, Date.now()],
+      [today, newBankroll, newBankroll - dayStart, newBankroll - CONFIG.PAPER_BANKROLL, openPositions, winRate, Date.now()],
     );
     logger.info('btc5m:bankroll-updated', { before: bankroll.toFixed(2), after: newBankroll.toFixed(2), recovered: recovered.toFixed(2), spent: spent.toFixed(2) });
   }
