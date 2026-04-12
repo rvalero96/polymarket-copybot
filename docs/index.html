@@ -260,7 +260,7 @@
 
 <nav class="topnav">
   <span class="topnav-brand">Polymarket Copybot</span>
-  <span class="topnav-right">Actualizado 13 abr 2026, 0:24 &nbsp;·&nbsp; paper trading</span>
+  <span class="topnav-right">Actualizado 13 abr 2026, 1:06 &nbsp;·&nbsp; paper trading</span>
 </nav>
 
 <aside class="sidebar">
@@ -299,15 +299,15 @@
           <span class="ms hero-icon">account_balance_wallet</span>
         </div>
         <div class="hero-label">Valor del portfolio (USDC)</div>
-        <div class="hero-value">$1,163.07</div>
+        <div class="hero-value">$1,162.93</div>
         <span class="hero-badge ">+16.3% vs capital inicial</span>
       </div>
 
       <div class="metric-card" style="border-left: 2px solid rgba(99,102,241,0.25)">
         <div class="mc-label">Cash libre</div>
         <div>
-          <div class="mc-value">$761.98</div>
-          <div class="mc-sub">34.5% del portfolio desplegado</div>
+          <div class="mc-value">$687.55</div>
+          <div class="mc-sub">40.9% del portfolio desplegado</div>
         </div>
         <div class="tip">USDC sin invertir disponible para nuevas posiciones.<br><br>Disminuye al abrir posiciones y se recupera al cerrarlas. La diferencia con el Portfolio total es el capital actualmente en posiciones abiertas.</div>
       </div>
@@ -315,7 +315,7 @@
       <div class="metric-card" style="border-left: 2px solid rgba(0,255,163,0.4)">
         <div class="mc-label">P&amp;L realizado</div>
         <div>
-          <div class="mc-value pos">+$163.07</div>
+          <div class="mc-value pos">+$162.93</div>
           <div class="mc-sub">Capital inicial: $1,000.00</div>
         </div>
         <div class="tip">Ganancia o pérdida neta de operaciones cerradas, descontando comisiones (slippage + fee).<br><br>= Portfolio actual − Capital inicial ($1000)<br><br>No incluye ganancias/pérdidas no realizadas de posiciones abiertas.</div>
@@ -325,7 +325,7 @@
         <div class="mc-label">Win rate global</div>
         <div>
           <div class="mc-value pos">57.7%</div>
-          <div class="mc-sub">10 posiciones abiertas</div>
+          <div class="mc-sub">12 posiciones abiertas</div>
         </div>
         <div class="tip">Porcentaje de operaciones cerradas que terminaron con ganancia.<br><br>Incluye todas las estrategias: copy trading y Early-Bird 5m combinadas.<br><br>Verde ≥ 50% · Rojo &lt; 50%</div>
       </div>
@@ -357,7 +357,7 @@
       
   <div class="stat-card ">
     <div class="stat-label">Capital total desplegado</div>
-    <div class="stat-value ">$2,177.98</div>
+    <div class="stat-value ">$2,252.27</div>
     <div class="tip">Suma acumulada de todo el capital invertido desde el inicio en ambas estrategias.<br><br>Incluye capital reciclado de trades cerrados. No es el capital inicial — es el volumen total operado.</div>
   </div>
       
@@ -369,7 +369,7 @@
       
   <div class="stat-card ">
     <div class="stat-label">Capital activo ahora</div>
-    <div class="stat-value ">$401.09</div>
+    <div class="stat-value ">$475.38</div>
     <div class="tip">Capital actualmente desplegado en posiciones abiertas de copy trading y 5m.<br><br>= Portfolio total − Cash libre</div>
   </div>
     </div>
@@ -611,7 +611,7 @@
       
   <div class="stat-card ">
     <div class="stat-label">Capital total (acum.)</div>
-    <div class="stat-value ">$1,776.89</div>
+    <div class="stat-value ">$1,851.18</div>
     <div class="tip">Capital total invertido en la estrategia 5m desde el inicio.<br><br>Incluye capital reciclado entre operaciones consecutivas.</div>
   </div>
       
@@ -623,18 +623,32 @@
       
   <div class="stat-card ">
     <div class="stat-label">Capital activo</div>
-    <div class="stat-value ">$0.00</div>
+    <div class="stat-value ">$74.29</div>
     <div class="tip">Capital actualmente en posiciones abiertas de la estrategia 5m.</div>
   </div>
     </div>
     <div class="table-panel">
     <div class="table-header">
       <span class="table-title">Posiciones abiertas — 5m</span>
-      <span class="table-badge">0 ACTIVAS</span>
+      <span class="table-badge">2 ACTIVAS</span>
     </div>
     <div class="table-scroll"><table>
       <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
-      <tbody><tr><td colspan="5" class="empty">Sin posiciones abiertas</td></tr></tbody>
+      <tbody>
+      <tr>
+        <td>ETH</td>
+        <td><span class="badge-yes">UP</span></td>
+        <td class="num">0.5165</td>
+        <td class="num">$38.10</td>
+        <td>12 abr, 22:57</td>
+      </tr>
+      <tr>
+        <td>XRP</td>
+        <td><span class="badge-no">DOWN</span></td>
+        <td class="num">0.5065</td>
+        <td class="num">$36.19</td>
+        <td>12 abr, 22:57</td>
+      </tr></tbody>
     </table></div>
   </div>
 
@@ -649,7 +663,7 @@
   </div>
   <div style="display:flex;gap:1.5rem">
     <span>Copy: 10 pos</span>
-    <span style="color:rgba(0,255,163,0.5)">5m: 0 pos</span>
+    <span style="color:rgba(0,255,163,0.5)">5m: 2 pos</span>
   </div>
 </footer>
 
@@ -666,7 +680,7 @@
   });
 
   // ── Charts ────────────────────────────────────────────────────────────────
-  const SNAPS = [{"date":"2026-04-11","bankroll":564.973947110484,"pnlDay":-435.026052889516},{"date":"2026-04-12","bankroll":761.9838008964559,"pnlDay":197.00985378597193}];
+  const SNAPS = [{"date":"2026-04-11","bankroll":564.973947110484,"pnlDay":-435.026052889516},{"date":"2026-04-12","bankroll":687.5456110067191,"pnlDay":122.57166389623512}];
 
   Chart.defaults.color = '#ADAAAA';
   Chart.defaults.font.family = 'Inter';
