@@ -92,55 +92,62 @@
 <body>
   <header>
     <h1>Polymarket Copybot <span>paper trading</span></h1>
-    <div class="updated">Actualizado: 12 abr 2026, 19:19</div>
+    <div class="updated">Actualizado: 12 abr 2026, 20:35</div>
   </header>
 
   <main>
-    <div class="cards" style="grid-template-columns: repeat(6, 1fr);">
-    
-    <div class="card">
-      <div class="label">Bankroll</div>
-      <div class="value ">$602.52</div>
-    </div>
-    
-    <div class="card">
-      <div class="label">P&amp;L hoy</div>
-      <div class="value pos">+$37.55</div>
-    </div>
-    
-    <div class="card">
-      <div class="label">P&amp;L total</div>
-      <div class="value neg">-$397.48</div>
-    </div>
-    
-    <div class="card">
-      <div class="label">Win rate</div>
-      <div class="value ">57.9%</div>
-    </div>
-    
-    <div class="card">
-      <div class="label">Copy positions</div>
-      <div class="value ">10</div>
-    </div>
-    
-    <div class="card">
-      <div class="label">5m positions</div>
-      <div class="value ">3</div>
-    </div>
-    
-    <div class="card" style="grid-column: span 2;">
-      <div class="label">Total invertido</div>
-      <div class="value ">$1,753.03</div>
-    </div>
-    
-    <div class="card" style="grid-column: span 2;">
-      <div class="label">Cerrado</div>
-      <div class="value ">$1,251.69</div>
-    </div>
-    
-    <div class="card" style="grid-column: span 2;">
-      <div class="label">En curso</div>
-      <div class="value ">$501.34</div>
+    <div class="section" data-type="global">
+    <div class="cards">
+      <div class="card card-wide">
+        <div class="label">Valor del portfolio</div>
+        <div class="value value-accent card-hero-value">$1,237.11</div>
+        <div class="card-sub">Cash libre <b>$716.76</b> · En posiciones <b>$520.35</b></div>
+      </div>
+      
+  <div class="card">
+    <div class="label">Cash libre</div>
+    <div class="value value-accent">$716.76</div>
+  </div>
+      
+  <div class="card">
+    <div class="label">P&amp;L del día</div>
+    <div class="value pos">+$151.79</div>
+  </div>
+      
+  <div class="card">
+    <div class="label">P&amp;L total</div>
+    <div class="value neg">-$283.24</div>
+  </div>
+      
+  <div class="card">
+    <div class="label">Win rate global</div>
+    <div class="value ">61.4%</div>
+  </div>
+      
+  <div class="card">
+    <div class="label">Pos. copy abiertas</div>
+    <div class="value ">10</div>
+  </div>
+      
+  <div class="card">
+    <div class="label">Pos. 5m abiertas</div>
+    <div class="value ">3</div>
+  </div>
+      
+  <div class="card">
+    <div class="label">Capital total</div>
+    <div class="value ">$1,986.59</div>
+  </div>
+      
+  <div class="card">
+    <div class="label">Capital cerrado</div>
+    <div class="value ">$1,466.24</div>
+  </div>
+      
+  <div class="card">
+    <div class="label">Capital activo</div>
+    <div class="value ">$520.35</div>
+  </div>
     </div>
   </div>
 
@@ -155,18 +162,43 @@
       </div>
     </div>
 
-    <div class="section-header">Copy Trading</div>
-
-    <div class="cards" style="margin-bottom:1rem">
-      <div class="card"><div class="label">Win rate (copy)</div><div class="value">—</div></div>
-      <div class="card"><div class="label">Total invertido</div><div class="value">$401.09</div></div>
-      <div class="card"><div class="label">Cerrado</div><div class="value">$0.00</div></div>
-      <div class="card"><div class="label">En curso</div><div class="value">$401.09</div></div>
-    </div>
-
-    <div class="table-card">
-      <h2>Posiciones abiertas</h2>
-      <table>
+    <div class="section" data-type="copy">
+      <div class="section-header">Copy Trading</div>
+      <div class="cards">
+    
+  <div class="card">
+    <div class="label">Win rate</div>
+    <div class="value ">—</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">Operaciones cerradas</div>
+    <div class="value ">0</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">P&amp;L acumulado</div>
+    <div class="value ">+$0.00</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">Capital invertido</div>
+    <div class="value ">$401.09</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">Capital cerrado</div>
+    <div class="value ">$0.00</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">Capital activo</div>
+    <div class="value ">$401.09</div>
+  </div>
+  </div>
+      <div class="table-card">
+        <h2>Posiciones abiertas</h2>
+        <table>
     <thead><tr><th>Mercado</th><th>Outcome</th><th>Precio avg</th><th>Tamaño</th><th>Wallet</th><th>Apertura</th></tr></thead>
     <tbody>
     <tr>
@@ -312,47 +344,70 @@
       <div class="section-header">Early-Bird 5m</div>
       <div class="cards">
     
-    <div class="section-header">Early-Bird 5m</div>
-    <div class="cards" style="margin-bottom:1rem">
-      <div class="card"><div class="label">Trades cerrados</div><div class="value">38</div></div>
-      <div class="card"><div class="label">Win rate</div><div class="value">57.9%</div></div>
-      <div class="card"><div class="label">P&amp;L acumulado</div><div class="value pos">+$136.24</div></div>
-      <div class="card"><div class="label">Total invertido</div><div class="value">$1,351.94</div></div>
-      <div class="card"><div class="label">Cerrado</div><div class="value">$1,251.69</div></div>
-      <div class="card"><div class="label">En curso</div><div class="value">$100.25</div></div>
-    </div>
-    <div class="table-card">
-      <h2>Posiciones abiertas — 5m</h2>
-      <table>
-        <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
-        <tbody>
-        <tr>
-          <td>BTC</td>
-          <td><span class="badge badge-yes">UP</span></td>
-          <td>0.5065</td>
-          <td>$35.15</td>
-          <td>12 abr, 17:01</td>
-        </tr>
-        <tr>
-          <td>ETH</td>
-          <td><span class="badge badge-yes">UP</span></td>
-          <td>0.5065</td>
-          <td>$33.39</td>
-          <td>12 abr, 17:01</td>
-        </tr>
-        <tr>
-          <td>XRP</td>
-          <td><span class="badge badge-yes">UP</span></td>
-          <td>0.4965</td>
-          <td>$31.72</td>
-          <td>12 abr, 17:01</td>
-        </tr></tbody>
-      </table>
+  <div class="card">
+    <div class="label">Win rate</div>
+    <div class="value ">61.4%</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">Operaciones cerradas</div>
+    <div class="value ">44</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">P&amp;L acumulado</div>
+    <div class="value pos">+$269.95</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">Capital invertido</div>
+    <div class="value ">$1,585.50</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">Capital cerrado</div>
+    <div class="value ">$1,466.24</div>
+  </div>
+    
+  <div class="card">
+    <div class="label">Capital activo</div>
+    <div class="value ">$119.26</div>
+  </div>
+  </div>
+      <div class="table-card">
+        <h2>Posiciones abiertas — 5m</h2>
+        <table>
+    <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>BTC</td>
+        <td><span class="badge badge-yes">UP</span></td>
+        <td>0.5065</td>
+        <td>$41.81</td>
+        <td>12 abr, 18:06</td>
+      </tr>
+      <tr>
+        <td>ETH</td>
+        <td><span class="badge badge-yes">UP</span></td>
+        <td>0.4965</td>
+        <td>$39.72</td>
+        <td>12 abr, 18:06</td>
+      </tr>
+      <tr>
+        <td>SOL</td>
+        <td><span class="badge badge-yes">UP</span></td>
+        <td>0.4965</td>
+        <td>$37.73</td>
+        <td>12 abr, 18:06</td>
+      </tr>
+    </tbody>
+  </table>
+      </div>
     </div>
   </main>
 
   <script>
-    const SNAPS = [{"date":"2026-04-11","bankroll":564.973947110484,"pnlDay":-435.026052889516},{"date":"2026-04-12","bankroll":602.5232536997414,"pnlDay":37.54930658925741}];
+    const SNAPS = [{"date":"2026-04-11","bankroll":564.973947110484,"pnlDay":-435.026052889516},{"date":"2026-04-12","bankroll":716.7609475617268,"pnlDay":151.78700045124276}];
 
     const chartDefaults = {
       responsive: true,
