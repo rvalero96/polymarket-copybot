@@ -336,14 +336,24 @@ async function main() {
   const pnlTotal = bankroll - CONFIG.PAPER_BANKROLL;
   const pnlDay   = prev ? bankroll - prev.bankroll : (latest?.pnl_day ?? 0);
 
-  const winSnap = all(db, `SELECT win_rate FROM snapshots ORDER BY date DESC LIMIT 1`)[0];
+  const winRateRow = all(db, `
+    SELECT
+      (SUM(w) * 1.0 / SUM(t)) as win_rate
+    FROM (
+      SELECT SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as w, COUNT(*) as t
+        FROM trades WHERE status = 'closed' AND pnl IS NOT NULL
+      UNION ALL
+      SELECT SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), COUNT(*)
+        FROM btc5m_trades WHERE status != 'open'
+    )
+  `)[0];
 
   const data = {
     now,
     bankroll,
     pnlTotal,
     pnlDay,
-    winRate:      winSnap?.win_rate ?? 0,
+    winRate:      winRateRow?.win_rate ?? 0,
     openPositions: positions.length,
     btc5mOpen:    btc5mPos.length,
     snapshots:    snapshots.map(s => ({ date: s.date, bankroll: s.bankroll, pnlDay: s.pnl_day })),
