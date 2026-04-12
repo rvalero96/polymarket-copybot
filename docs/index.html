@@ -92,62 +92,55 @@
 <body>
   <header>
     <h1>Polymarket Copybot <span>paper trading</span></h1>
-    <div class="updated">Actualizado: 12 abr 2026, 17:08</div>
+    <div class="updated">Actualizado: 12 abr 2026, 19:19</div>
   </header>
 
   <main>
-    <div class="section" data-type="global">
-    <div class="cards">
-      <div class="card card-wide">
-        <div class="label">Valor del portfolio</div>
-        <div class="value value-accent card-hero-value">$1,267.59</div>
-        <div class="card-sub">Cash libre <b>$782.00</b> · En posiciones <b>$485.59</b></div>
-      </div>
-      
-  <div class="card">
-    <div class="label">Cash libre</div>
-    <div class="value value-accent">$782.00</div>
-  </div>
-      
-  <div class="card">
-    <div class="label">P&amp;L del día</div>
-    <div class="value pos">+$217.03</div>
-  </div>
-      
-  <div class="card">
-    <div class="label">P&amp;L total</div>
-    <div class="value neg">-$218.00</div>
-  </div>
-      
-  <div class="card">
-    <div class="label">Win rate global</div>
-    <div class="value ">66.7%</div>
-  </div>
-      
-  <div class="card">
-    <div class="label">Pos. copy abiertas</div>
-    <div class="value ">10</div>
-  </div>
-      
-  <div class="card">
-    <div class="label">Pos. 5m abiertas</div>
-    <div class="value ">2</div>
-  </div>
-      
-  <div class="card">
-    <div class="label">Capital total</div>
-    <div class="value ">$1,412.07</div>
-  </div>
-      
-  <div class="card">
-    <div class="label">Capital cerrado</div>
-    <div class="value ">$926.49</div>
-  </div>
-      
-  <div class="card">
-    <div class="label">Capital activo</div>
-    <div class="value ">$485.59</div>
-  </div>
+    <div class="cards" style="grid-template-columns: repeat(6, 1fr);">
+    
+    <div class="card">
+      <div class="label">Bankroll</div>
+      <div class="value ">$602.52</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">P&amp;L hoy</div>
+      <div class="value pos">+$37.55</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">P&amp;L total</div>
+      <div class="value neg">-$397.48</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">Win rate</div>
+      <div class="value ">57.9%</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">Copy positions</div>
+      <div class="value ">10</div>
+    </div>
+    
+    <div class="card">
+      <div class="label">5m positions</div>
+      <div class="value ">3</div>
+    </div>
+    
+    <div class="card" style="grid-column: span 2;">
+      <div class="label">Total invertido</div>
+      <div class="value ">$1,753.03</div>
+    </div>
+    
+    <div class="card" style="grid-column: span 2;">
+      <div class="label">Cerrado</div>
+      <div class="value ">$1,251.69</div>
+    </div>
+    
+    <div class="card" style="grid-column: span 2;">
+      <div class="label">En curso</div>
+      <div class="value ">$501.34</div>
     </div>
   </div>
 
@@ -162,43 +155,18 @@
       </div>
     </div>
 
-    <div class="section" data-type="copy">
-      <div class="section-header">Copy Trading</div>
-      <div class="cards">
-    
-  <div class="card">
-    <div class="label">Win rate</div>
-    <div class="value ">—</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">Operaciones cerradas</div>
-    <div class="value ">0</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">P&amp;L acumulado</div>
-    <div class="value ">+$0.00</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">Capital invertido</div>
-    <div class="value ">$401.09</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">Capital cerrado</div>
-    <div class="value ">$0.00</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">Capital activo</div>
-    <div class="value ">$401.09</div>
-  </div>
-  </div>
-      <div class="table-card">
-        <h2>Posiciones abiertas</h2>
-        <table>
+    <div class="section-header">Copy Trading</div>
+
+    <div class="cards" style="margin-bottom:1rem">
+      <div class="card"><div class="label">Win rate (copy)</div><div class="value">—</div></div>
+      <div class="card"><div class="label">Total invertido</div><div class="value">$401.09</div></div>
+      <div class="card"><div class="label">Cerrado</div><div class="value">$0.00</div></div>
+      <div class="card"><div class="label">En curso</div><div class="value">$401.09</div></div>
+    </div>
+
+    <div class="table-card">
+      <h2>Posiciones abiertas</h2>
+      <table>
     <thead><tr><th>Mercado</th><th>Outcome</th><th>Precio avg</th><th>Tamaño</th><th>Wallet</th><th>Apertura</th></tr></thead>
     <tbody>
     <tr>
@@ -207,7 +175,7 @@
       <td>0.701</td>
       <td>$34.89</td>
       <td><a href="https://polymarket.com/profile/0xbaa2bcb5439e985ce4ccf815b4700027d1b92c73" target="_blank" rel="noopener"><code>0xbaa2…2c73</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0x5c2e…2a25</code></td>
@@ -215,7 +183,7 @@
       <td>0.711</td>
       <td>$33.14</td>
       <td><a href="https://polymarket.com/profile/0xbaa2bcb5439e985ce4ccf815b4700027d1b92c73" target="_blank" rel="noopener"><code>0xbaa2…2c73</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0x5db9…6846</code></td>
@@ -223,7 +191,7 @@
       <td>0.697</td>
       <td>$31.48</td>
       <td><a href="https://polymarket.com/profile/0xbaa2bcb5439e985ce4ccf815b4700027d1b92c73" target="_blank" rel="noopener"><code>0xbaa2…2c73</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0x3285…58f4</code></td>
@@ -231,7 +199,7 @@
       <td>0.075</td>
       <td>$45.12</td>
       <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener"><code>0x93ab…9723</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0xb276…215f</code></td>
@@ -239,7 +207,7 @@
       <td>0.341</td>
       <td>$42.86</td>
       <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener"><code>0x93ab…9723</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0x5e92…4683</code></td>
@@ -247,7 +215,7 @@
       <td>0.356</td>
       <td>$40.71</td>
       <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener"><code>0x93ab…9723</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0x14db…cecf</code></td>
@@ -255,7 +223,7 @@
       <td>0.221</td>
       <td>$38.67</td>
       <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener"><code>0x93ab…9723</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0x9fe8…4e5a</code></td>
@@ -263,7 +231,7 @@
       <td>0.344</td>
       <td>$36.73</td>
       <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener"><code>0x93ab…9723</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0x0f49…9f75</code></td>
@@ -271,7 +239,7 @@
       <td>0.274</td>
       <td>$50.00</td>
       <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener"><code>0x93ab…9723</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr>
     <tr>
       <td><code>0xe202…9fd8</code></td>
@@ -279,7 +247,7 @@
       <td>0.061</td>
       <td>$47.50</td>
       <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener"><code>0x93ab…9723</code></a></td>
-      <td>11 abr, 16:25</td>
+      <td>11 abr, 14:25</td>
     </tr></tbody>
   </table>
       </div>
@@ -344,63 +312,47 @@
       <div class="section-header">Early-Bird 5m</div>
       <div class="cards">
     
-  <div class="card">
-    <div class="label">Win rate</div>
-    <div class="value ">66.7%</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">Operaciones cerradas</div>
-    <div class="value ">30</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">P&amp;L acumulado</div>
-    <div class="value pos">+$299.28</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">Capital invertido</div>
-    <div class="value ">$1,010.98</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">Capital cerrado</div>
-    <div class="value ">$926.49</div>
-  </div>
-    
-  <div class="card">
-    <div class="label">Capital activo</div>
-    <div class="value ">$84.50</div>
-  </div>
-  </div>
-      <div class="table-card">
-        <h2>Posiciones abiertas — 5m</h2>
-        <table>
-    <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
-    <tbody>
-      <tr>
-        <td>BTC</td>
-        <td><span class="badge badge-yes">UP</span></td>
-        <td>0.5065</td>
-        <td>$43.33</td>
-        <td>12 abr, 15:20</td>
-      </tr>
-      <tr>
-        <td>XRP</td>
-        <td><span class="badge badge-no">DOWN</span></td>
-        <td>0.5065</td>
-        <td>$41.16</td>
-        <td>12 abr, 15:20</td>
-      </tr>
-    </tbody>
-  </table>
-      </div>
+    <div class="section-header">Early-Bird 5m</div>
+    <div class="cards" style="margin-bottom:1rem">
+      <div class="card"><div class="label">Trades cerrados</div><div class="value">38</div></div>
+      <div class="card"><div class="label">Win rate</div><div class="value">57.9%</div></div>
+      <div class="card"><div class="label">P&amp;L acumulado</div><div class="value pos">+$136.24</div></div>
+      <div class="card"><div class="label">Total invertido</div><div class="value">$1,351.94</div></div>
+      <div class="card"><div class="label">Cerrado</div><div class="value">$1,251.69</div></div>
+      <div class="card"><div class="label">En curso</div><div class="value">$100.25</div></div>
+    </div>
+    <div class="table-card">
+      <h2>Posiciones abiertas — 5m</h2>
+      <table>
+        <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
+        <tbody>
+        <tr>
+          <td>BTC</td>
+          <td><span class="badge badge-yes">UP</span></td>
+          <td>0.5065</td>
+          <td>$35.15</td>
+          <td>12 abr, 17:01</td>
+        </tr>
+        <tr>
+          <td>ETH</td>
+          <td><span class="badge badge-yes">UP</span></td>
+          <td>0.5065</td>
+          <td>$33.39</td>
+          <td>12 abr, 17:01</td>
+        </tr>
+        <tr>
+          <td>XRP</td>
+          <td><span class="badge badge-yes">UP</span></td>
+          <td>0.4965</td>
+          <td>$31.72</td>
+          <td>12 abr, 17:01</td>
+        </tr></tbody>
+      </table>
     </div>
   </main>
 
   <script>
-    const SNAPS = [{"date":"2026-04-11","bankroll":564.973947110484,"pnlDay":-435.026052889516},{"date":"2026-04-12","bankroll":781.9997798778076,"pnlDay":217.02583276732355}];
+    const SNAPS = [{"date":"2026-04-11","bankroll":564.973947110484,"pnlDay":-435.026052889516},{"date":"2026-04-12","bankroll":602.5232536997414,"pnlDay":37.54930658925741}];
 
     const chartDefaults = {
       responsive: true,
