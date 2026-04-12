@@ -30,20 +30,29 @@ const cls = n => (n > 0 ? 'pos' : n < 0 ? 'neg' : '');
 
 // ── HTML sections ─────────────────────────────────────────────────────────────
 
-function statCards(bankroll, pnlDay, pnlTotal, winRate, openPos, btc5mOpen) {
+function statCards(bankroll, pnlDay, pnlTotal, winRate, openPos, btc5mOpen, globalInvested, globalClosed, globalOpen) {
   const card = (label, value, colorClass = '') => `
     <div class="card">
       <div class="label">${label}</div>
       <div class="value ${colorClass}">${value}</div>
     </div>`;
 
-  return `<div class="cards">
+  const wide = (label, value, colorClass = '') => `
+    <div class="card" style="grid-column: span 2;">
+      <div class="label">${label}</div>
+      <div class="value ${colorClass}">${value}</div>
+    </div>`;
+
+  return `<div class="cards" style="grid-template-columns: repeat(6, 1fr);">
     ${card('Bankroll', money(bankroll))}
     ${card('P&amp;L hoy', money(pnlDay, true), cls(pnlDay))}
     ${card('P&amp;L total', money(pnlTotal, true), cls(pnlTotal))}
     ${card('Win rate', pct(winRate))}
     ${card('Copy positions', openPos)}
     ${card('5m positions', btc5mOpen)}
+    ${wide('Total invertido', money(globalInvested))}
+    ${wide('Cerrado', money(globalClosed))}
+    ${wide('En curso', money(globalOpen))}
   </div>`;
 }
 
@@ -103,6 +112,9 @@ function btc5mSection(positions, stats) {
       <div class="card"><div class="label">Trades cerrados</div><div class="value">${stats.closed ?? 0}</div></div>
       <div class="card"><div class="label">Win rate</div><div class="value">${winRate}</div></div>
       <div class="card"><div class="label">P&amp;L acumulado</div><div class="value ${cls(stats.total_pnl)}">${money(stats.total_pnl, true)}</div></div>
+      <div class="card"><div class="label">Total invertido</div><div class="value">${money(stats.total_invested)}</div></div>
+      <div class="card"><div class="label">Cerrado</div><div class="value">${money(stats.total_closed)}</div></div>
+      <div class="card"><div class="label">En curso</div><div class="value">${money(stats.total_open)}</div></div>
     </div>
     <div class="table-card">
       <h2>Posiciones abiertas — 5m</h2>
@@ -195,7 +207,7 @@ function render(d) {
   </header>
 
   <main>
-    ${statCards(d.bankroll, d.pnlDay, d.pnlTotal, d.winRate, d.openPositions, d.btc5mOpen)}
+    ${statCards(d.bankroll, d.pnlDay, d.pnlTotal, d.winRate, d.openPositions, d.btc5mOpen, d.globalInvested, d.globalClosed, d.globalOpen)}
 
     <div class="charts">
       <div class="chart-card">
@@ -209,6 +221,13 @@ function render(d) {
     </div>
 
     <div class="section-header">Copy Trading</div>
+
+    <div class="cards" style="margin-bottom:1rem">
+      <div class="card"><div class="label">Win rate (copy)</div><div class="value">${d.copyStats.closed_count > 0 ? pct(d.copyStats.wins / d.copyStats.closed_count) : '—'}</div></div>
+      <div class="card"><div class="label">Total invertido</div><div class="value">${money(d.copyStats.total_invested)}</div></div>
+      <div class="card"><div class="label">Cerrado</div><div class="value">${money(d.copyStats.total_closed)}</div></div>
+      <div class="card"><div class="label">En curso</div><div class="value">${money(d.copyStats.total_open)}</div></div>
+    </div>
 
     <div class="table-card">
       <h2>Posiciones abiertas</h2>
@@ -294,9 +313,22 @@ async function main() {
       COUNT(*) as total,
       SUM(CASE WHEN status != 'open' THEN 1 ELSE 0 END) as closed,
       SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins,
-      SUM(COALESCE(pnl, 0)) as total_pnl
+      SUM(COALESCE(pnl, 0)) as total_pnl,
+      SUM(size_usdc) as total_invested,
+      SUM(CASE WHEN status != 'open' THEN size_usdc ELSE 0 END) as total_closed,
+      SUM(CASE WHEN status  = 'open' THEN size_usdc ELSE 0 END) as total_open
     FROM btc5m_trades
-  `)[0] ?? { total: 0, closed: 0, wins: 0, total_pnl: 0 };
+  `)[0] ?? { total: 0, closed: 0, wins: 0, total_pnl: 0, total_invested: 0, total_closed: 0, total_open: 0 };
+
+  const copyStats = all(db, `
+    SELECT
+      SUM(size_usdc)                                                        AS total_invested,
+      SUM(CASE WHEN status = 'closed' THEN size_usdc ELSE 0 END)           AS total_closed,
+      SUM(CASE WHEN status = 'open'   THEN size_usdc ELSE 0 END)           AS total_open,
+      SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END)                   AS closed_count,
+      SUM(CASE WHEN status = 'closed' AND pnl > 0 THEN 1 ELSE 0 END)      AS wins
+    FROM trades
+  `)[0] ?? { total_invested: 0, total_closed: 0, total_open: 0, closed_count: 0, wins: 0 };
 
   const latest  = snapshots[snapshots.length - 1];
   const prev    = snapshots[snapshots.length - 2];
@@ -319,6 +351,10 @@ async function main() {
     wallets,
     btc5mPositions: btc5mPos,
     btc5mStats,
+    copyStats,
+    globalInvested: (copyStats.total_invested ?? 0) + (btc5mStats.total_invested ?? 0),
+    globalClosed:   (copyStats.total_closed   ?? 0) + (btc5mStats.total_closed   ?? 0),
+    globalOpen:     (copyStats.total_open     ?? 0) + (btc5mStats.total_open     ?? 0),
   };
 
   mkdirSync('docs', { recursive: true });

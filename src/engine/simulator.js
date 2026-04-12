@@ -45,16 +45,18 @@ async function main() {
 
   // Persist updated bankroll so the next run reads the correct value
   const openPositionCount = all(db, `SELECT COUNT(*) as n FROM positions`)[0].n;
+  const winRate = computeWinRate(db);
   run(db,
     `INSERT INTO snapshots (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
-     VALUES (?, ?, ?, ?, ?, 0, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(date) DO UPDATE SET
        bankroll       = excluded.bankroll,
        pnl_day        = excluded.pnl_day,
        pnl_total      = excluded.pnl_total,
        open_positions = excluded.open_positions,
+       win_rate       = excluded.win_rate,
        created_at     = excluded.created_at`,
-    [today, bankroll, bankroll - dayStartBankroll, bankroll - PAPER_BANKROLL, openPositionCount, Date.now()]
+    [today, bankroll, bankroll - dayStartBankroll, bankroll - PAPER_BANKROLL, openPositionCount, winRate, Date.now()]
   );
 
   logger.info('simulator:done', { bankroll });
@@ -105,8 +107,8 @@ async function executeSignal(db, signal, bankroll) {
     const pnl        = pos.size_usdc * (closePrice - pos.avg_price) / pos.avg_price;
     const fee        = pos.size_usdc * FEE_PCT;
 
-    run(db, `UPDATE trades SET status = 'closed' WHERE market_id = ? AND outcome = ?`,
-      [signal.market_id, signal.outcome]);
+    run(db, `UPDATE trades SET status = 'closed', pnl = ? WHERE market_id = ? AND outcome = ?`,
+      [pnl - fee, signal.market_id, signal.outcome]);
     run(db, `DELETE FROM positions WHERE market_id = ? AND outcome = ? AND wallet = ?`,
       [signal.market_id, signal.outcome, signal.wallet]);
 
@@ -115,6 +117,14 @@ async function executeSignal(db, signal, bankroll) {
   }
 
   return bankroll;
+}
+
+function computeWinRate(db) {
+  const copy  = all(db, `SELECT COUNT(*) as total, SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins FROM trades WHERE status = 'closed' AND pnl IS NOT NULL`)[0];
+  const btc5m = all(db, `SELECT COUNT(*) as total, SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins FROM btc5m_trades WHERE status != 'open'`)[0];
+  const total = (copy.total ?? 0) + (btc5m.total ?? 0);
+  const wins  = (copy.wins  ?? 0) + (btc5m.wins  ?? 0);
+  return total > 0 ? wins / total : 0;
 }
 
 main().catch(err => {
