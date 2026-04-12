@@ -64,6 +64,7 @@ export async function getDb() {
       wallet        TEXT NOT NULL,
       avg_price     REAL NOT NULL,
       size_usdc     REAL NOT NULL,
+      slug          TEXT,
       opened_at     INTEGER NOT NULL,
       UNIQUE(market_id, outcome, wallet)
     );
@@ -106,6 +107,9 @@ export async function getDb() {
       closed_at    INTEGER
     );
   `);
+
+  // Migrate existing DBs that predate the slug column
+  try { db.exec('ALTER TABLE positions ADD COLUMN slug TEXT'); } catch (_) {}
 
   _db = db;
   return db;

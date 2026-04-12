@@ -69,6 +69,8 @@ async function executeSignal(db, signal, bankroll) {
     const fee      = sizeUsdc * FEE_PCT;
     const effectivePrice = signal.price * (1 + SLIPPAGE_PCT);
 
+    const slug = signal.slug ?? null;
+
     run(db,
       `INSERT INTO trades (market_id, outcome, side, size_usdc, price, fee, slippage, executed_at)
        VALUES (?, ?, 'buy', ?, ?, ?, ?, ?)`,
@@ -76,14 +78,15 @@ async function executeSignal(db, signal, bankroll) {
     );
 
     run(db,
-      `INSERT INTO positions (market_id, outcome, wallet, avg_price, size_usdc, opened_at)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO positions (market_id, outcome, wallet, avg_price, size_usdc, slug, opened_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(market_id, outcome, wallet)
        DO UPDATE SET
          avg_price = (avg_price * size_usdc + excluded.avg_price * excluded.size_usdc)
                      / (size_usdc + excluded.size_usdc),
-         size_usdc = size_usdc + excluded.size_usdc`,
-      [signal.market_id, signal.outcome, signal.wallet, effectivePrice, sizeUsdc, now]
+         size_usdc = size_usdc + excluded.size_usdc,
+         slug      = COALESCE(excluded.slug, positions.slug)`,
+      [signal.market_id, signal.outcome, signal.wallet, effectivePrice, sizeUsdc, slug, now]
     );
 
     logger.info('trade:open', { market: signal.market_id, size: sizeUsdc, price: effectivePrice });
