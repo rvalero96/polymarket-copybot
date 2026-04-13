@@ -112,6 +112,8 @@ export async function getDb() {
   // Migrate existing DBs that predate new columns
   try { db.exec('ALTER TABLE positions ADD COLUMN slug TEXT'); } catch (_) {}
   try { db.exec('ALTER TABLE trades ADD COLUMN pnl REAL'); } catch (_) {}
+  try { db.exec('ALTER TABLE btc5m_positions ADD COLUMN slug TEXT'); } catch (_) {}
+  try { db.exec('ALTER TABLE btc5m_trades ADD COLUMN slug TEXT'); } catch (_) {}
 
   _db = db;
   return db;
