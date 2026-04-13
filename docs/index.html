@@ -246,6 +246,37 @@
       margin-right: 0.4rem; vertical-align: middle;
     }
 
+    /* ── Trade log badges ── */
+    .tl-badge {
+      display: inline-block; font-size: 0.55rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 0.15rem 0.45rem; border-radius: 0.25rem; font-family: monospace;
+    }
+    .tl-copy     { background: rgba(99,102,241,0.15); color: #818cf8; }
+    .tl-5m       { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .tl-open     { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .tl-closed   { background: rgba(173,170,170,0.1); color: var(--muted); }
+    .tl-resolved { background: rgba(0,255,163,0.1);   color: var(--primary); }
+
+    /* ── Allocation donut ── */
+    .alloc-row { display: grid; grid-template-columns: 210px 1fr; gap: 2rem; align-items: center; margin-bottom: 0.75rem; }
+    .alloc-chart-wrap { width: 200px; height: 200px; flex-shrink: 0; }
+    .alloc-portfolio-hd { margin-bottom: 0.85rem; }
+    .alloc-portfolio-label { font-size: 0.44rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 0.2rem; }
+    .alloc-portfolio-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; font-weight: 700; line-height: 1; }
+    .alloc-legend { display: flex; flex-direction: column; gap: 0.7rem; }
+    .alloc-item { display: flex; flex-direction: column; gap: 0.28rem; }
+    .alloc-item-hd { display: flex; align-items: center; gap: 0.55rem; }
+    .alloc-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .alloc-item-label { font-size: 0.58rem; color: var(--muted); flex: 1; text-transform: uppercase; letter-spacing: 0.08em; }
+    .alloc-item-value { font-family: 'Space Grotesk', sans-serif; font-size: 0.88rem; font-weight: 700; }
+    .alloc-item-pct { font-size: 0.55rem; color: var(--muted); font-family: monospace; margin-left: 0.35rem; }
+    .alloc-bar-track { height: 2px; background: rgba(72,72,71,0.25); border-radius: 999px; overflow: hidden; }
+    .alloc-bar-fill { height: 100%; border-radius: 999px; }
+    /* ── Asset logo cell ── */
+    .asset-cell { display: flex; align-items: center; gap: 0.4rem; }
+    .asset-logo { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+
     @media (max-width: 900px) {
       .sidebar { display: none; }
       .main { margin-left: 0; }
@@ -711,6 +742,35 @@
       y: { grid: { color: 'rgba(72,72,71,0.15)' }, ticks: { color: '#ADAAAA' }, border: { display: false } },
     },
   };
+
+  // ── Allocation donut ──────────────────────────────────────────────────────
+  new Chart(document.getElementById('allocChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Cash libre', 'Copy activo', '5m activo'],
+      datasets: [{
+        data: [686.80, 401.09, 74.21],
+        backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)'],
+        borderColor:     ['#00FFA3', '#818cf8', '#f59e0b'],
+        borderWidth: 1.5,
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      layout: { padding: 8 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1919',
+          titleColor: '#ADAAAA', bodyColor: '#ffffff',
+          borderColor: 'rgba(72,72,71,0.3)', borderWidth: 1, padding: 10,
+          callbacks: { label: ctx => ' $' + ctx.parsed.toFixed(2) },
+        },
+      },
+    },
+  });
 
   if (SNAPS.length) {
     const labels = SNAPS.map(s => s.date);

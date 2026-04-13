@@ -28,6 +28,16 @@ const ts      = ms => {
   });
 };
 
+const ASSET_LOGO = {
+  BTC: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+  ETH: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
+  SOL: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+  XRP: 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
+};
+const assetCell = name => name
+  ? `<span class="asset-cell"><img class="asset-logo" src="${ASSET_LOGO[name] ?? ''}" alt="${name}" onerror="this.style.display='none'"><span>${name}</span></span>`
+  : '—';
+
 // stat card with tooltip and optional border-color override
 const statCard = (label, value, colorClass = '', tip = '', borderClass = '') => `
   <div class="stat-card ${borderClass}">
@@ -91,17 +101,66 @@ function walletsTable(wallets) {
   </div>`;
 }
 
+function tradeLogTable(trades) {
+  const statusBadge = t => {
+    if (t.status === 'open')     return `<span class="tl-badge tl-open">Abierta</span>`;
+    if (t.status === 'resolved') return `<span class="tl-badge tl-resolved">Resuelta</span>`;
+    return `<span class="tl-badge tl-closed">Cerrada</span>`;
+  };
+
+  const stratBadge = t => t.strategy === 'copy'
+    ? `<span class="tl-badge tl-copy">Copy</span>`
+    : `<span class="tl-badge tl-5m">5m · ${t.asset ?? ''}</span>`;
+
+  const mercadoLink = t => t.slug
+    ? `<a href="https://polymarket.com/event/${t.slug}" target="_blank" rel="noopener"><code>${addr(t.market_id)}</code></a>`
+    : `<code>${addr(t.market_id)}</code>`;
+
+  const rows = trades.length
+    ? trades.map(t => `
+      <tr>
+        <td class="num" style="white-space:nowrap">${ts(t.opened_at)}</td>
+        <td>${stratBadge(t)}</td>
+        <td>${mercadoLink(t)}</td>
+        <td>${assetCell(t.asset)}</td>
+        <td><span class="${t.outcome === 'Yes' || t.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${t.outcome}</span></td>
+        <td class="num">${money(t.size_usdc)}</td>
+        <td class="num neg">${money(t.cost)}</td>
+        <td>${statusBadge(t)}</td>
+        <td class="num ${cls(t.pnl)}">${t.pnl != null ? money(t.pnl, true) : '—'}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="9" class="empty">Sin operaciones registradas</td></tr>`;
+
+  return `<div class="table-panel">
+    <div class="table-header">
+      <span class="table-title">Registro de operaciones</span>
+      <span class="table-badge">${trades.length} OPS</span>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr>
+        <th>Fecha</th><th>Estrategia</th><th>Mercado</th><th>Asset</th>
+        <th>Outcome</th><th>Inversión</th><th>Coste</th><th>Estado</th><th>P&amp;L</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
 function btc5mTable(positions) {
   const rows = positions.length
     ? positions.map(p => `
       <tr>
-        <td>${p.asset}</td>
+        <td>${assetCell(p.asset)}</td>
+        <td>${p.slug
+          ? `<a href="https://polymarket.com/event/${p.slug}" target="_blank" rel="noopener"><code>${addr(p.market_id)}</code></a>`
+          : `<code>${addr(p.market_id)}</code>`
+        }</td>
         <td><span class="${p.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${p.outcome}</span></td>
         <td class="num">${p.entry_price?.toFixed(4) ?? '—'}</td>
         <td class="num">${money(p.size_usdc)}</td>
         <td>${ts(p.opened_at)}</td>
       </tr>`).join('')
-    : `<tr><td colspan="5" class="empty">Sin posiciones abiertas</td></tr>`;
+    : `<tr><td colspan="6" class="empty">Sin posiciones abiertas</td></tr>`;
 
   return `<div class="table-panel">
     <div class="table-header">
@@ -109,7 +168,7 @@ function btc5mTable(positions) {
       <span class="table-badge">${positions.length} ACTIVAS</span>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Asset</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
+      <thead><tr><th>Asset</th><th>Mercado</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
@@ -385,6 +444,37 @@ function render(d) {
       margin-right: 0.4rem; vertical-align: middle;
     }
 
+    /* ── Trade log badges ── */
+    .tl-badge {
+      display: inline-block; font-size: 0.55rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 0.15rem 0.45rem; border-radius: 0.25rem; font-family: monospace;
+    }
+    .tl-copy     { background: rgba(99,102,241,0.15); color: #818cf8; }
+    .tl-5m       { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .tl-open     { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .tl-closed   { background: rgba(173,170,170,0.1); color: var(--muted); }
+    .tl-resolved { background: rgba(0,255,163,0.1);   color: var(--primary); }
+
+    /* ── Allocation donut ── */
+    .alloc-row { display: grid; grid-template-columns: 210px 1fr; gap: 2rem; align-items: center; margin-bottom: 0.75rem; }
+    .alloc-chart-wrap { width: 200px; height: 200px; flex-shrink: 0; }
+    .alloc-portfolio-hd { margin-bottom: 0.85rem; }
+    .alloc-portfolio-label { font-size: 0.44rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 0.2rem; }
+    .alloc-portfolio-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; font-weight: 700; line-height: 1; }
+    .alloc-legend { display: flex; flex-direction: column; gap: 0.7rem; }
+    .alloc-item { display: flex; flex-direction: column; gap: 0.28rem; }
+    .alloc-item-hd { display: flex; align-items: center; gap: 0.55rem; }
+    .alloc-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .alloc-item-label { font-size: 0.58rem; color: var(--muted); flex: 1; text-transform: uppercase; letter-spacing: 0.08em; }
+    .alloc-item-value { font-family: 'Space Grotesk', sans-serif; font-size: 0.88rem; font-weight: 700; }
+    .alloc-item-pct { font-size: 0.55rem; color: var(--muted); font-family: monospace; margin-left: 0.35rem; }
+    .alloc-bar-track { height: 2px; background: rgba(72,72,71,0.25); border-radius: 999px; overflow: hidden; }
+    .alloc-bar-fill { height: 100%; border-radius: 999px; }
+    /* ── Asset logo cell ── */
+    .asset-cell { display: flex; align-items: center; gap: 0.4rem; }
+    .asset-logo { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+
     @media (max-width: 900px) {
       .sidebar { display: none; }
       .main { margin-left: 0; }
@@ -416,6 +506,9 @@ function render(d) {
     </div>
     <div class="nav-item" data-tab="tab-btc5m">
       <span class="ms">bolt</span> Early-Bird 5m
+    </div>
+    <div class="nav-item" data-tab="tab-historial">
+      <span class="ms">receipt_long</span> Historial
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -581,6 +674,78 @@ function render(d) {
 
   </div><!-- /tab-btc5m -->
 
+  <!-- ══ TAB: Historial ══ -->
+  <div class="tab-pane" id="tab-historial">
+
+    <div class="sec-div" style="--accent:#6366f1; margin-top:0">
+      <div class="sec-dot"></div>
+      <div class="sec-label">Flujo de capital</div>
+      <div class="sec-line"></div>
+    </div>
+
+${(() => {
+      const p = d.portfolio || 1;
+      const cashPct  = (d.bankroll / p * 100);
+      const copyPct  = ((d.copyStats.total_open ?? 0) / p * 100);
+      const btc5Pct  = ((d.btc5mStats.total_open ?? 0) / p * 100);
+      const allocItem = (color, label, value, valueCls, pct, barColor) => `
+        <div class="alloc-item">
+          <div class="alloc-item-hd">
+            <div class="alloc-dot" style="background:${color}"></div>
+            <div class="alloc-item-label">${label}</div>
+            <div class="alloc-item-value ${valueCls}">${value}</div>
+            <div class="alloc-item-pct">${pct.toFixed(0)}%</div>
+          </div>
+          <div class="alloc-bar-track">
+            <div class="alloc-bar-fill" style="width:${pct.toFixed(1)}%;background:${barColor}"></div>
+          </div>
+        </div>`;
+      return `
+    <div class="alloc-row">
+      <div class="alloc-chart-wrap">
+        <canvas id="allocChart"></canvas>
+      </div>
+      <div class="alloc-legend">
+        <div class="alloc-portfolio-hd">
+          <div class="alloc-portfolio-label">Portfolio total</div>
+          <div class="alloc-portfolio-value">${money(d.portfolio)}</div>
+        </div>
+        ${allocItem('#00FFA3', 'Cash libre',          money(d.bankroll),                  'pos',         cashPct, '#00FFA3')}
+        ${allocItem('#818cf8', 'Copy Trading activo', money(d.copyStats.total_open),      '',            copyPct, '#818cf8')}
+        ${allocItem('#f59e0b', 'Early-Bird 5m activo',money(d.btc5mStats.total_open),     '',            btc5Pct, '#f59e0b')}
+        <div class="alloc-item" style="margin-top:0.2rem;padding-top:0.6rem;border-top:1px solid var(--border)">
+          <div class="alloc-item-hd">
+            <div class="alloc-dot" style="background:transparent;border:1px solid rgba(173,170,170,0.3)"></div>
+            <div class="alloc-item-label">P&amp;L vs capital inicial</div>
+            <div class="alloc-item-value ${cls(d.pnlTotal)}">${money(d.pnlTotal, true)}</div>
+            <div class="alloc-item-pct ${cls(d.pnlTotal)}">${pnlPct}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    })()}
+
+    <div class="stats-grid" style="--accent:#6366f1">
+      ${statCard('Capital total operado', money(d.hist.totalDeployed), '',
+        'Suma de todas las inversiones realizadas (copy + 5m), incluyendo capital reciclado de operaciones cerradas.')}
+      ${statCard('Comisiones + slippage', money(d.hist.totalCost), 'neg',
+        'Total pagado en fees de protocolo y slippage en todas las operaciones.<br><br>Es el coste real de operar, deducido del resultado final.',
+        'border-neg')}
+      ${statCard('P&amp;L neto realizado', money(d.hist.totalPnl, true), cls(d.hist.totalPnl),
+        'Resultado neto de todas las operaciones cerradas o resueltas.<br><br>Positivo = el bot ha generado beneficio. Negativo = pérdida neta hasta ahora.',
+        bcls(d.hist.totalPnl))}
+      ${statCard('Operaciones abiertas', d.hist.openOps, '',
+        'Número de posiciones actualmente en el mercado (copy + 5m).<br><br>El capital está comprometido hasta que estas posiciones se resuelvan.')}
+      ${statCard('Operaciones cerradas', d.hist.closedOps, '',
+        'Total de operaciones que ya han concluido (cerradas o resueltas).<br><br>El capital fue recuperado al bankroll con ganancia o pérdida.')}
+      ${statCard('Total operaciones', d.hist.totalOps, '',
+        'Número total de operaciones realizadas desde el inicio (abiertas + cerradas).')}
+    </div>
+
+    ${tradeLogTable(d.tradeLog)}
+
+  </div><!-- /tab-historial -->
+
 </main>
 
 <footer class="statusbar">
@@ -630,6 +795,35 @@ function render(d) {
       y: { grid: { color: 'rgba(72,72,71,0.15)' }, ticks: { color: '#ADAAAA' }, border: { display: false } },
     },
   };
+
+  // ── Allocation donut ──────────────────────────────────────────────────────
+  new Chart(document.getElementById('allocChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Cash libre', 'Copy activo', '5m activo'],
+      datasets: [{
+        data: [${d.bankroll.toFixed(2)}, ${(d.copyStats.total_open ?? 0).toFixed(2)}, ${(d.btc5mStats.total_open ?? 0).toFixed(2)}],
+        backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)'],
+        borderColor:     ['#00FFA3', '#818cf8', '#f59e0b'],
+        borderWidth: 1.5,
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      layout: { padding: 8 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1919',
+          titleColor: '#ADAAAA', bodyColor: '#ffffff',
+          borderColor: 'rgba(72,72,71,0.3)', borderWidth: 1, padding: 10,
+          callbacks: { label: ctx => ' $' + ctx.parsed.toFixed(2) },
+        },
+      },
+    },
+  });
 
   if (SNAPS.length) {
     const labels = SNAPS.map(s => s.date);
@@ -706,6 +900,53 @@ async function main() {
   const pnlTotal   = portfolio - CONFIG.PAPER_BANKROLL;
   const pnlDay     = prev ? bankroll - prev.bankroll : (latest?.pnl_day ?? 0);
 
+  // Combined trade log (copy + 5m), most recent first
+  const tradeLog = all(db, `
+    SELECT
+      'copy'             AS strategy,
+      t.executed_at      AS opened_at,
+      t.market_id,
+      t.outcome,
+      t.size_usdc,
+      t.fee + t.slippage AS cost,
+      t.status,
+      t.pnl,
+      p.slug,
+      NULL               AS asset
+    FROM trades t
+    LEFT JOIN (SELECT DISTINCT market_id, slug FROM positions WHERE slug IS NOT NULL) p
+           ON t.market_id = p.market_id
+    UNION ALL
+    SELECT
+      '5m'               AS strategy,
+      bt.opened_at,
+      bt.market_id,
+      bt.outcome,
+      bt.size_usdc,
+      bt.fee + bt.slippage AS cost,
+      bt.status,
+      bt.pnl,
+      bt.slug,
+      bt.asset
+    FROM btc5m_trades bt
+    ORDER BY opened_at DESC
+  `);
+
+  const histRow = all(db, `
+    SELECT
+      SUM(size_usdc)                                                       AS total_deployed,
+      SUM(fee + slippage)                                                  AS total_cost,
+      SUM(CASE WHEN status != 'open' THEN COALESCE(pnl,0) ELSE 0 END)    AS total_pnl,
+      COUNT(*)                                                             AS total_ops,
+      SUM(CASE WHEN status  = 'open' THEN 1 ELSE 0 END)                  AS open_ops,
+      SUM(CASE WHEN status != 'open' THEN 1 ELSE 0 END)                  AS closed_ops
+    FROM (
+      SELECT size_usdc, fee, slippage, status, pnl FROM trades
+      UNION ALL
+      SELECT size_usdc, fee, slippage, status, pnl FROM btc5m_trades
+    )
+  `)[0] ?? {};
+
   const winRateRow = all(db, `
     SELECT (SUM(w) * 1.0 / SUM(t)) as win_rate
     FROM (
@@ -728,6 +969,15 @@ async function main() {
     btc5mStats, copyStats,
     globalInvested: (copyStats.total_invested ?? 0) + (btc5mStats.total_invested ?? 0),
     globalClosed:   (copyStats.total_closed   ?? 0) + (btc5mStats.total_closed   ?? 0),
+    tradeLog,
+    hist: {
+      totalDeployed: histRow.total_deployed ?? 0,
+      totalCost:     histRow.total_cost     ?? 0,
+      totalPnl:      histRow.total_pnl      ?? 0,
+      totalOps:      histRow.total_ops      ?? 0,
+      openOps:       histRow.open_ops       ?? 0,
+      closedOps:     histRow.closed_ops     ?? 0,
+    },
   };
 
   mkdirSync('docs', { recursive: true });
