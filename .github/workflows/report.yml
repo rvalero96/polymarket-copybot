@@ -41,6 +41,9 @@ jobs:
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
+      - name: Backfill event slugs
+        run: node scripts/backfill-slugs.js
+
       - name: Generate dashboard
         run: node src/reports/dashboard.js
 
@@ -51,3 +54,11 @@ jobs:
           git add docs/index.html
           git diff --cached --quiet || git commit -m "chore: dashboard update $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           git push origin main
+
+      - name: Persist updated slugs to paper-state
+        run: |
+          git fetch origin paper-state 2>/dev/null || true
+          git checkout -B paper-state origin/paper-state 2>/dev/null || git checkout -b paper-state
+          git add -f data/state.db
+          git diff --cached --quiet || git commit -m "chore: backfill slugs $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          git push origin paper-state
