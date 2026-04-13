@@ -67,11 +67,18 @@ function positionsTable(positions) {
   return `<div class="table-panel">
     <div class="table-header">
       <span class="table-title">Posiciones abiertas</span>
-      <span class="table-badge">${positions.length} ABIERTAS</span>
+      <span class="table-badge" id="badge-pos">${positions.length} ABIERTAS</span>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Mercado</th><th>Outcome</th><th>Precio avg</th><th>Tamaño</th><th>Wallet</th><th>Apertura</th></tr></thead>
-      <tbody>${rows}</tbody>
+      <thead><tr>
+        <th class="sortable" data-col="0"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="0" data-filter-type="text" data-filter-ph="Buscar mercado…" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="1"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todos:|Yes:yes|No:no" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="2"><div class="th-inner"><span>Precio avg</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="3"><div class="th-inner"><span>Tamaño</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="4"><div class="th-inner"><span>Wallet</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="4" data-filter-type="text" data-filter-ph="Buscar wallet…" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="5"><div class="th-inner"><span>Apertura</span><span class="sort-icon">⇅</span></div></th>
+      </tr></thead>
+      <tbody id="tbl-pos">${rows}</tbody>
     </table></div>
   </div>`;
 }
@@ -92,11 +99,18 @@ function walletsTable(wallets) {
   return `<div class="table-panel">
     <div class="table-header">
       <span class="table-title">Wallets seguidos</span>
-      <span class="table-badge">TOP ${wallets.length}</span>
+      <span class="table-badge" id="badge-wallets">TOP ${wallets.length}</span>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>#</th><th>Wallet</th><th>Score</th><th>Win rate</th><th>ROI</th><th>P&amp;L total</th></tr></thead>
-      <tbody>${rows}</tbody>
+      <thead><tr>
+        <th data-col="0"><div class="th-inner"><span>#</span></div></th>
+        <th class="sortable" data-col="1"><div class="th-inner"><span>Wallet</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="text" data-filter-ph="Buscar wallet…" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="2"><div class="th-inner"><span>Score</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="3"><div class="th-inner"><span>Win rate</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="4"><div class="th-inner"><span>ROI</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="5"><div class="th-inner"><span>P&amp;L total</span><span class="sort-icon">⇅</span></div></th>
+      </tr></thead>
+      <tbody id="tbl-wallets">${rows}</tbody>
     </table></div>
   </div>`;
 }
@@ -134,14 +148,21 @@ function tradeLogTable(trades) {
   return `<div class="table-panel">
     <div class="table-header">
       <span class="table-title">Registro de operaciones</span>
-      <span class="table-badge">${trades.length} OPS</span>
+      <span class="table-badge" id="badge-tradelog">${trades.length} OPS</span>
     </div>
     <div class="table-scroll"><table>
       <thead><tr>
-        <th>Fecha</th><th>Estrategia</th><th>Mercado</th><th>Asset</th>
-        <th>Outcome</th><th>Inversión</th><th>Coste</th><th>Estado</th><th>P&amp;L</th>
+        <th class="sortable" data-col="0"><div class="th-inner"><span>Fecha</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="2"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="2" data-filter-type="text" data-filter-ph="Buscar mercado…" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="3"><div class="th-inner"><span>Asset</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="3" data-filter-type="select" data-filter-opts="Todos:|BTC:btc|ETH:eth|SOL:sol|XRP:xrp" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="4"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="4" data-filter-type="select" data-filter-opts="Todos:|Yes:yes|No:no|UP:up|DOWN:down" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="5"><div class="th-inner"><span>Inversión</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="6"><div class="th-inner"><span>Coste</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="7"><div class="th-inner"><span>Estado</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="7" data-filter-type="select" data-filter-opts="Todos:|Abierta:abierta|Cerrada:cerrada|Resuelta:resuelta" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="8"><div class="th-inner"><span>P&amp;L</span><span class="sort-icon">⇅</span></div></th>
       </tr></thead>
-      <tbody>${rows}</tbody>
+      <tbody id="tbl-tradelog">${rows}</tbody>
     </table></div>
   </div>`;
 }
@@ -165,11 +186,18 @@ function btc5mTable(positions) {
   return `<div class="table-panel">
     <div class="table-header">
       <span class="table-title">Posiciones abiertas — 5m</span>
-      <span class="table-badge">${positions.length} ACTIVAS</span>
+      <span class="table-badge" id="badge-btc5m">${positions.length} ACTIVAS</span>
     </div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Asset</th><th>Mercado</th><th>Outcome</th><th>Entrada</th><th>Tamaño</th><th>Apertura</th></tr></thead>
-      <tbody>${rows}</tbody>
+      <thead><tr>
+        <th class="sortable" data-col="0"><div class="th-inner"><span>Asset</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="0" data-filter-type="select" data-filter-opts="Todos:|BTC:btc|ETH:eth|SOL:sol|XRP:xrp" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="1"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="2"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="2" data-filter-type="select" data-filter-opts="Todos:|UP:up|DOWN:down" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="3"><div class="th-inner"><span>Entrada</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="4"><div class="th-inner"><span>Tamaño</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="5"><div class="th-inner"><span>Apertura</span><span class="sort-icon">⇅</span></div></th>
+      </tr></thead>
+      <tbody id="tbl-btc5m">${rows}</tbody>
     </table></div>
   </div>`;
 }
@@ -444,6 +472,65 @@ function render(d) {
       margin-right: 0.4rem; vertical-align: middle;
     }
 
+    /* ── Column sort & filter ── */
+    th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.sortable:hover { color: var(--text); }
+    .th-inner { display: flex; align-items: center; gap: 0.25rem; }
+    .sort-icon { font-size: 0.55rem; opacity: 0.3; flex-shrink: 0; }
+    th.sort-asc  .sort-icon, th.sort-desc .sort-icon { opacity: 1; color: #818cf8; }
+    .th-filter-btn {
+      background: none; border: none; cursor: pointer; padding: 0 0.1rem;
+      color: var(--muted); opacity: 0.3; line-height: 1; flex-shrink: 0;
+      transition: opacity 0.1s, color 0.1s; display: inline-flex; align-items: center;
+    }
+    .th-filter-btn:hover { opacity: 0.8; }
+    .th-filter-btn.active { opacity: 1; color: #818cf8; }
+    /* ── Filter popover ── */
+    .filter-popover {
+      position: fixed; z-index: 1000;
+      background: #1a1919; border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 0.45rem; padding: 0.55rem 0.65rem 0.45rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.55); min-width: 150px;
+      display: none;
+    }
+    .filter-popover.open { display: block; }
+    .fp-label { font-size: 0.5rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 0.35rem; opacity: 0.6; }
+    .fp-input {
+      width: 100%; background: transparent; border: none;
+      border-bottom: 1px solid rgba(72,72,71,0.4);
+      color: var(--text); font-size: 0.68rem; font-family: 'Inter', sans-serif;
+      padding: 0.2rem 0; outline: none;
+    }
+    .fp-input::placeholder { color: var(--muted); opacity: 0.45; }
+    .fp-input:focus { border-bottom-color: #6366f1; }
+    select.fp-input { cursor: pointer; color: var(--muted); }
+    select.fp-input:focus { color: var(--text); }
+    .fp-options { display: flex; flex-direction: column; gap: 1px; margin-top: 0.1rem; }
+    .fp-option {
+      padding: 0.28rem 0.45rem; border-radius: 0.3rem; cursor: pointer;
+      font-size: 0.68rem; color: var(--muted); transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .fp-option:hover { background: rgba(99,102,241,0.1); color: var(--text); }
+    .fp-option.fp-sel { color: #818cf8; background: rgba(99,102,241,0.12); font-weight: 600; }
+    .fp-clear {
+      margin-top: 0.4rem; width: 100%; background: none; border: none;
+      cursor: pointer; color: var(--muted); font-size: 0.55rem; text-align: right;
+      font-family: 'Inter', sans-serif; opacity: 0.4; padding: 0; letter-spacing: 0.03em;
+    }
+    .fp-clear:hover { opacity: 1; color: var(--tertiary); }
+
+    /* ── Time range buttons ── */
+    .time-filter { display: flex; gap: 0.3rem; }
+    .time-btn {
+      background: var(--surface-hi); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 0.3rem; padding: 0.2rem 0.55rem;
+      font-size: 0.58rem; font-family: monospace; cursor: pointer;
+      letter-spacing: 0.05em; transition: all 0.15s;
+    }
+    .time-btn:hover { color: var(--text); border-color: rgba(99,102,241,0.4); }
+    .time-btn.active { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.5); color: #818cf8; }
+
     /* ── Trade log badges ── */
     .tl-badge {
       display: inline-block; font-size: 0.55rem; font-weight: 700;
@@ -563,6 +650,14 @@ function render(d) {
       </div>
     </div>
 
+    <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem">
+      <div class="time-filter">
+        <button class="time-btn" data-days="7">7D</button>
+        <button class="time-btn" data-days="30">30D</button>
+        <button class="time-btn" data-days="90">3M</button>
+        <button class="time-btn active" data-days="0">Todo</button>
+      </div>
+    </div>
     <div class="charts-row">
       <div class="chart-panel">
         <div class="cp-hd">
@@ -825,31 +920,201 @@ ${(() => {
     },
   });
 
-  if (SNAPS.length) {
-    const labels = SNAPS.map(s => s.date);
+  // ── Chart temporality ────────────────────────────────────────────────────
+  let bankrollChart = null, pnlChart = null;
 
-    new Chart(document.getElementById('bankrollChart'), {
+  function renderCharts(days) {
+    const now    = Date.now();
+    const cutoff = days > 0 ? now - days * 86400000 : 0;
+    const data   = SNAPS.filter(s => cutoff === 0 || new Date(s.date).getTime() >= cutoff);
+    const labels = data.map(s => s.date);
+
+    if (bankrollChart) { bankrollChart.destroy(); bankrollChart = null; }
+    if (pnlChart)      { pnlChart.destroy();      pnlChart      = null; }
+    if (!data.length)  return;
+
+    bankrollChart = new Chart(document.getElementById('bankrollChart'), {
       type: 'line',
       data: { labels, datasets: [{
-        data: SNAPS.map(s => s.bankroll),
+        data: data.map(s => s.bankroll),
         borderColor: '#00FFA3', backgroundColor: 'rgba(0,255,163,0.06)',
         fill: true, tension: 0.4,
-        pointRadius: SNAPS.length > 20 ? 0 : 3, pointHoverRadius: 5,
+        pointRadius: data.length > 20 ? 0 : 3, pointHoverRadius: 5,
         borderWidth: 2, pointBackgroundColor: '#00FFA3',
       }]},
       options: { ...baseOpts },
     });
 
-    new Chart(document.getElementById('pnlChart'), {
+    pnlChart = new Chart(document.getElementById('pnlChart'), {
       type: 'bar',
       data: { labels, datasets: [{
-        data: SNAPS.map(s => s.pnlDay),
-        backgroundColor: SNAPS.map(s => s.pnlDay >= 0 ? 'rgba(0,255,163,0.7)' : 'rgba(255,77,77,0.7)'),
+        data: data.map(s => s.pnlDay),
+        backgroundColor: data.map(s => s.pnlDay >= 0 ? 'rgba(0,255,163,0.7)' : 'rgba(255,77,77,0.7)'),
         borderRadius: 2,
       }]},
       options: { ...baseOpts },
     });
   }
+
+  document.querySelectorAll('.time-btn[data-days]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.time-btn[data-days]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderCharts(parseInt(btn.dataset.days));
+    });
+  });
+
+  renderCharts(0);
+
+  // ── Filter popover (shared singleton) ───────────────────────────────────
+  const fpEl = document.createElement('div');
+  fpEl.className = 'filter-popover';
+  document.body.appendChild(fpEl);
+  let fpActiveBtn = null;
+
+  function fpClose() {
+    fpEl.classList.remove('open');
+    fpActiveBtn = null;
+  }
+
+  document.addEventListener('click', e => {
+    if (fpEl.contains(e.target)) return;
+    if (e.target.closest('.th-filter-btn')) return;
+    fpClose();
+  }, true);
+
+  function fpOpen(btn, tableFilters, applyFn) {
+    if (fpActiveBtn === btn) { fpClose(); return; }
+    fpClose();
+    fpActiveBtn = btn;
+
+    const col  = parseInt(btn.dataset.filterCol);
+    const type = btn.dataset.filterType;
+    const ph   = btn.dataset.filterPh || 'Filtrar…';
+    const opts = btn.dataset.filterOpts || '';
+    const cur  = tableFilters[col] || '';
+    const label = btn.closest('th').querySelector('span:first-child').textContent;
+
+    let inputHtml;
+    if (type === 'select') {
+      const optItems = opts.split('|').map(o => {
+        const parts = o.split(':'), l = parts[0], v = parts[1] !== undefined ? parts[1] : '';
+        const sel = cur === v ? ' fp-sel' : '';
+        return '<div class="fp-option' + sel + '" data-val="' + v + '">' + l + '</div>';
+      }).join('');
+      inputHtml = '<div class="fp-options">' + optItems + '</div>';
+    } else {
+      inputHtml = '<input class="fp-input" data-col="' + col + '" placeholder="' + ph + '" value="' + cur.replace(/"/g, '&quot;') + '">';
+    }
+
+    fpEl.innerHTML = '<div class="fp-label">' + label + '</div>' + inputHtml + '<button class="fp-clear">Limpiar</button>';
+
+    const rect = btn.getBoundingClientRect();
+    const pW = 170;
+    let left = rect.left;
+    if (left + pW > window.innerWidth - 8) left = window.innerWidth - pW - 8;
+    fpEl.style.top  = (rect.bottom + 4) + 'px';
+    fpEl.style.left = Math.max(4, left) + 'px';
+    fpEl.classList.add('open');
+
+    if (type === 'select') {
+      fpEl.querySelectorAll('.fp-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          const val = opt.dataset.val;
+          tableFilters[col] = val;
+          fpEl.querySelectorAll('.fp-option').forEach(o => o.classList.toggle('fp-sel', o === opt && val !== ''));
+          btn.classList.toggle('active', !!val);
+          applyFn();
+          fpClose();
+        });
+      });
+    } else {
+      const inputEl = fpEl.querySelector('.fp-input');
+      inputEl.focus();
+      inputEl.select?.();
+      inputEl.addEventListener('input', () => {
+        tableFilters[col] = inputEl.value.trim().toLowerCase();
+        btn.classList.toggle('active', !!tableFilters[col]);
+        applyFn();
+      });
+    }
+
+    fpEl.querySelector('.fp-clear').addEventListener('click', () => {
+      tableFilters[col] = '';
+      btn.classList.remove('active');
+      applyFn();
+      fpClose();
+    });
+  }
+
+  // ── Column sort + filter ─────────────────────────────────────────────────
+  function initSortableTable(tbodyId, badgeId) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    const thead    = tbody.closest('table').querySelector('thead');
+    const sortThs  = [...thead.querySelectorAll('th.sortable')];
+    const filterBtns = [...thead.querySelectorAll('.th-filter-btn')];
+    const tableFilters = {};
+
+    let sortCol = -1, sortDir = 0;
+
+    function apply() {
+      const allRows = [...tbody.querySelectorAll('tr')];
+      if (sortDir !== 0 && sortCol >= 0) {
+        allRows.sort((a, b) => {
+          const ca = a.cells[sortCol]?.textContent.trim() ?? '';
+          const cb = b.cells[sortCol]?.textContent.trim() ?? '';
+          const na = parseFloat(ca.replace(/[^0-9.-]/g, ''));
+          const nb = parseFloat(cb.replace(/[^0-9.-]/g, ''));
+          const cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : ca.localeCompare(cb, 'es');
+          return sortDir === 1 ? cmp : -cmp;
+        });
+        allRows.forEach(r => tbody.appendChild(r));
+      }
+      let visible = 0;
+      [...tbody.querySelectorAll('tr')].forEach(row => {
+        const show = Object.entries(tableFilters).every(([col, val]) => {
+          if (!val) return true;
+          const cell = row.cells[parseInt(col)];
+          if (!cell) return true;
+          return cell.textContent.trim().toLowerCase().includes(val);
+        });
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      const badge = document.getElementById(badgeId);
+      if (badge) badge.textContent = badge.textContent.replace(/^\d+/, visible);
+    }
+
+    sortThs.forEach(th => {
+      th.addEventListener('click', e => {
+        if (e.target.closest('.th-filter-btn')) return;
+        const col = parseInt(th.dataset.col);
+        sortDir = sortCol === col ? (sortDir === 1 ? -1 : sortDir === -1 ? 0 : 1) : 1;
+        sortCol = sortDir === 0 ? -1 : col;
+        sortThs.forEach(h => {
+          h.classList.remove('sort-asc', 'sort-desc');
+          const icon = h.querySelector('.sort-icon');
+          if (icon) icon.textContent = '⇅';
+        });
+        if (sortDir === 1)  { th.classList.add('sort-asc');  th.querySelector('.sort-icon').textContent = '↑'; }
+        if (sortDir === -1) { th.classList.add('sort-desc'); th.querySelector('.sort-icon').textContent = '↓'; }
+        apply();
+      });
+    });
+
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        fpOpen(btn, tableFilters, apply);
+      });
+    });
+  }
+
+  initSortableTable('tbl-pos',      'badge-pos');
+  initSortableTable('tbl-wallets',  'badge-wallets');
+  initSortableTable('tbl-btc5m',    'badge-btc5m');
+  initSortableTable('tbl-tradelog', 'badge-tradelog');
 </script>
 </body>
 </html>`;
