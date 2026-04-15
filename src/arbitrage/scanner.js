@@ -273,7 +273,26 @@ export async function scan() {
     threshold: extractThreshold(m.question),
   }));
 
-  logger.info('arb:scan:enriched', { count: enriched.length });
+  // ── Diagnostics ──────────────────────────────────────────────────────────
+  const withThreshold  = enriched.filter(m => m.threshold !== null).length;
+  const binaryMarkets  = enriched.filter(m => Object.keys(m.prices).length === 2);
+  const pricedBinary   = binaryMarkets.filter(m => {
+    const vals = Object.values(m.prices);
+    return vals.every(v => v !== null && v > 0);
+  });
+  const priceSums      = pricedBinary.map(m => Object.values(m.prices).reduce((a, b) => a + b, 0));
+  const minSum         = priceSums.length ? Math.min(...priceSums).toFixed(4) : 'n/a';
+  const maxSum         = priceSums.length ? Math.max(...priceSums).toFixed(4) : 'n/a';
+  const multiOutcome   = enriched.filter(m => Object.keys(m.prices).length >= 3).length;
+
+  logger.info('arb:scan:enriched', {
+    count: enriched.length,
+    with_threshold: withThreshold,
+    binary_priced: pricedBinary.length,
+    multi_outcome: multiOutcome,
+    binary_sum_min: minSum,
+    binary_sum_max: maxSum,
+  });
 
   // ── Group markets by question template for monotonicity ──────────────────
   const templateGroups = new Map();
@@ -284,6 +303,17 @@ export async function scan() {
     if (!templateGroups.has(tmpl)) templateGroups.set(tmpl, []);
     templateGroups.get(tmpl).push(m);
   }
+
+  // Log the groups that have 2+ markets (the ones that get checked for violations)
+  const groupsChecked = [...templateGroups.values()].filter(g => g.length >= 2);
+  logger.info('arb:scan:monotonicity_groups', {
+    total_template_groups: templateGroups.size,
+    groups_with_2plus: groupsChecked.length,
+    // Show up to 5 sample groups with their thresholds and prices
+    samples: groupsChecked.slice(0, 5).map(g =>
+      g.map(m => ({ t: m.threshold, yes: Object.values(m.prices)[0]?.toFixed(3) }))
+    ),
+  });
 
   const opportunities = [];
 
