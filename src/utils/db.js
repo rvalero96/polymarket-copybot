@@ -163,6 +163,11 @@ export async function getDb() {
   try { db.exec('ALTER TABLE btc5m_positions ADD COLUMN title TEXT'); } catch (_) {}
   try { db.exec('ALTER TABLE btc5m_trades ADD COLUMN slug TEXT'); } catch (_) {}
   try { db.exec('ALTER TABLE btc5m_trades ADD COLUMN title TEXT'); } catch (_) {}
+  // Risk-manager columns (v2)
+  try { db.exec('ALTER TABLE positions ADD COLUMN market_end_date TEXT'); } catch (_) {}
+  try { db.exec('ALTER TABLE positions ADD COLUMN last_price REAL'); } catch (_) {}
+  try { db.exec('ALTER TABLE positions ADD COLUMN price_tracked_at INTEGER'); } catch (_) {}
+  try { db.exec('ALTER TABLE trades ADD COLUMN close_reason TEXT'); } catch (_) {}
 
   _db = db;
   return db;

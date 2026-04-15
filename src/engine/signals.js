@@ -1,9 +1,10 @@
-import { getWalletPositions } from '../services/polymarket/api.js';
+import { getWalletPositions, getMarket } from '../services/polymarket/api.js';
 import { getDb, all, run } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../../config.js';
 
-const { FILTERS } = CONFIG;
+const { FILTERS, COPY_TRADING } = CONFIG;
+const { MAX_MARKET_DAYS_TO_RESOLVE } = COPY_TRADING;
 
 export async function detectSignals() {
   const db = await getDb();
@@ -41,7 +42,24 @@ async function processWalletPositions(db, wallet, positions, now) {
   for (const [key, pos] of currentPos) {
     if (shouldFilter(pos)) continue;
     if (!knownPos.has(key)) {
-      signals.push(insertSignal(db, { wallet, pos, action: 'open', now }));
+      // For new positions, check that the market resolves soon enough
+      const marketEndDate = await fetchMarketEndDate(pos.conditionId);
+      if (marketEndDate === null) {
+        // Could not determine end date — skip to be safe
+        logger.warn('signals:skipped-no-end-date', { market: pos.conditionId });
+        continue;
+      }
+      const daysToResolve = (marketEndDate - Date.now()) / 86_400_000;
+      if (daysToResolve > MAX_MARKET_DAYS_TO_RESOLVE) {
+        logger.info('signals:filtered-long-market', {
+          market: pos.conditionId,
+          daysToResolve: daysToResolve.toFixed(1),
+          max: MAX_MARKET_DAYS_TO_RESOLVE,
+        });
+        continue;
+      }
+      const endDateIso = new Date(marketEndDate).toISOString().slice(0, 10);
+      signals.push(insertSignal(db, { wallet, pos, action: 'open', now, market_end_date: endDateIso }));
     } else {
       const known = knownPos.get(key);
       if ((pos.currentValue ?? pos.size) > known.size_usdc * 1.1) {
@@ -65,6 +83,22 @@ async function processWalletPositions(db, wallet, positions, now) {
   return signals;
 }
 
+/**
+ * Returns the market end date as a Unix timestamp (ms), or null if unknown.
+ */
+async function fetchMarketEndDate(conditionId) {
+  try {
+    const market = await getMarket(conditionId);
+    if (!market) return null;
+    const raw = market.endDateIso ?? market.endDate ?? null;
+    if (!raw) return null;
+    const ts = new Date(raw).getTime();
+    return isNaN(ts) ? null : ts;
+  } catch {
+    return null;
+  }
+}
+
 function shouldFilter(pos) {
   const price = pos.curPrice ?? pos.currentPrice ?? 0;
   return (
@@ -73,16 +107,17 @@ function shouldFilter(pos) {
   );
 }
 
-function insertSignal(db, { wallet, pos, action, now }) {
+function insertSignal(db, { wallet, pos, action, now, market_end_date = null }) {
   const signal = {
     wallet,
-    market_id:   pos.conditionId,
-    outcome:     pos.outcome,
-    slug:        pos.eventSlug ?? null,
+    market_id:       pos.conditionId,
+    outcome:         pos.outcome,
+    slug:            pos.eventSlug ?? null,
     action,
-    price:       pos.curPrice ?? pos.currentPrice ?? 0,
-    size:        pos.currentValue ?? pos.size ?? 0,
-    detected_at: now,
+    price:           pos.curPrice ?? pos.currentPrice ?? 0,
+    size:            pos.currentValue ?? pos.size ?? 0,
+    detected_at:     now,
+    market_end_date, // ISO date string or null; used by simulator when opening positions
   };
   run(db,
     `INSERT INTO signals (wallet, market_id, outcome, action, price, size, detected_at)

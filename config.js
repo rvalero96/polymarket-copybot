@@ -26,6 +26,19 @@ export const CONFIG = {
   },
   STATE_BRANCH: 'paper-state',
   DB_PATH: 'data/state.db',
+  COPY_TRADING: {
+    // Close any position older than this many days, regardless of P&L
+    MAX_POSITION_AGE_DAYS: 7,
+    // Only copy markets that resolve within this many days (skip long-dated markets)
+    MAX_MARKET_DAYS_TO_RESOLVE: 14,
+    // Never deploy more than this fraction of bankroll in copy positions simultaneously
+    MAX_BANKROLL_CONCENTRATION: 0.60,
+    // Inactivity: if price moves less than this % over INACTIVITY_DAYS, close
+    INACTIVITY_THRESHOLD_PCT: 0.05,
+    INACTIVITY_DAYS: 3,
+    // Stop-loss: close if position falls more than this % below entry price
+    STOP_LOSS_PCT: 0.25,
+  },
   ARB: {
     // Minimum expected profit (after fees) to trade an opportunity
     MIN_PROFIT_PCT: 0.02,
