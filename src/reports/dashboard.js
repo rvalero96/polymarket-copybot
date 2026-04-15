@@ -202,6 +202,128 @@ function btc5mTable(positions) {
   </div>`;
 }
 
+// ── Arbitrage tables ──────────────────────────────────────────────────────────
+
+const stratBadgeArb = s => {
+  const map = {
+    monotonicity: ['#f59e0b', 'Monoton.'],
+    basket:       ['#818cf8', 'Basket'],
+    spread:       ['#34d399', 'Spread'],
+  };
+  const [color, label] = map[s] ?? ['#ADAAAA', s];
+  return `<span style="display:inline-block;padding:0.15rem 0.4rem;border-radius:0.2rem;font-size:0.6rem;font-weight:700;background:${color}22;color:${color};letter-spacing:0.04em">${label}</span>`;
+};
+
+function arbOpportunitiesTable(opps) {
+  const rows = opps.length
+    ? opps.map(o => {
+        const legs     = typeof o.legs === 'string' ? JSON.parse(o.legs) : o.legs;
+        const legHtml  = legs.map(l =>
+          `<div style="font-size:0.6rem;color:var(--muted)">${l.side.toUpperCase()} ${l.outcome} @ ${l.price?.toFixed(3) ?? '—'}</div>`
+        ).join('');
+        const statusCls = o.status === 'open' ? 'tl-open' : o.status === 'traded' ? 'tl-copy' : o.status === 'expired' ? '' : 'tl-resolved';
+        const statusLbl = o.status === 'open' ? 'Abierta' : o.status === 'traded' ? 'Operada' : o.status === 'expired' ? 'Expirada' : 'Resuelta';
+        return `
+        <tr>
+          <td>${stratBadgeArb(o.strategy)}</td>
+          <td style="max-width:280px;font-size:0.7rem">${o.description}</td>
+          <td>${legHtml}</td>
+          <td class="num pos">${pct(o.expected_profit)}</td>
+          <td class="num">${(o.confidence * 100).toFixed(0)}%</td>
+          <td><span class="tl-badge ${statusCls}">${statusLbl}</span></td>
+          <td class="num" style="white-space:nowrap">${ts(o.detected_at)}</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="7" class="empty">Sin oportunidades detectadas todavía</td></tr>`;
+
+  return `<div class="table-panel">
+    <div class="table-header">
+      <span class="table-title">Scanner de oportunidades</span>
+      <span class="table-badge" id="badge-arb-opps">${opps.length} DETECTADAS</span>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr>
+        <th class="sortable" data-col="0"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="0" data-filter-type="select" data-filter-opts="Todas:|Monoton.:monoton|Basket:basket|Spread:spread" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="1"><div class="th-inner"><span>Descripción</span><span class="sort-icon">⇅</span></div></th>
+        <th data-col="2"><div class="th-inner"><span>Piernas</span></div></th>
+        <th class="sortable" data-col="3"><div class="th-inner"><span>Beneficio esp.</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="4"><div class="th-inner"><span>Confianza</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="5"><div class="th-inner"><span>Estado</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="5" data-filter-type="select" data-filter-opts="Todos:|Abierta:abierta|Operada:operada|Expirada:expirada|Resuelta:resuelta" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+        <th class="sortable" data-col="6"><div class="th-inner"><span>Detectada</span><span class="sort-icon">⇅</span></div></th>
+      </tr></thead>
+      <tbody id="tbl-arb-opps">${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function arbTradesTable(trades) {
+  const rows = trades.length
+    ? trades.map(t => `
+      <tr>
+        <td>${stratBadgeArb(t.strategy)}</td>
+        <td><code style="font-size:0.65rem">${addr(t.market_id)}</code></td>
+        <td class="num">${t.leg_index + 1}</td>
+        <td><span class="${t.outcome === 'Yes' || t.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${t.outcome}</span></td>
+        <td class="num">${t.price?.toFixed(3) ?? '—'}</td>
+        <td class="num">${money(t.size_usdc)}</td>
+        <td class="num" style="white-space:nowrap">${ts(t.opened_at)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="7" class="empty">Sin posiciones de arbitraje abiertas</td></tr>`;
+
+  return `<div class="table-panel">
+    <div class="table-header">
+      <span class="table-title">Piernas abiertas</span>
+      <span class="table-badge" id="badge-arb-trades">${trades.length} ABIERTAS</span>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr>
+        <th class="sortable" data-col="0"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="1"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="2"><div class="th-inner"><span>Pierna</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="3"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="4"><div class="th-inner"><span>Precio</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="5"><div class="th-inner"><span>Tamaño</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="6"><div class="th-inner"><span>Apertura</span><span class="sort-icon">⇅</span></div></th>
+      </tr></thead>
+      <tbody id="tbl-arb-trades">${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function arbHistoryTable(trades) {
+  const rows = trades.length
+    ? trades.map(t => `
+      <tr>
+        <td>${stratBadgeArb(t.strategy)}</td>
+        <td><code style="font-size:0.65rem">${addr(t.market_id)}</code></td>
+        <td><span class="${t.outcome === 'Yes' || t.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${t.outcome}</span></td>
+        <td class="num">${t.price?.toFixed(3) ?? '—'}</td>
+        <td class="num">${money(t.size_usdc)}</td>
+        <td class="num ${cls(t.pnl)}">${t.pnl != null ? money(t.pnl, true) : '—'}</td>
+        <td class="num" style="white-space:nowrap">${ts(t.closed_at)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="7" class="empty">Sin operaciones de arbitraje cerradas</td></tr>`;
+
+  return `<div class="table-panel">
+    <div class="table-header">
+      <span class="table-title">Historial de arbitraje</span>
+      <span class="table-badge" id="badge-arb-hist">${trades.length} CERRADAS</span>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr>
+        <th class="sortable" data-col="0"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="1"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="2"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="3"><div class="th-inner"><span>Precio entrada</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="4"><div class="th-inner"><span>Tamaño</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="5"><div class="th-inner"><span>P&amp;L</span><span class="sort-icon">⇅</span></div></th>
+        <th class="sortable" data-col="6"><div class="th-inner"><span>Cierre</span><span class="sort-icon">⇅</span></div></th>
+      </tr></thead>
+      <tbody id="tbl-arb-hist">${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function render(d) {
@@ -597,6 +719,9 @@ function render(d) {
     <div class="nav-item" data-tab="tab-historial">
       <span class="ms">receipt_long</span> Historial
     </div>
+    <div class="nav-item" data-tab="tab-arb">
+      <span class="ms">balance</span> Arbitraje
+    </div>
   </nav>
   <div class="sidebar-footer">
     <div class="sf-card">
@@ -841,6 +966,70 @@ ${(() => {
 
   </div><!-- /tab-historial -->
 
+  <!-- ══ TAB: Arbitraje ══ -->
+  <div class="tab-pane" id="tab-arb">
+
+    <div class="sec-div" style="--accent:#f59e0b; margin-top:0">
+      <div class="sec-dot"></div>
+      <div class="sec-label">Arbitraje</div>
+      <div class="sec-line"></div>
+    </div>
+
+    <div class="stats-grid" style="--accent:#f59e0b">
+      ${statCard('Oportunidades activas',
+          d.arb.openOpportunities,
+          '',
+          'Número de discrepancias de precio detectadas actualmente en el mercado que cumplen los criterios mínimos de rentabilidad y confianza.')}
+      ${statCard('Posiciones abiertas',
+          d.arb.openLegs,
+          '',
+          'Pares/piernas de arbitraje actualmente desplegadas en papel. Cada oportunidad puede tener 2 o más piernas.')}
+      ${statCard('P&amp;L realizado (arb)',
+          money(d.arb.pnlRealized, true),
+          cls(d.arb.pnlRealized),
+          'Ganancia o pérdida neta de todas las operaciones de arbitraje ya cerradas.',
+          bcls(d.arb.pnlRealized))}
+      ${statCard('Beneficio medio esperado',
+          d.arb.avgExpectedProfit != null ? pct(d.arb.avgExpectedProfit) : '—',
+          d.arb.avgExpectedProfit > 0 ? 'pos' : '',
+          'Media del beneficio esperado (tras comisiones) de todas las oportunidades abiertas detectadas.')}
+      ${statCard('Operaciones cerradas',
+          d.arb.closedLegs,
+          '',
+          'Total de piernas de arbitraje ya liquidadas (mercado resuelto o expirado).')}
+      ${statCard('Win rate arb',
+          pct(d.arb.winRate),
+          winCls(d.arb.winRate),
+          'Porcentaje de piernas de arbitraje cerradas con ganancia.',
+          winBcls(d.arb.winRate))}
+    </div>
+
+    <div class="sec-div" style="--accent:#f59e0b">
+      <div class="sec-dot"></div>
+      <div class="sec-label">Oportunidades detectadas</div>
+      <div class="sec-line"></div>
+    </div>
+
+    ${arbOpportunitiesTable(d.arb.opportunities)}
+
+    <div class="sec-div" style="--accent:#f59e0b">
+      <div class="sec-dot"></div>
+      <div class="sec-label">Posiciones abiertas</div>
+      <div class="sec-line"></div>
+    </div>
+
+    ${arbTradesTable(d.arb.activeTrades)}
+
+    <div class="sec-div" style="--accent:#f59e0b">
+      <div class="sec-dot"></div>
+      <div class="sec-label">Historial de operaciones</div>
+      <div class="sec-line"></div>
+    </div>
+
+    ${arbHistoryTable(d.arb.closedTrades)}
+
+  </div><!-- /tab-arb -->
+
 </main>
 
 <footer class="statusbar">
@@ -851,6 +1040,7 @@ ${(() => {
   <div style="display:flex;gap:1.5rem">
     <span>Copy: ${d.openPositions} pos</span>
     <span style="color:rgba(0,255,163,0.5)">5m: ${d.btc5mOpen} pos</span>
+    <span style="color:rgba(245,158,11,0.7)">Arb: ${d.arb.openLegs} piernas</span>
   </div>
 </footer>
 
@@ -1111,10 +1301,13 @@ ${(() => {
     });
   }
 
-  initSortableTable('tbl-pos',      'badge-pos');
-  initSortableTable('tbl-wallets',  'badge-wallets');
-  initSortableTable('tbl-btc5m',    'badge-btc5m');
-  initSortableTable('tbl-tradelog', 'badge-tradelog');
+  initSortableTable('tbl-pos',       'badge-pos');
+  initSortableTable('tbl-wallets',   'badge-wallets');
+  initSortableTable('tbl-btc5m',     'badge-btc5m');
+  initSortableTable('tbl-tradelog',  'badge-tradelog');
+  initSortableTable('tbl-arb-opps',  'badge-arb-opps');
+  initSortableTable('tbl-arb-trades','badge-arb-trades');
+  initSortableTable('tbl-arb-hist',  'badge-arb-hist');
 </script>
 </body>
 </html>`;
@@ -1223,6 +1416,46 @@ async function main() {
     )
   `)[0];
 
+  // ── Arbitrage data ──────────────────────────────────────────────────────────
+  const arbOpps = all(db,
+    `SELECT ao.*, ag.strategy as grp_strategy
+     FROM arb_opportunities ao
+     LEFT JOIN arb_groups ag ON ao.group_id = ag.id
+     ORDER BY ao.detected_at DESC
+     LIMIT 200`
+  );
+
+  const arbActiveTrades = all(db,
+    `SELECT at.*, ao.strategy
+     FROM arb_trades at
+     JOIN arb_opportunities ao ON at.opportunity_id = ao.id
+     WHERE at.status = 'open'
+     ORDER BY at.opened_at DESC`
+  );
+
+  const arbClosedTrades = all(db,
+    `SELECT at.*, ao.strategy
+     FROM arb_trades at
+     JOIN arb_opportunities ao ON at.opportunity_id = ao.id
+     WHERE at.status = 'closed'
+     ORDER BY at.closed_at DESC
+     LIMIT 200`
+  );
+
+  const arbStats = all(db,
+    `SELECT
+       SUM(CASE WHEN status = 'open'   THEN 1 ELSE 0 END) as open_legs,
+       SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_legs,
+       SUM(CASE WHEN status = 'closed' AND pnl > 0 THEN 1 ELSE 0 END) as wins,
+       SUM(COALESCE(pnl, 0)) as pnl_realized
+     FROM arb_trades`
+  )[0] ?? { open_legs: 0, closed_legs: 0, wins: 0, pnl_realized: 0 };
+
+  const arbOpenOpps = all(db,
+    `SELECT COUNT(*) as n, AVG(expected_profit) as avg_profit
+     FROM arb_opportunities WHERE status = 'open'`
+  )[0] ?? { n: 0, avg_profit: null };
+
   const data = {
     now, bankroll, pnlTotal, pnlDay, portfolio, globalOpen,
     winRate:        winRateRow?.win_rate ?? null,
@@ -1242,6 +1475,17 @@ async function main() {
       totalOps:      histRow.total_ops      ?? 0,
       openOps:       histRow.open_ops       ?? 0,
       closedOps:     histRow.closed_ops     ?? 0,
+    },
+    arb: {
+      opportunities:       arbOpps,
+      activeTrades:        arbActiveTrades,
+      closedTrades:        arbClosedTrades,
+      openOpportunities:   arbOpenOpps.n ?? 0,
+      openLegs:            arbStats.open_legs   ?? 0,
+      closedLegs:          arbStats.closed_legs ?? 0,
+      pnlRealized:         arbStats.pnl_realized ?? 0,
+      avgExpectedProfit:   arbOpenOpps.avg_profit ?? null,
+      winRate:             arbStats.closed_legs > 0 ? (arbStats.wins / arbStats.closed_legs) : null,
     },
   };
 

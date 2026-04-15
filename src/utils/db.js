@@ -109,6 +109,48 @@ export async function getDb() {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS arb_groups (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_key   TEXT NOT NULL,
+      strategy    TEXT NOT NULL,
+      market_ids  TEXT NOT NULL,
+      detected_at INTEGER NOT NULL,
+      resolved_at INTEGER,
+      UNIQUE(group_key, strategy)
+    );
+
+    CREATE TABLE IF NOT EXISTS arb_opportunities (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id        INTEGER REFERENCES arb_groups(id),
+      strategy        TEXT NOT NULL,
+      description     TEXT NOT NULL,
+      expected_profit REAL NOT NULL,
+      confidence      REAL NOT NULL,
+      legs            TEXT NOT NULL,
+      status          TEXT NOT NULL DEFAULT 'open',
+      detected_at     INTEGER NOT NULL,
+      expires_at      INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS arb_trades (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      opportunity_id  INTEGER REFERENCES arb_opportunities(id),
+      leg_index       INTEGER NOT NULL,
+      market_id       TEXT NOT NULL,
+      outcome         TEXT NOT NULL,
+      side            TEXT NOT NULL,
+      price           REAL NOT NULL,
+      size_usdc       REAL NOT NULL,
+      fee             REAL NOT NULL DEFAULT 0,
+      slippage        REAL NOT NULL DEFAULT 0,
+      status          TEXT NOT NULL DEFAULT 'open',
+      pnl             REAL,
+      opened_at       INTEGER NOT NULL,
+      closed_at       INTEGER
+    );
+  `);
+
   // Migrate existing DBs that predate new columns
   try { db.exec('ALTER TABLE positions ADD COLUMN slug TEXT'); } catch (_) {}
   try { db.exec('ALTER TABLE trades ADD COLUMN pnl REAL'); } catch (_) {}

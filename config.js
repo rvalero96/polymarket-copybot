@@ -26,4 +26,24 @@ export const CONFIG = {
   },
   STATE_BRANCH: 'paper-state',
   DB_PATH: 'data/state.db',
+  ARB: {
+    // Minimum expected profit (after fees) to trade an opportunity
+    MIN_PROFIT_PCT: 0.02,
+    // Minimum confidence score (0-1) to trade
+    MIN_CONFIDENCE: 0.75,
+    // Minimum liquidity (USDC) required on each leg
+    MIN_LEG_LIQUIDITY: 500,
+    // Maximum simultaneous open arbitrage positions
+    MAX_OPEN_POSITIONS: 5,
+    // Size per leg as fraction of bankroll
+    POSITION_SIZE_PCT: 0.03,
+    // How many active markets to scan per run
+    SCAN_LIMIT: 500,
+    // Minimum price spread below 1.0 to flag a basket opportunity
+    BASKET_UNDERPRICED_THRESHOLD: 0.96,
+    // Max price spread above 1.0 to flag overpriced basket
+    BASKET_OVERPRICED_THRESHOLD: 1.06,
+    // Minimum spread compression below 1.0 to flag binary spread anomaly
+    SPREAD_ANOMALY_THRESHOLD: 0.97,
+  },
 };
