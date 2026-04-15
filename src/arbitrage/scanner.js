@@ -1,13 +1,13 @@
 // Arbitrage scanner — detects price inconsistencies across logically related markets
-// Strategies implemented:
+// Strategies:
 //   monotonicity  — higher threshold must have ≤ probability than lower threshold
 //   basket        — sum of all outcomes in a categorical market must equal ~1.0
 //   spread        — YES + NO on a binary market should not compress below threshold
 
-import { getActiveMarkets, getMidpointPrice } from '../services/polymarket/api.js';
-import { getDb, all, run } from '../utils/db.js';
-import { logger } from '../utils/logger.js';
-import { CONFIG } from '../../config.js';
+import { getActiveMarkets } from '../services/polymarket/api.js';
+import { getDb, all, run }  from '../utils/db.js';
+import { logger }           from '../utils/logger.js';
+import { CONFIG }           from '../../config.js';
 
 const { FEE_PCT, SLIPPAGE_PCT, ARB } = CONFIG;
 const ROUND_TRIP_COST = (FEE_PCT + SLIPPAGE_PCT) * 2; // two legs
@@ -28,27 +28,35 @@ async function fetchMarkets() {
     offset += pageSize;
   }
 
-  // Only keep markets with sufficient liquidity and valid token info
+  // Only keep markets with price data and sufficient liquidity
+  // The Gamma API bulk response uses outcomePrices / clobTokenIds (JSON strings),
+  // NOT a `tokens` array — that field only exists on individual market fetches.
   return markets.filter(m =>
     m.active &&
     !m.closed &&
-    Array.isArray(m.tokens) && m.tokens.length >= 2 &&
-    (parseFloat(m.liquidity ?? 0) >= ARB.MIN_LEG_LIQUIDITY)
+    (m.outcomePrices || m.clobTokenIds) &&
+    parseFloat(m.liquidity ?? 0) >= ARB.MIN_LEG_LIQUIDITY
   );
 }
 
-// ── Price fetching ────────────────────────────────────────────────────────────
+// ── Price extraction ──────────────────────────────────────────────────────────
+// The Gamma API bulk response encodes prices as a JSON string array in outcomePrices
+// and outcome names as a JSON string array in outcomes.
+// e.g. outcomePrices = '["0.72","0.28"]', outcomes = '["Yes","No"]'
 
-async function fetchPrices(market) {
-  const prices = {};
-  for (const token of market.tokens) {
-    try {
-      prices[token.outcome] = await getMidpointPrice(token.token_id);
-    } catch (_) {
-      prices[token.outcome] = null;
-    }
-  }
-  return prices;
+function extractPrices(market) {
+  const rawOutcomes = market.outcomes      ?? '["Yes","No"]';
+  const rawPrices   = market.outcomePrices ?? '[]';
+
+  const outcomes = typeof rawOutcomes === 'string' ? JSON.parse(rawOutcomes) : rawOutcomes;
+  const prices   = typeof rawPrices   === 'string' ? JSON.parse(rawPrices)   : rawPrices;
+
+  const result = {};
+  outcomes.forEach((outcome, i) => {
+    const p = prices[i] != null ? parseFloat(prices[i]) : null;
+    result[outcome] = (p !== null && !isNaN(p) && p > 0) ? p : null;
+  });
+  return result;
 }
 
 // ── Grouping helpers ──────────────────────────────────────────────────────────
@@ -56,16 +64,15 @@ async function fetchPrices(market) {
 // Extract a numeric threshold from a market question, e.g.:
 //   "Will BTC close above $82,000?"  →  82000
 //   "Will ETH be above 3,500 USDC?"  →  3500
-//   "Will SOL reach $200?"            →  200
 function extractThreshold(question) {
   if (!question) return null;
-  const m = question.match(/\$?([\d,]+(?:\.\d+)?)\s*[kKmMbB]?\b/g);
-  if (!m) return null;
-  for (const raw of m) {
+  const matches = question.match(/\$?([\d,]+(?:\.\d+)?)\s*[kKmMbB]?\b/g);
+  if (!matches) return null;
+  for (const raw of matches) {
     const clean = raw.replace(/[$,]/g, '').trim().toLowerCase();
     const mult  = clean.endsWith('k') ? 1e3 : clean.endsWith('m') ? 1e6 : clean.endsWith('b') ? 1e9 : 1;
     const val   = parseFloat(clean) * mult;
-    if (val >= 100) return val; // ignore tiny numbers like years-in-slug
+    if (val >= 100) return val; // ignore tiny numbers like days-of-month
   }
   return null;
 }
@@ -82,27 +89,20 @@ function questionTemplate(question) {
     .trim();
 }
 
-// Derive a stable group key from the slug by stripping trailing timestamps/thresholds
-function slugPrefix(slug) {
-  if (!slug) return null;
-  return slug
-    .replace(/-\d{10,}$/, '')   // Unix timestamp suffix
-    .replace(/-[\d]+$/, '')     // generic trailing number
-    .toLowerCase();
-}
-
 // ── Strategy: monotonicity ─────────────────────────────────────────────────────
 // For a list of related binary markets sorted by ascending threshold:
 //   P(YES | threshold_low) ≥ P(YES | threshold_high)
-// A violation (price_high > price_low) creates a guaranteed profit by buying:
-//   YES on lower threshold  +  NO on higher threshold
-// Min profit = price(YES_high) - price(YES_low) - round_trip_cost
+//
+// A violation (price_high > price_low) creates a guaranteed arbitrage:
+//   Buy YES_low  +  Buy NO_high
+//   Cost  = price(YES_low) + (1 − price(YES_high))  < 1.0  (always when violation > 0)
+//   Return = 1.0 in ALL three scenarios (BTC > high, between, or < low)
+//   Profit = 1 − cost − round_trip_fees
 
 function detectMonotonicity(group) {
   if (group.length < 2) return [];
 
-  // Sort ascending by threshold
-  const sorted = [...group].sort((a, b) => a.threshold - b.threshold);
+  const sorted       = [...group].sort((a, b) => a.threshold - b.threshold);
   const opportunities = [];
 
   for (let i = 0; i < sorted.length - 1; i++) {
@@ -110,31 +110,28 @@ function detectMonotonicity(group) {
       const low  = sorted[i]; // smaller threshold → should have HIGHER YES price
       const high = sorted[j]; // larger  threshold → should have LOWER  YES price
 
-      const yesLow  = low.prices['Yes']  ?? low.prices['UP']  ?? null;
-      const yesHigh = high.prices['Yes'] ?? high.prices['UP'] ?? null;
+      const yesLow  = low.prices['Yes']  ?? low.prices['YES']  ?? null;
+      const yesHigh = high.prices['Yes'] ?? high.prices['YES'] ?? null;
       if (yesLow === null || yesHigh === null) continue;
+      if (yesLow <= 0 || yesHigh <= 0) continue;
 
       const violation = yesHigh - yesLow; // positive = mispricing
       if (violation <= 0) continue;
 
-      // Guaranteed arb: buy YES_low + buy NO_high
-      // Cost  = yesLow + (1 - yesHigh)
-      // Return = 1 in all scenarios (proof in plan doc)
       const cost           = yesLow + (1 - yesHigh);
-      const grossProfit    = 1 - cost;                       // always positive when violation > 0
+      const grossProfit    = 1 - cost;
       const expectedProfit = grossProfit - ROUND_TRIP_COST;
       if (expectedProfit <= 0) continue;
 
-      const confidence = Math.min(
-        1,
-        (violation / 0.15) * 0.5 +                          // size of violation
-        (Math.min(low.liquidity, high.liquidity) / 5000) * 0.3 + // liquidity weight
-        (violation > 0.05 ? 0.2 : 0)                        // bonus for large gaps
+      const confidence = Math.min(1,
+        (violation / 0.15) * 0.5 +
+        (Math.min(low.liquidity, high.liquidity) / 5000) * 0.3 +
+        (violation > 0.05 ? 0.2 : 0)
       );
 
       opportunities.push({
-        strategy: 'monotonicity',
-        description: `YES@${low.threshold} (${(yesLow * 100).toFixed(1)}%) + NO@${high.threshold} (${((1 - yesHigh) * 100).toFixed(1)}%) — violation +${(violation * 100).toFixed(1)}%`,
+        strategy:        'monotonicity',
+        description:     `YES@${low.threshold} (${(yesLow * 100).toFixed(1)}%) + NO@${high.threshold} (${((1 - yesHigh) * 100).toFixed(1)}%) — violación +${(violation * 100).toFixed(1)}%`,
         expected_profit: expectedProfit,
         confidence,
         legs: [
@@ -154,58 +151,50 @@ function detectMonotonicity(group) {
 // If sum < BASKET_UNDERPRICED_THRESHOLD: buy all outcomes for guaranteed profit
 
 function detectBasket(market) {
-  if (!market.tokens || market.tokens.length < 3) return null;
-  const prices = market.prices;
+  const outcomes = Object.keys(market.prices);
+  if (outcomes.length < 3) return null;
 
-  const validPrices = market.tokens
-    .map(t => prices[t.outcome])
-    .filter(p => p !== null && p > 0);
-
-  if (validPrices.length !== market.tokens.length) return null;
+  const validPrices = outcomes.map(o => market.prices[o]).filter(p => p !== null && p > 0);
+  if (validPrices.length !== outcomes.length) return null;
 
   const sum = validPrices.reduce((a, b) => a + b, 0);
+  if (sum >= ARB.BASKET_UNDERPRICED_THRESHOLD) return null;
 
-  if (sum < ARB.BASKET_UNDERPRICED_THRESHOLD) {
-    const grossProfit    = 1 - sum;
-    const legs           = market.tokens.map(t => ({
-      market_id: market.conditionId, outcome: t.outcome, side: 'buy', price: prices[t.outcome],
-    }));
-    const totalFees      = ROUND_TRIP_COST * legs.length;
-    const expectedProfit = grossProfit - totalFees;
-    if (expectedProfit <= 0) return null;
+  const grossProfit    = 1 - sum;
+  const legs           = outcomes.map(o => ({
+    market_id: market.conditionId, outcome: o, side: 'buy', price: market.prices[o],
+  }));
+  const expectedProfit = grossProfit - ROUND_TRIP_COST * legs.length;
+  if (expectedProfit <= 0) return null;
 
-    const confidence = Math.min(1, (grossProfit / 0.10) * 0.6 + (market.liquidity / 10000) * 0.4);
+  const confidence = Math.min(1, (grossProfit / 0.10) * 0.6 + (market.liquidity / 10000) * 0.4);
 
-    return {
-      strategy:        'basket',
-      description:     `Multi-outcome sum=${sum.toFixed(3)} (${market.question?.slice(0, 60) ?? market.conditionId})`,
-      expected_profit: expectedProfit,
-      confidence,
-      legs,
-      market_ids: [market.conditionId],
-    };
-  }
-
-  return null;
+  return {
+    strategy:        'basket',
+    description:     `Multi-resultado suma=${sum.toFixed(3)} — ${(market.question ?? '').slice(0, 60)}`,
+    expected_profit: expectedProfit,
+    confidence,
+    legs,
+    market_ids: [market.conditionId],
+  };
 }
 
 // ── Strategy: spread anomaly ──────────────────────────────────────────────────
-// Binary YES + NO should sum to ≈ 1.0 (the platform charges the spread above 1.0)
-// If sum < SPREAD_ANOMALY_THRESHOLD it may indicate stale/mispriced quotes
+// Binary YES + NO should sum to ≈ 1.0; if sum drops below threshold it means
+// both sides are cheap — buy both for a guaranteed return of 1.0
 
 function detectSpread(market) {
-  if (!market.tokens || market.tokens.length !== 2) return null;
-  const prices = market.prices;
+  const outcomes = Object.keys(market.prices);
+  if (outcomes.length !== 2) return null;
 
-  const yesPrice = prices['Yes'] ?? null;
-  const noPrice  = prices['No']  ?? null;
-  if (yesPrice === null || noPrice === null) return null;
-  if (yesPrice <= 0 || noPrice <= 0) return null;
+  const [oA, oB]  = outcomes;
+  const pA        = market.prices[oA];
+  const pB        = market.prices[oB];
+  if (pA === null || pB === null || pA <= 0 || pB <= 0) return null;
 
-  const sum = yesPrice + noPrice;
+  const sum = pA + pB;
   if (sum >= ARB.SPREAD_ANOMALY_THRESHOLD) return null;
 
-  // Buy both: pay sum, guaranteed return 1.0
   const grossProfit    = 1 - sum;
   const expectedProfit = grossProfit - ROUND_TRIP_COST * 2;
   if (expectedProfit <= 0) return null;
@@ -214,12 +203,12 @@ function detectSpread(market) {
 
   return {
     strategy:        'spread',
-    description:     `YES(${(yesPrice * 100).toFixed(1)}%) + NO(${(noPrice * 100).toFixed(1)}%) = ${(sum * 100).toFixed(1)}% — sum anomaly`,
+    description:     `${oA}(${(pA * 100).toFixed(1)}%) + ${oB}(${(pB * 100).toFixed(1)}%) = ${(sum * 100).toFixed(1)}% — suma anómala`,
     expected_profit: expectedProfit,
     confidence,
     legs: [
-      { market_id: market.conditionId, outcome: 'Yes', side: 'buy', price: yesPrice },
-      { market_id: market.conditionId, outcome: 'No',  side: 'buy', price: noPrice  },
+      { market_id: market.conditionId, outcome: oA, side: 'buy', price: pA },
+      { market_id: market.conditionId, outcome: oB, side: 'buy', price: pB },
     ],
     market_ids: [market.conditionId],
   };
@@ -228,10 +217,9 @@ function detectSpread(market) {
 // ── Persist results ───────────────────────────────────────────────────────────
 
 function saveOpportunity(db, opp) {
-  const now     = Date.now();
+  const now      = Date.now();
   const groupKey = opp.market_ids.sort().join('|');
 
-  // Upsert group
   run(db,
     `INSERT INTO arb_groups (group_key, strategy, market_ids, detected_at)
      VALUES (?, ?, ?, ?)
@@ -241,9 +229,12 @@ function saveOpportunity(db, opp) {
        resolved_at = NULL`,
     [groupKey, opp.strategy, JSON.stringify(opp.market_ids), now]
   );
-  const group = all(db, `SELECT id FROM arb_groups WHERE group_key = ? AND strategy = ?`, [groupKey, opp.strategy])[0];
 
-  // Insert new opportunity (one per scan run for this group)
+  const group = all(db,
+    `SELECT id FROM arb_groups WHERE group_key = ? AND strategy = ?`,
+    [groupKey, opp.strategy]
+  )[0];
+
   run(db,
     `INSERT INTO arb_opportunities
        (group_id, strategy, description, expected_profit, confidence, legs, detected_at)
@@ -260,8 +251,11 @@ export async function scan() {
   const db = await getDb();
 
   // Expire open opportunities older than 2 hours
-  run(db, `UPDATE arb_opportunities SET status = 'expired'
-           WHERE status = 'open' AND detected_at < ?`, [Date.now() - 2 * 3600 * 1000]);
+  run(db,
+    `UPDATE arb_opportunities SET status = 'expired'
+     WHERE status = 'open' AND detected_at < ?`,
+    [Date.now() - 2 * 3600 * 1000]
+  );
 
   const markets = await fetchMarkets();
   logger.info('arb:scan:markets', { count: markets.length });
@@ -271,21 +265,19 @@ export async function scan() {
     return [];
   }
 
-  // Fetch prices for every market (parallel batches of 10)
-  const enriched = [];
-  for (let i = 0; i < markets.length; i += 10) {
-    const batch = markets.slice(i, i + 10);
-    await Promise.all(batch.map(async m => {
-      m.prices    = await fetchPrices(m);
-      m.liquidity = parseFloat(m.liquidity ?? 0);
-      enriched.push(m);
-    }));
-  }
+  // Extract prices from the already-included outcomePrices field (no extra API calls)
+  const enriched = markets.map(m => ({
+    ...m,
+    prices:    extractPrices(m),
+    liquidity: parseFloat(m.liquidity ?? 0),
+    threshold: extractThreshold(m.question),
+  }));
+
+  logger.info('arb:scan:enriched', { count: enriched.length });
 
   // ── Group markets by question template for monotonicity ──────────────────
   const templateGroups = new Map();
   for (const m of enriched) {
-    m.threshold = extractThreshold(m.question);
     if (m.threshold === null) continue;
     const tmpl = questionTemplate(m.question);
     if (!tmpl) continue;
@@ -295,29 +287,27 @@ export async function scan() {
 
   const opportunities = [];
 
-  // Run monotonicity strategy on each group
-  for (const [tmpl, group] of templateGroups) {
+  for (const [, group] of templateGroups) {
     if (group.length < 2) continue;
     const opps = detectMonotonicity(group);
     for (const opp of opps) {
-      logger.info('arb:scan:opportunity', { strategy: opp.strategy, profit: opp.expected_profit, description: opp.description });
+      logger.info('arb:opportunity', { strategy: opp.strategy, profit: opp.expected_profit.toFixed(4), desc: opp.description });
       saveOpportunity(db, opp);
       opportunities.push(opp);
     }
   }
 
-  // Run basket + spread strategies on individual markets
   for (const m of enriched) {
     const basket = detectBasket(m);
     if (basket) {
-      logger.info('arb:scan:opportunity', { strategy: basket.strategy, profit: basket.expected_profit });
+      logger.info('arb:opportunity', { strategy: basket.strategy, profit: basket.expected_profit.toFixed(4) });
       saveOpportunity(db, basket);
       opportunities.push(basket);
     }
 
     const spread = detectSpread(m);
     if (spread) {
-      logger.info('arb:scan:opportunity', { strategy: spread.strategy, profit: spread.expected_profit });
+      logger.info('arb:opportunity', { strategy: spread.strategy, profit: spread.expected_profit.toFixed(4) });
       saveOpportunity(db, spread);
       opportunities.push(spread);
     }

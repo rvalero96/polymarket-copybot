@@ -2,9 +2,9 @@
 // Both legs of each opportunity are opened atomically.
 // Settlement: when a market resolves, closed_at is stamped and PnL is recorded.
 
-import { scan }             from './scanner.js';
-import { getMidpointPrice } from '../services/polymarket/api.js';
-import { getDb, all, run }  from '../utils/db.js';
+import { scan }                           from './scanner.js';
+import { getMidpointPrice, getMarket }    from '../services/polymarket/api.js';
+import { getDb, all, run }               from '../utils/db.js';
 import { logger }           from '../utils/logger.js';
 import { CONFIG }           from '../../config.js';
 
@@ -49,16 +49,30 @@ async function settleOpenTrades(db) {
 
   for (const trade of openTrades) {
     try {
-      // Check current market price — if it hits 0.98+ or 0.02- it has effectively resolved
-      const currentPrice = await getMidpointPrice(trade.market_id);
+      const market = await getMarket(trade.market_id);
 
       let resolved  = false;
       let exitPrice = null;
 
-      if (currentPrice >= 0.98) { resolved = true; exitPrice = 1.0; }  // outcome won
-      if (currentPrice <= 0.02) { resolved = true; exitPrice = 0.0; }  // outcome lost
+      if (market && (market.closed || !market.active)) {
+        // Market has resolved — read final outcome prices
+        const rawPrices = market.outcomePrices ?? '[]';
+        const rawOutcomes = market.outcomes ?? '["Yes","No"]';
+        const prices   = typeof rawPrices   === 'string' ? JSON.parse(rawPrices)   : rawPrices;
+        const outcomes = typeof rawOutcomes === 'string' ? JSON.parse(rawOutcomes) : rawOutcomes;
+        const idx      = outcomes.indexOf(trade.outcome);
+        exitPrice      = idx >= 0 && prices[idx] != null ? parseFloat(prices[idx]) : null;
+        if (exitPrice !== null) resolved = true;
+      } else {
+        // Market still active — check CLOB midpoint for near-resolution pricing
+        try {
+          const mid = await getMidpointPrice(trade.market_id);
+          if (mid >= 0.98) { resolved = true; exitPrice = 1.0; }
+          if (mid <= 0.02) { resolved = true; exitPrice = 0.0; }
+        } catch (_) {}
+      }
 
-      if (!resolved) continue;
+      if (!resolved || exitPrice === null) continue;
 
       const fee  = trade.size_usdc * FEE_PCT;
       const pnl  = trade.size_usdc * (exitPrice - trade.price) / trade.price - fee;
