@@ -28,6 +28,22 @@ const ts      = ms => {
   });
 };
 
+// Humanizes a btc5m market slug like "eth-updown-5m-1744533000"
+// into "Ethereum Up or Down - April 13, 1:30AM-1:35AM ET"
+const ASSET_NAMES = { btc: 'Bitcoin', eth: 'Ethereum', sol: 'Solana', xrp: 'XRP' };
+const slugLabel = slug => {
+  const m = slug.match(/^(btc|eth|sol|xrp)-updown-5m-(\d{9,10})$/i);
+  if (!m) return slug.replace(/-\d{9,}$/, '').replace(/-/g, ' ');
+  const asset  = ASSET_NAMES[m[1].toLowerCase()] ?? m[1].toUpperCase();
+  const tsMs   = parseInt(m[2]) * 1000;
+  const start  = new Date(tsMs);
+  const end    = new Date(tsMs + 5 * 60 * 1000);
+  const fmtDate = d => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/New_York' });
+  const fmtTime = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
+    .replace(' AM', 'AM').replace(' PM', 'PM');
+  return `${asset} Up or Down - ${fmtDate(start)}, ${fmtTime(start)}-${fmtTime(end)} ET`;
+};
+
 const ASSET_LOGO = {
   BTC: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
   ETH: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
@@ -37,6 +53,40 @@ const ASSET_LOGO = {
 const assetCell = name => name
   ? `<span class="asset-cell"><img class="asset-logo" src="${ASSET_LOGO[name] ?? ''}" alt="${name}" onerror="this.style.display='none'"><span>${name}</span></span>`
   : '—';
+
+const outcomeBadge = o => {
+  if (o === 'Yes' || o === 'UP')   return `<span class="badge-yes">${o}</span>`;
+  if (o === 'No'  || o === 'DOWN') return `<span class="badge-no">${o}</span>`;
+  return `<span class="badge-option">${o}</span>`;
+};
+
+// Highlights the distinguishing entity within a market title.
+// Only applied when isMulti=true (market_slug !== event slug → sub-market of a multi-option event).
+// Extraction order:
+//   1. Non-standard outcome stored in DB (e.g. "Bitcoin" for token-based markets)
+//   2. Date expression after "by" or "before" (e.g. "December 31, 2026")
+//   3. Capitalized proper-noun subject after "Will [the]" (teams, people, assets)
+const SIMPLE_OUTCOMES = new Set(['Yes', 'No', 'UP', 'DOWN']);
+const highlightEntity = (title, outcome, isMulti) => {
+  if (!title || !isMulti) return title;
+  let entity = null;
+  let m;
+  if (outcome && !SIMPLE_OUTCOMES.has(outcome)) {
+    entity = outcome;
+  } else {
+    // Date after "by" or "before": e.g. "by December 31, 2026"
+    m = title.match(/\b(?:by|before)\s+([A-Z][a-z]+ \d+(?:,\s*\d{4})?|\d{4})/);
+    if (m) entity = m[1];
+  }
+  if (!entity) {
+    // Capitalized proper-noun subject after "Will [the ]"
+    m = title.match(/^Will (?:the )?([A-Z][A-Za-z0-9.']*(?:\s+[A-Z][A-Za-z0-9.']*)*)/);
+    if (m) entity = m[1];
+  }
+  if (!entity) return title;
+  const escaped = entity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return title.replace(new RegExp(escaped, 'i'), match => `<span class="outcome-entity">${match}</span>`);
+};
 
 // stat card with tooltip and optional border-color override
 const statCard = (label, value, colorClass = '', tip = '', borderClass = '') => `
@@ -49,17 +99,19 @@ const statCard = (label, value, colorClass = '', tip = '', borderClass = '') => 
 // ── Tables ────────────────────────────────────────────────────────────────────
 
 function positionsTable(positions) {
+  const isMulti  = p => !!(p.market_slug && p.slug && p.market_slug !== p.slug);
+  const posLabel  = p => p.title ? highlightEntity(p.title, p.outcome, isMulti(p)) : `<code>${addr(p.market_id)}</code>`;
   const rows = positions.length
     ? positions.map(p => `
       <tr>
         <td>${p.slug
-          ? `<a href="https://polymarket.com/event/${p.slug}" target="_blank" rel="noopener"><code>${addr(p.market_id)}</code></a>`
-          : `<code>${addr(p.market_id)}</code>`
+          ? `<a href="https://polymarket.com/event/${p.slug}" target="_blank" rel="noopener">${posLabel(p)}</a>`
+          : posLabel(p)
         }</td>
-        <td><span class="${p.outcome === 'Yes' ? 'badge-yes' : 'badge-no'}">${p.outcome}</span></td>
+        <td>${outcomeBadge(p.outcome)}</td>
         <td class="num">${p.avg_price?.toFixed(3) ?? '—'}</td>
         <td class="num">${money(p.size_usdc)}</td>
-        <td><a href="https://polymarket.com/profile/${p.wallet}" target="_blank" rel="noopener"><code>${addr(p.wallet)}</code></a></td>
+        <td><a href="https://polymarket.com/profile/${p.wallet}" target="_blank" rel="noopener">${p.wallet_name ? p.wallet_name : `<code>${p.wallet}</code>`}</a></td>
         <td>${ts(p.opened_at)}</td>
       </tr>`).join('')
     : `<tr><td colspan="6" class="empty">No hay posiciones abiertas</td></tr>`;
@@ -88,7 +140,7 @@ function walletsTable(wallets) {
     ? wallets.map((w, i) => `
       <tr>
         <td>${i + 1}</td>
-        <td><a href="https://polymarket.com/profile/${w.address}" target="_blank" rel="noopener"><code>${addr(w.address)}</code></a></td>
+        <td><a href="https://polymarket.com/profile/${w.address}" target="_blank" rel="noopener">${w.name ? w.name : `<code>${w.address}</code>`}</a></td>
         <td class="num">${w.score?.toFixed(3) ?? '—'}</td>
         <td>${pct(w.win_rate)}</td>
         <td class="${cls(w.roi)}">${pct(w.roi)}</td>
@@ -126,9 +178,13 @@ function tradeLogTable(trades) {
     ? `<span class="tl-badge tl-copy">Copy</span>`
     : `<span class="tl-badge tl-5m">5m · ${t.asset ?? ''}</span>`;
 
+  const isMulti     = t => !!(t.market_slug && t.slug && t.market_slug !== t.slug);
+  const mercadoText = t => t.title
+    ? highlightEntity(t.title, t.outcome, isMulti(t))
+    : (t.slug ? slugLabel(t.slug) : `<code>${addr(t.market_id)}</code>`);
   const mercadoLink = t => t.slug
-    ? `<a href="https://polymarket.com/event/${t.slug}" target="_blank" rel="noopener"><code>${addr(t.market_id)}</code></a>`
-    : `<code>${addr(t.market_id)}</code>`;
+    ? `<a href="https://polymarket.com/event/${t.slug}" target="_blank" rel="noopener">${mercadoText(t)}</a>`
+    : mercadoText(t);
 
   const rows = trades.length
     ? trades.map(t => `
@@ -137,7 +193,7 @@ function tradeLogTable(trades) {
         <td>${stratBadge(t)}</td>
         <td>${mercadoLink(t)}</td>
         <td>${assetCell(t.asset)}</td>
-        <td><span class="${t.outcome === 'Yes' || t.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${t.outcome}</span></td>
+        <td>${outcomeBadge(t.outcome)}</td>
         <td class="num">${money(t.size_usdc)}</td>
         <td class="num neg">${money(t.cost)}</td>
         <td>${statusBadge(t)}</td>
@@ -168,15 +224,16 @@ function tradeLogTable(trades) {
 }
 
 function btc5mTable(positions) {
+  const posLabel  = p => p.title ?? (p.slug ? slugLabel(p.slug) : `<code>${addr(p.market_id)}</code>`);
   const rows = positions.length
     ? positions.map(p => `
       <tr>
         <td>${assetCell(p.asset)}</td>
         <td>${p.slug
-          ? `<a href="https://polymarket.com/event/${p.slug}" target="_blank" rel="noopener"><code>${addr(p.market_id)}</code></a>`
-          : `<code>${addr(p.market_id)}</code>`
+          ? `<a href="https://polymarket.com/event/${p.slug}" target="_blank" rel="noopener">${posLabel(p)}</a>`
+          : posLabel(p)
         }</td>
-        <td><span class="${p.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${p.outcome}</span></td>
+        <td>${outcomeBadge(p.outcome)}</td>
         <td class="num">${p.entry_price?.toFixed(4) ?? '—'}</td>
         <td class="num">${money(p.size_usdc)}</td>
         <td>${ts(p.opened_at)}</td>
@@ -572,8 +629,10 @@ function render(d) {
     }
     .table-panel td a:hover code { color: var(--primary); text-decoration-color: rgba(0,255,163,0.5); }
     .num { font-family: 'SF Mono','Fira Code',monospace; font-size: 0.73rem; }
-    .badge-yes { color: var(--primary); font-family: monospace; font-weight: 700; font-size: 0.68rem; letter-spacing: 0.05em; }
-    .badge-no  { color: var(--tertiary); font-family: monospace; font-weight: 700; font-size: 0.68rem; letter-spacing: 0.05em; }
+    .badge-yes    { color: var(--primary); font-family: monospace; font-weight: 700; font-size: 0.68rem; letter-spacing: 0.05em; }
+    .badge-no     { color: var(--tertiary); font-family: monospace; font-weight: 700; font-size: 0.68rem; letter-spacing: 0.05em; }
+    .badge-option { color: #818cf8; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.72rem; }
+    .outcome-entity { color: #818cf8; font-weight: 700; }
     .pos { color: var(--primary); }
     .neg { color: var(--tertiary); }
     .empty { text-align: center; padding: 1.5rem; color: var(--muted); font-style: italic; }
@@ -1322,7 +1381,7 @@ async function main() {
   });
 
   const snapshots  = all(db, `SELECT date, bankroll, pnl_day FROM snapshots ORDER BY date ASC`);
-  const positions  = all(db, `SELECT * FROM positions ORDER BY opened_at DESC`);
+  const positions  = all(db, `SELECT p.*, w.name AS wallet_name FROM positions p LEFT JOIN wallets w ON p.wallet = w.address ORDER BY p.opened_at DESC`);
   const wallets    = all(db, `SELECT * FROM wallets WHERE active = 1 ORDER BY score DESC`);
   const btc5mPos   = all(db, `SELECT * FROM btc5m_positions ORDER BY opened_at DESC`);
 
@@ -1369,10 +1428,12 @@ async function main() {
       t.fee + t.slippage AS cost,
       t.status,
       t.pnl,
-      p.slug,
-      NULL               AS asset
+      p.slug                            AS slug,
+      COALESCE(t.title, p.title)        AS title,
+      COALESCE(t.market_slug, p.market_slug) AS market_slug,
+      NULL                              AS asset
     FROM trades t
-    LEFT JOIN (SELECT DISTINCT market_id, slug FROM positions WHERE slug IS NOT NULL) p
+    LEFT JOIN (SELECT DISTINCT market_id, slug, title, market_slug FROM positions WHERE slug IS NOT NULL OR title IS NOT NULL) p
            ON t.market_id = p.market_id
     UNION ALL
     SELECT
@@ -1385,6 +1446,8 @@ async function main() {
       bt.status,
       bt.pnl,
       bt.slug,
+      NULL               AS title,
+      NULL               AS market_slug,
       bt.asset
     FROM btc5m_trades bt
     ORDER BY opened_at DESC
