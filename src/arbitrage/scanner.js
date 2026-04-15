@@ -4,7 +4,7 @@
 //   basket        — sum of all outcomes in a categorical market must equal ~1.0
 //   spread        — YES + NO on a binary market should not compress below threshold
 
-import { getActiveMarkets } from '../services/polymarket/api.js';
+import { getActiveMarkets, getMidpointPrice } from '../services/polymarket/api.js';
 import { getDb, all, run }  from '../utils/db.js';
 import { logger }           from '../utils/logger.js';
 import { CONFIG }           from '../../config.js';
@@ -77,16 +77,27 @@ function extractThreshold(question) {
   return null;
 }
 
-// Normalise a question to a "template" by replacing the threshold number with a placeholder.
+// Normalise a question to a "template" by replacing ALL numbers with a placeholder.
 // Two questions with the same template are part of the same monotonicity group.
 function questionTemplate(question) {
   if (!question) return '';
   return question
-    .replace(/\$[\d,]+(?:\.\d+)?(?:\s*[kKmMbB])?/g, '$?') // "$82,000" → "$?"
-    .replace(/\b[\d,]{4,}(?:\.\d+)?\b/g, '?')              // bare large numbers
+    .replace(/\$[\d,]+(?:\.\d+)?(?:\s*[kKmMbB])?/g, '?') // "$82,000" → "?"
+    .replace(/\b[\d,]+(?:\.\d+)?\s*[kKmMbB]?\b/g, '?')   // any remaining number
     .toLowerCase()
-    .replace(/[^a-z0-9?]+/g, ' ')
+    .replace(/[^a-z?]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Strip trailing number/timestamp from a slug to get the base event key.
+// "will-btc-close-above-82000-april-2026" → "will-btc-close-above"
+function slugBase(slug) {
+  if (!slug) return null;
+  return slug
+    .replace(/-\d{10,}$/, '')   // Unix timestamp suffix
+    .replace(/(-\d+)+$/, '')    // one or more trailing number segments
+    .toLowerCase();
 }
 
 // ── Strategy: monotonicity ─────────────────────────────────────────────────────
@@ -273,21 +284,70 @@ export async function scan() {
     threshold: extractThreshold(m.question),
   }));
 
-  logger.info('arb:scan:enriched', { count: enriched.length });
+  // ── Diagnostics ──────────────────────────────────────────────────────────
+  const withThreshold  = enriched.filter(m => m.threshold !== null).length;
+  const binaryMarkets  = enriched.filter(m => Object.keys(m.prices).length === 2);
+  const pricedBinary   = binaryMarkets.filter(m => {
+    const vals = Object.values(m.prices);
+    return vals.every(v => v !== null && v > 0);
+  });
+  const priceSums      = pricedBinary.map(m => Object.values(m.prices).reduce((a, b) => a + b, 0));
+  const minSum         = priceSums.length ? Math.min(...priceSums).toFixed(4) : 'n/a';
+  const maxSum         = priceSums.length ? Math.max(...priceSums).toFixed(4) : 'n/a';
+  const multiOutcome   = enriched.filter(m => Object.keys(m.prices).length >= 3).length;
 
-  // ── Group markets by question template for monotonicity ──────────────────
-  const templateGroups = new Map();
+  logger.info('arb:scan:enriched', {
+    count: enriched.length,
+    with_threshold: withThreshold,
+    binary_priced: pricedBinary.length,
+    multi_outcome: multiOutcome,
+    binary_sum_min: minSum,
+    binary_sum_max: maxSum,
+  });
+
+  // ── Group markets for monotonicity (question template + slug base) ────────
+  // We merge both grouping methods so related markets cluster together even
+  // when question phrasing differs slightly.
+  const monoGroups = new Map();
+
+  function addToGroup(key, market) {
+    if (!key) return;
+    if (!monoGroups.has(key)) monoGroups.set(key, []);
+    monoGroups.get(key).push(market);
+  }
+
   for (const m of enriched) {
     if (m.threshold === null) continue;
+    // Group by normalised question template
     const tmpl = questionTemplate(m.question);
-    if (!tmpl) continue;
-    if (!templateGroups.has(tmpl)) templateGroups.set(tmpl, []);
-    templateGroups.get(tmpl).push(m);
+    if (tmpl) addToGroup(`tmpl:${tmpl}`, m);
+    // Group by slug base (catches cases like "will-btc-close-above-82000-april" vs "...-85000-april")
+    const sb = slugBase(m.slug);
+    if (sb) addToGroup(`slug:${sb}`, m);
   }
+
+  // De-duplicate within each group by conditionId
+  for (const [key, group] of monoGroups) {
+    const seen = new Set();
+    monoGroups.set(key, group.filter(m => {
+      if (seen.has(m.conditionId)) return false;
+      seen.add(m.conditionId);
+      return true;
+    }));
+  }
+
+  const groupsChecked = [...monoGroups.values()].filter(g => g.length >= 2);
+  logger.info('arb:scan:monotonicity_groups', {
+    total_groups: monoGroups.size,
+    groups_with_2plus: groupsChecked.length,
+    samples: groupsChecked.slice(0, 5).map(g =>
+      g.map(m => ({ t: m.threshold, yes: Object.values(m.prices)[0]?.toFixed(3), slug: m.slug?.slice(0,40) }))
+    ),
+  });
 
   const opportunities = [];
 
-  for (const [, group] of templateGroups) {
+  for (const [, group] of monoGroups) {
     if (group.length < 2) continue;
     const opps = detectMonotonicity(group);
     for (const opp of opps) {
@@ -304,12 +364,42 @@ export async function scan() {
       saveOpportunity(db, basket);
       opportunities.push(basket);
     }
+  }
 
-    const spread = detectSpread(m);
-    if (spread) {
-      logger.info('arb:opportunity', { strategy: spread.strategy, profit: spread.expected_profit.toFixed(4) });
-      saveOpportunity(db, spread);
-      opportunities.push(spread);
+  // ── Spread strategy: fetch real CLOB midpoints for top-50 most liquid markets
+  // outcomePrices from the Gamma bulk endpoint always sums to exactly 1.0 because
+  // it's computed as a complement, not fetched independently from the order book.
+  // Real CLOB midpoints are independent and can diverge, enabling spread arb.
+  const spreadCandidates = enriched
+    .filter(m => Object.keys(m.prices).length === 2)
+    .sort((a, b) => b.liquidity - a.liquidity)
+    .slice(0, 50);
+
+  logger.info('arb:scan:spread_check', { checking: spreadCandidates.length });
+
+  for (const m of spreadCandidates) {
+    try {
+      const rawTokenIds = m.clobTokenIds ?? '[]';
+      const tokenIds    = typeof rawTokenIds === 'string' ? JSON.parse(rawTokenIds) : rawTokenIds;
+      const outcomes    = Object.keys(m.prices);
+      if (tokenIds.length < 2) continue;
+
+      const [p0, p1] = await Promise.all([
+        getMidpointPrice(tokenIds[0]),
+        getMidpointPrice(tokenIds[1]),
+      ]);
+
+      // Replace prices with real CLOB midpoints for spread detection
+      const clobPrices = { [outcomes[0]]: p0, [outcomes[1]]: p1 };
+      const mClob = { ...m, prices: clobPrices };
+      const spread = detectSpread(mClob);
+      if (spread) {
+        logger.info('arb:opportunity', { strategy: spread.strategy, profit: spread.expected_profit.toFixed(4), sum: (p0 + p1).toFixed(4) });
+        saveOpportunity(db, spread);
+        opportunities.push(spread);
+      }
+    } catch (err) {
+      logger.warn('arb:spread_clob_error', { market: m.conditionId, error: err.message });
     }
   }
 
