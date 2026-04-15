@@ -263,8 +263,8 @@ function btc5mTable(positions) {
 
 const stratBadgeArb = s => {
   const map = {
-    monotonicity: ['#f59e0b', 'Monoton.'],
-    basket:       ['#818cf8', 'Basket'],
+    monotonicity: ['#818cf8', 'Monoton.'],
+    basket:       ['#00FFA3', 'Basket'],
     spread:       ['#34d399', 'Spread'],
   };
   const [color, label] = map[s] ?? ['#ADAAAA', s];
@@ -1028,13 +1028,13 @@ ${(() => {
   <!-- ══ TAB: Arbitraje ══ -->
   <div class="tab-pane" id="tab-arb">
 
-    <div class="sec-div" style="--accent:#f59e0b; margin-top:0">
+    <div class="sec-div" style="--accent:#6366f1; margin-top:0">
       <div class="sec-dot"></div>
       <div class="sec-label">Arbitraje</div>
       <div class="sec-line"></div>
     </div>
 
-    <div class="stats-grid" style="--accent:#f59e0b">
+    <div class="stats-grid" style="--accent:#6366f1">
       ${statCard('Oportunidades activas',
           d.arb.openOpportunities,
           '',
@@ -1063,7 +1063,7 @@ ${(() => {
           winBcls(d.arb.winRate))}
     </div>
 
-    <div class="sec-div" style="--accent:#f59e0b">
+    <div class="sec-div" style="--accent:#6366f1">
       <div class="sec-dot"></div>
       <div class="sec-label">Oportunidades detectadas</div>
       <div class="sec-line"></div>
@@ -1071,7 +1071,7 @@ ${(() => {
 
     ${arbOpportunitiesTable(d.arb.opportunities)}
 
-    <div class="sec-div" style="--accent:#f59e0b">
+    <div class="sec-div" style="--accent:#6366f1">
       <div class="sec-dot"></div>
       <div class="sec-label">Posiciones abiertas</div>
       <div class="sec-line"></div>
@@ -1079,7 +1079,7 @@ ${(() => {
 
     ${arbTradesTable(d.arb.activeTrades)}
 
-    <div class="sec-div" style="--accent:#f59e0b">
+    <div class="sec-div" style="--accent:#6366f1">
       <div class="sec-dot"></div>
       <div class="sec-label">Historial de operaciones</div>
       <div class="sec-line"></div>
@@ -1099,7 +1099,7 @@ ${(() => {
   <div style="display:flex;gap:1.5rem">
     <span>Copy: ${d.openPositions} pos</span>
     <span style="color:rgba(0,255,163,0.5)">5m: ${d.btc5mOpen} pos</span>
-    <span style="color:rgba(245,158,11,0.7)">Arb: ${d.arb.openLegs} piernas</span>
+    <span style="color:rgba(129,140,248,0.7)">Arb: ${d.arb.openLegs} piernas</span>
   </div>
 </footer>
 
