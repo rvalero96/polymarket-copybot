@@ -141,7 +141,7 @@ async function executeSignal(db, signal, bankroll) {
 
 function computeWinRate(db) {
   const copy  = all(db, `SELECT COUNT(*) as total, SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins FROM trades WHERE status = 'closed' AND pnl IS NOT NULL`)[0];
-  const btc5m = all(db, `SELECT COUNT(*) as total, SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins FROM btc5m_trades WHERE status != 'open'`)[0];
+  const btc5m = all(db, `SELECT COUNT(*) as total, SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins FROM btc5m_trades WHERE status != 'open' AND pnl IS NOT NULL`)[0];
   const total = (copy.total ?? 0) + (btc5m.total ?? 0);
   const wins  = (copy.wins  ?? 0) + (btc5m.wins  ?? 0);
   return total > 0 ? wins / total : 0;

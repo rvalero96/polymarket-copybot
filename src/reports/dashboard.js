@@ -1389,7 +1389,7 @@ async function main() {
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN status != 'open' THEN 1 ELSE 0 END) as closed,
-      SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins,
+      SUM(CASE WHEN status != 'open' AND pnl > 0 THEN 1 ELSE 0 END) as wins,
       SUM(COALESCE(pnl, 0)) as total_pnl,
       SUM(size_usdc) as total_invested,
       SUM(CASE WHEN status != 'open' THEN size_usdc ELSE 0 END) as total_closed,
@@ -1475,17 +1475,13 @@ async function main() {
         FROM trades WHERE status = 'closed' AND pnl IS NOT NULL
       UNION ALL
       SELECT SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), COUNT(*)
-        FROM btc5m_trades WHERE status != 'open'
+        FROM btc5m_trades WHERE status != 'open' AND pnl IS NOT NULL
     )
   `)[0];
 
   // ── Arbitrage data ──────────────────────────────────────────────────────────
   const arbOpps = all(db,
-    `SELECT ao.*, ag.strategy as grp_strategy
-     FROM arb_opportunities ao
-     LEFT JOIN arb_groups ag ON ao.group_id = ag.id
-     ORDER BY ao.detected_at DESC
-     LIMIT 200`
+    `SELECT * FROM arb_opportunities ORDER BY detected_at DESC LIMIT 200`
   );
 
   const arbActiveTrades = all(db,
