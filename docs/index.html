@@ -352,7 +352,7 @@
 
 <nav class="topnav">
   <span class="topnav-brand">Polymarket Copybot</span>
-  <span class="topnav-right">Actualizado 16 abr 2026, 18:11 &nbsp;·&nbsp; paper trading</span>
+  <span class="topnav-right">Actualizado 16 abr 2026, 19:06 &nbsp;·&nbsp; paper trading</span>
 </nav>
 
 <aside class="sidebar">
@@ -397,15 +397,15 @@
           <span class="ms hero-icon">account_balance_wallet</span>
         </div>
         <div class="hero-label">Valor del portfolio (USDC)</div>
-        <div class="hero-value">$1,405.95</div>
+        <div class="hero-value">$1,405.70</div>
         <span class="hero-badge ">+40.6% vs capital inicial</span>
       </div>
 
       <div class="metric-card" style="border-left: 2px solid rgba(99,102,241,0.25)">
         <div class="mc-label">Cash libre</div>
         <div>
-          <div class="mc-value">$861.52</div>
-          <div class="mc-sub">38.7% del portfolio desplegado</div>
+          <div class="mc-value">$814.01</div>
+          <div class="mc-sub">42.1% del portfolio desplegado</div>
         </div>
         <div class="tip">USDC sin invertir disponible para nuevas posiciones.<br><br>Disminuye al abrir posiciones y se recupera al cerrarlas. La diferencia con el Portfolio total es el capital actualmente en posiciones abiertas.</div>
       </div>
@@ -413,7 +413,7 @@
       <div class="metric-card" style="border-left: 2px solid rgba(0,255,163,0.4)">
         <div class="mc-label">P&amp;L realizado</div>
         <div>
-          <div class="mc-value pos">+$405.95</div>
+          <div class="mc-value pos">+$405.70</div>
           <div class="mc-sub">Capital inicial: $1,000.00</div>
         </div>
         <div class="tip">Ganancia o pérdida neta de operaciones cerradas, descontando comisiones (slippage + fee).<br><br>= Portfolio actual − Capital inicial ($1000)<br><br>No incluye ganancias/pérdidas no realizadas de posiciones abiertas.</div>
@@ -422,8 +422,8 @@
       <div class="metric-card" style="border-left: 2px solid rgba(0,255,163,0.4)">
         <div class="mc-label">Win rate global</div>
         <div>
-          <div class="mc-value pos">56.7%</div>
-          <div class="mc-sub">13 posiciones abiertas</div>
+          <div class="mc-value pos">56.3%</div>
+          <div class="mc-sub">12 posiciones abiertas</div>
         </div>
         <div class="tip">Porcentaje de operaciones cerradas que terminaron con ganancia.<br><br>Incluye todas las estrategias: copy trading y Early-Bird 5m combinadas.<br><br>Verde ≥ 50% · Rojo &lt; 50%</div>
       </div>
@@ -463,19 +463,19 @@
       
   <div class="stat-card ">
     <div class="stat-label">Capital total desplegado</div>
-    <div class="stat-value ">$5,788.33</div>
+    <div class="stat-value ">$5,876.28</div>
     <div class="tip">Suma acumulada de todo el capital invertido desde el inicio en ambas estrategias.<br><br>Incluye capital reciclado de trades cerrados. No es el capital inicial — es el volumen total operado.</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Capital cerrado</div>
-    <div class="stat-value ">$5,243.89</div>
+    <div class="stat-value ">$5,284.60</div>
     <div class="tip">Capital que pertenecía a posiciones ya cerradas en ambas estrategias.<br><br>Este capital volvió al bankroll al cerrar las posiciones (con ganancia o pérdida).</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Capital activo ahora</div>
-    <div class="stat-value ">$544.44</div>
+    <div class="stat-value ">$591.68</div>
     <div class="tip">Capital actualmente desplegado en posiciones abiertas de copy trading y 5m.<br><br>= Portfolio total − Cash libre</div>
   </div>
     </div>
@@ -492,46 +492,46 @@
     </div>
     <div class="stats-grid" style="--accent:#6366f1">
       
-  <div class="stat-card ">
+  <div class="stat-card border-neg">
     <div class="stat-label">Win rate</div>
-    <div class="stat-value ">—</div>
+    <div class="stat-value neg">0.0%</div>
     <div class="tip">Porcentaje de operaciones de copy trading cerradas con ganancia.<br><br>Verde ≥ 50% · Rojo &lt; 50% · — si no hay operaciones cerradas.</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Operaciones cerradas</div>
-    <div class="stat-value ">0</div>
+    <div class="stat-value ">1</div>
     <div class="tip">Número total de trades de copy trading ya cerrados (ganados + perdidos).<br><br>Las posiciones abiertas actualmente no se cuentan aquí.</div>
   </div>
       
-  <div class="stat-card ">
+  <div class="stat-card border-neg">
     <div class="stat-label">P&amp;L realizado</div>
-    <div class="stat-value ">+$0.00</div>
+    <div class="stat-value neg">-$0.08</div>
     <div class="tip">Suma de ganancias y pérdidas de todos los trades de copy cerrados, descontando comisiones.<br><br>No incluye resultados de posiciones todavía abiertas.</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Capital total (acum.)</div>
-    <div class="stat-value ">$401.09</div>
+    <div class="stat-value ">$489.05</div>
     <div class="tip">Capital total invertido en copy trading desde el inicio.<br><br>Incluye capital reciclado: si un trade se cierra y ese dinero se reinvierte, cuenta dos veces. Mide el volumen operado, no el capital inicial.</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Capital cerrado</div>
-    <div class="stat-value ">$0.00</div>
+    <div class="stat-value ">$40.71</div>
     <div class="tip">Capital que estaba en posiciones de copy trading ya cerradas.<br><br>Este capital se ha recuperado al bankroll (con ganancia o pérdida incluida en P&L).</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Capital activo</div>
-    <div class="stat-value ">$401.09</div>
+    <div class="stat-value ">$448.34</div>
     <div class="tip">Capital actualmente desplegado en posiciones abiertas de copy trading.<br><br>Este importe está "en el mercado" y se recuperará al cerrar las posiciones.</div>
   </div>
     </div>
     <div class="table-panel">
     <div class="table-header">
       <span class="table-title">Posiciones abiertas</span>
-      <span class="table-badge" id="badge-pos">10 ABIERTAS</span>
+      <span class="table-badge" id="badge-pos">9 ABIERTAS</span>
     </div>
     <div class="table-scroll"><table>
       <thead><tr>
@@ -554,16 +554,16 @@
       <tr>
         <td><a href="https://polymarket.com/event/iran-x-israelus-conflict-ends-by" target="_blank" rel="noopener">Iran x Israel/US conflict ends by <span class="outcome-entity">April 15</span>?</a></td>
         <td><span class="badge-yes">Yes</span></td>
-        <td class="num">0.711</td>
-        <td class="num">$33.14</td>
+        <td class="num">0.804</td>
+        <td class="num">$75.99</td>
         <td><a href="https://polymarket.com/profile/0xbaa2bcb5439e985ce4ccf815b4700027d1b92c73" target="_blank" rel="noopener">denizz</a></td>
         <td>11 abr, 14:25</td>
       </tr>
       <tr>
         <td><a href="https://polymarket.com/event/will-the-us-invade-iran-before-2027" target="_blank" rel="noopener">Will the U.S. invade Iran before 2027?</a></td>
         <td><span class="badge-no">No</span></td>
-        <td class="num">0.697</td>
-        <td class="num">$31.48</td>
+        <td class="num">0.685</td>
+        <td class="num">$76.59</td>
         <td><a href="https://polymarket.com/profile/0xbaa2bcb5439e985ce4ccf815b4700027d1b92c73" target="_blank" rel="noopener">denizz</a></td>
         <td>11 abr, 14:25</td>
       </tr>
@@ -580,14 +580,6 @@
         <td><span class="badge-yes">Yes</span></td>
         <td class="num">0.341</td>
         <td class="num">$42.86</td>
-        <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener">gatorr</a></td>
-        <td>11 abr, 14:25</td>
-      </tr>
-      <tr>
-        <td><a href="https://polymarket.com/event/will-the-los-angeles-clippers-make-the-nba-playoffs" target="_blank" rel="noopener">Will the Los Angeles Clippers make the NBA Playoffs?</a></td>
-        <td><span class="badge-yes">Yes</span></td>
-        <td class="num">0.356</td>
-        <td class="num">$40.71</td>
         <td><a href="https://polymarket.com/profile/0x93abbc022ce98d6f45d4444b594791cc4b7a9723" target="_blank" rel="noopener">gatorr</a></td>
         <td>11 abr, 14:25</td>
       </tr>
@@ -816,18 +808,18 @@
       <div class="alloc-legend">
         <div class="alloc-portfolio-hd">
           <div class="alloc-portfolio-label">Portfolio total</div>
-          <div class="alloc-portfolio-value">$1,405.95</div>
+          <div class="alloc-portfolio-value">$1,405.70</div>
         </div>
         
         <div class="alloc-item">
           <div class="alloc-item-hd">
             <div class="alloc-dot" style="background:#00FFA3"></div>
             <div class="alloc-item-label">Cash libre</div>
-            <div class="alloc-item-value pos">$861.52</div>
-            <div class="alloc-item-pct">61%</div>
+            <div class="alloc-item-value pos">$814.01</div>
+            <div class="alloc-item-pct">58%</div>
           </div>
           <div class="alloc-bar-track">
-            <div class="alloc-bar-fill" style="width:61.3%;background:#00FFA3"></div>
+            <div class="alloc-bar-fill" style="width:57.9%;background:#00FFA3"></div>
           </div>
         </div>
         
@@ -835,11 +827,11 @@
           <div class="alloc-item-hd">
             <div class="alloc-dot" style="background:#818cf8"></div>
             <div class="alloc-item-label">Copy Trading activo</div>
-            <div class="alloc-item-value ">$401.09</div>
-            <div class="alloc-item-pct">29%</div>
+            <div class="alloc-item-value ">$448.34</div>
+            <div class="alloc-item-pct">32%</div>
           </div>
           <div class="alloc-bar-track">
-            <div class="alloc-bar-fill" style="width:28.5%;background:#818cf8"></div>
+            <div class="alloc-bar-fill" style="width:31.9%;background:#818cf8"></div>
           </div>
         </div>
         
@@ -858,7 +850,7 @@
           <div class="alloc-item-hd">
             <div class="alloc-dot" style="background:transparent;border:1px solid rgba(173,170,170,0.3)"></div>
             <div class="alloc-item-label">P&amp;L vs capital inicial</div>
-            <div class="alloc-item-value pos">+$405.95</div>
+            <div class="alloc-item-value pos">+$405.70</div>
             <div class="alloc-item-pct pos">+40.6%</div>
           </div>
         </div>
@@ -869,37 +861,37 @@
       
   <div class="stat-card ">
     <div class="stat-label">Capital total operado</div>
-    <div class="stat-value ">$5,788.33</div>
+    <div class="stat-value ">$5,876.28</div>
     <div class="tip">Suma de todas las inversiones realizadas (copy + 5m), incluyendo capital reciclado de operaciones cerradas.</div>
   </div>
       
   <div class="stat-card border-neg">
     <div class="stat-label">Comisiones + slippage</div>
-    <div class="stat-value neg">$28.94</div>
+    <div class="stat-value neg">$29.38</div>
     <div class="tip">Total pagado en fees de protocolo y slippage en todas las operaciones.<br><br>Es el coste real de operar, deducido del resultado final.</div>
   </div>
       
   <div class="stat-card border-pos">
     <div class="stat-label">P&amp;L neto realizado</div>
-    <div class="stat-value pos">+$446.40</div>
+    <div class="stat-value pos">+$446.32</div>
     <div class="tip">Resultado neto de todas las operaciones cerradas o resueltas.<br><br>Positivo = el bot ha generado beneficio. Negativo = pérdida neta hasta ahora.</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Operaciones abiertas</div>
-    <div class="stat-value ">13</div>
+    <div class="stat-value ">14</div>
     <div class="tip">Número de posiciones actualmente en el mercado (copy + 5m).<br><br>El capital está comprometido hasta que estas posiciones se resuelvan.</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Operaciones cerradas</div>
-    <div class="stat-value ">127</div>
+    <div class="stat-value ">128</div>
     <div class="tip">Total de operaciones que ya han concluido (cerradas o resueltas).<br><br>El capital fue recuperado al bankroll con ganancia o pérdida.</div>
   </div>
       
   <div class="stat-card ">
     <div class="stat-label">Total operaciones</div>
-    <div class="stat-value ">140</div>
+    <div class="stat-value ">142</div>
     <div class="tip">Número total de operaciones realizadas desde el inicio (abiertas + cerradas).</div>
   </div>
     </div>
@@ -907,7 +899,7 @@
     <div class="table-panel">
     <div class="table-header">
       <span class="table-title">Registro de operaciones</span>
-      <span class="table-badge" id="badge-tradelog">140 OPS</span>
+      <span class="table-badge" id="badge-tradelog">142 OPS</span>
     </div>
     <div class="table-scroll"><table>
       <thead><tr>
@@ -922,6 +914,28 @@
         <th class="sortable" data-col="8"><div class="th-inner"><span>P&amp;L</span><span class="sort-icon">⇅</span></div></th>
       </tr></thead>
       <tbody id="tbl-tradelog">
+      <tr>
+        <td class="num" style="white-space:nowrap">16 abr, 17:05</td>
+        <td><span class="tl-badge tl-copy">Copy</span></td>
+        <td><a href="https://polymarket.com/event/will-the-us-invade-iran-before-2027" target="_blank" rel="noopener">Will the U.S. invade Iran before 2027?</a></td>
+        <td>—</td>
+        <td><span class="badge-no">No</span></td>
+        <td class="num">$45.11</td>
+        <td class="num neg">$0.23</td>
+        <td><span class="tl-badge tl-open">Abierta</span></td>
+        <td class="num ">—</td>
+      </tr>
+      <tr>
+        <td class="num" style="white-space:nowrap">16 abr, 17:05</td>
+        <td><span class="tl-badge tl-copy">Copy</span></td>
+        <td><a href="https://polymarket.com/event/iran-x-israelus-conflict-ends-by" target="_blank" rel="noopener">Iran x Israel/US conflict ends by <span class="outcome-entity">April 15</span>?</a></td>
+        <td>—</td>
+        <td><span class="badge-yes">Yes</span></td>
+        <td class="num">$42.85</td>
+        <td class="num neg">$0.21</td>
+        <td><span class="tl-badge tl-open">Abierta</span></td>
+        <td class="num ">—</td>
+      </tr>
       <tr>
         <td class="num" style="white-space:nowrap">16 abr, 16:01</td>
         <td><span class="tl-badge tl-5m">5m · BTC</span></td>
@@ -2410,13 +2424,13 @@
       <tr>
         <td class="num" style="white-space:nowrap">11 abr, 14:25</td>
         <td><span class="tl-badge tl-copy">Copy</span></td>
-        <td><a href="https://polymarket.com/event/will-the-los-angeles-clippers-make-the-nba-playoffs" target="_blank" rel="noopener">Will the Los Angeles Clippers make the NBA Playoffs?</a></td>
+        <td>Will the Los Angeles Clippers make the NBA Playoffs?</td>
         <td>—</td>
         <td><span class="badge-yes">Yes</span></td>
         <td class="num">$40.71</td>
         <td class="num neg">$0.20</td>
-        <td><span class="tl-badge tl-open">Abierta</span></td>
-        <td class="num ">—</td>
+        <td><span class="tl-badge tl-closed">Cerrada</span></td>
+        <td class="num neg">-$0.08</td>
       </tr>
       <tr>
         <td class="num" style="white-space:nowrap">11 abr, 14:25</td>
@@ -2600,7 +2614,7 @@
     <span>Paper mode activo</span>
   </div>
   <div style="display:flex;gap:1.5rem">
-    <span>Copy: 10 pos</span>
+    <span>Copy: 9 pos</span>
     <span style="color:rgba(0,255,163,0.5)">5m: 3 pos</span>
     <span style="color:rgba(129,140,248,0.7)">Arb: 0 piernas</span>
   </div>
@@ -2619,7 +2633,7 @@
   });
 
   // ── Charts ────────────────────────────────────────────────────────────────
-  const SNAPS = [{"date":"2026-04-11","bankroll":564.973947110484,"pnlDay":-435.026052889516},{"date":"2026-04-12","bankroll":761.1547683713967,"pnlDay":196.1808212609127},{"date":"2026-04-13","bankroll":769.7639357614107,"pnlDay":8.609167390014022},{"date":"2026-04-14","bankroll":960.3934125009066,"pnlDay":190.62947673949589},{"date":"2026-04-15","bankroll":914.94819373726,"pnlDay":-45.44521876364661},{"date":"2026-04-16","bankroll":861.5181499097688,"pnlDay":-53.430043827491204}];
+  const SNAPS = [{"date":"2026-04-11","bankroll":564.973947110484,"pnlDay":-435.026052889516},{"date":"2026-04-12","bankroll":761.1547683713967,"pnlDay":196.1808212609127},{"date":"2026-04-13","bankroll":769.7639357614107,"pnlDay":8.609167390014022},{"date":"2026-04-14","bankroll":960.3934125009066,"pnlDay":190.62947673949589},{"date":"2026-04-15","bankroll":914.94819373726,"pnlDay":-45.44521876364661},{"date":"2026-04-16","bankroll":814.0143748969075,"pnlDay":-100.9338188403525}];
 
   Chart.defaults.color = '#ADAAAA';
   Chart.defaults.font.family = 'Inter';
@@ -2649,7 +2663,7 @@
     data: {
       labels: ['Cash libre', 'Copy activo', '5m activo'],
       datasets: [{
-        data: [861.52, 401.09, 143.34],
+        data: [814.01, 448.34, 143.34],
         backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)'],
         borderColor:     ['#00FFA3', '#818cf8', '#f59e0b'],
         borderWidth: 1.5,
