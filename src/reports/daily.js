@@ -1,5 +1,6 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { getDb, all, run } from '../utils/db.js';
+import { getAaveStats } from '../defi/aave.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../../config.js';
 
@@ -27,6 +28,8 @@ async function main() {
     ? ((todaySnap?.win_rate ?? 0) * 100).toFixed(1)
     : 'n/a';
 
+  const aave = getAaveStats(db);
+
   run(db,
     `INSERT OR REPLACE INTO snapshots (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -47,6 +50,13 @@ async function main() {
 | Open positions | ${openPositions.length} |
 | Win rate | ${winRatePct}% |
 | Trades today | ${todayTrades.length} |
+
+## AAVE yield (idle cash)
+| Metric | Value |
+|---|---|
+| Yield today | +${aave.todayYield.toFixed(4)} USDC |
+| Yield total | +${aave.totalYield.toFixed(4)} USDC |
+| Avg APY | ${(aave.avgApy * 100).toFixed(2)}% |
 
 ## Open positions
 ${openPositions.length === 0 ? '_No open positions_' : openPositions.map(p =>

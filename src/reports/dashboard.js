@@ -3,6 +3,8 @@
 
 import { writeFileSync, mkdirSync } from 'fs';
 import { getDb, all } from '../utils/db.js';
+import { getAaveStats } from '../defi/aave.js';
+import { getKellyAllocation, getKellyHistory, computeKellyStats } from '../defi/kelly.js';
 import { CONFIG } from '../../config.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -781,6 +783,12 @@ function render(d) {
     <div class="nav-item" data-tab="tab-arb">
       <span class="ms">balance</span> Arbitraje
     </div>
+    <div class="nav-item" data-tab="tab-aave">
+      <span class="ms">savings</span> AAVE Yield
+    </div>
+    <div class="nav-item" data-tab="tab-kelly">
+      <span class="ms">functions</span> Kelly
+    </div>
   </nav>
   <div class="sidebar-footer">
     <div class="sf-card">
@@ -1089,6 +1097,213 @@ ${(() => {
 
   </div><!-- /tab-arb -->
 
+  <!-- ══ TAB: AAVE Yield ══ -->
+  <div class="tab-pane" id="tab-aave">
+
+    <div class="sec-div" style="--accent:#b6509e; margin-top:0">
+      <div class="sec-dot"></div>
+      <div class="sec-label">AAVE v3 — Yield sobre cash idle (Polygon)</div>
+      <div class="sec-line"></div>
+    </div>
+
+    <div class="stats-grid" style="--accent:#b6509e">
+      ${statCard('Yield hoy',
+          '+' + money(d.aave.todayYield),
+          'pos',
+          'Interés generado hoy por el cash que no está desplegado en posiciones.<br><br>Se calcula con la APY real de USDC en AAVE v3 Polygon.',
+          'border-pos')}
+      ${statCard('Yield acumulado total',
+          '+' + money(d.aave.totalYield),
+          'pos',
+          'Total de interés acumulado desde el inicio del bot.<br><br>Incrementa el bankroll directamente.',
+          'border-pos')}
+      ${statCard('APY media (USDC)',
+          (d.aave.avgApy * 100).toFixed(2) + '%',
+          '',
+          'Tasa anual media aplicada históricamente.<br><br>Se obtiene en tiempo real de AAVE v3 Polygon (USDC supply rate). Si la API no responde se usa el fallback configurado (' + (CONFIG.AAVE.FALLBACK_APY * 100).toFixed(0) + '%).')}
+    </div>
+
+    <div class="stats-grid" style="--accent:#b6509e">
+      ${statCard('Cash libre actual',
+          money(d.bankroll),
+          '',
+          'Balance líquido del bot actualmente. Es el capital que no está en posiciones abiertas y por tanto está generando yield en AAVE.')}
+      ${statCard('Yield / día est.',
+          '+' + money(d.bankroll * CONFIG.AAVE.FALLBACK_APY / 365),
+          'pos',
+          'Estimación del yield diario si el cash libre actual se mantiene constante, usando la APY de fallback configurada.')}
+      ${statCard('Yield / año est.',
+          '+' + money(d.bankroll * CONFIG.AAVE.FALLBACK_APY),
+          'pos',
+          'Estimación del yield anual si el cash libre actual se mantiene constante (proyección lineal, sin compounding).')}
+    </div>
+
+    <div class="table-panel" style="margin-top:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Historial de acumulaciones</span>
+        <span class="table-badge">${d.aave.entries.length} REGISTROS</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th><div class="th-inner"><span>Fecha</span></div></th>
+          <th><div class="th-inner"><span>Cash idle (USDC)</span></div></th>
+          <th><div class="th-inner"><span>Horas</span></div></th>
+          <th><div class="th-inner"><span>APY</span></div></th>
+          <th><div class="th-inner"><span>Yield ganado</span></div></th>
+        </tr></thead>
+        <tbody>
+          ${d.aave.entries.length
+            ? d.aave.entries.map(e => `
+              <tr>
+                <td>${ts(e.created_at)}</td>
+                <td class="num">${money(e.idle_cash)}</td>
+                <td class="num">${e.hours.toFixed(2)}h</td>
+                <td class="num">${(e.apy * 100).toFixed(2)}%</td>
+                <td class="num pos">+${money(e.amount)}</td>
+              </tr>`).join('')
+            : `<tr><td colspan="5" class="empty">Sin registros todavía — el yield se acumula con cada ciclo de trading</td></tr>`
+          }
+        </tbody>
+      </table></div>
+    </div>
+
+  </div><!-- /tab-aave -->
+
+  <!-- ══ TAB: Kelly ══ -->
+  <div class="tab-pane" id="tab-kelly">
+
+    <div class="sec-div" style="--accent:#f59e0b; margin-top:0">
+      <div class="sec-dot"></div>
+      <div class="sec-label">Kelly Criterion — Sizing dinámico: Trading activo vs AAVE</div>
+      <div class="sec-line"></div>
+    </div>
+
+    <!-- Fase actual -->
+    <div style="margin-bottom:0.75rem; padding:0.875rem 1rem; background:var(--surface-low); border-radius:0.5rem; border-top:2px solid ${
+      d.kelly.phase === 1 ? 'var(--muted)' : d.kelly.phase === 2 ? '#f59e0b' : 'var(--primary)'
+    }">
+      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+        <span style="font-size:0.55rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)">Fase actual</span>
+        <span style="font-size:1.1rem;font-weight:700;color:${
+          d.kelly.phase === 1 ? 'var(--muted)' : d.kelly.phase === 2 ? '#f59e0b' : 'var(--primary)'
+        }">
+          ${d.kelly.phase === 1
+            ? 'Fase 1 — Acumulando datos (paper trading)'
+            : d.kelly.phase === 2
+              ? 'Fase 2 — Half-Kelly (edge en validación)'
+              : 'Fase 3 — Full Kelly (edge validado)'}
+        </span>
+        <span style="font-size:0.7rem;color:var(--muted)">
+          ${d.kelly.stats.total} trades cerrados ·
+          ${d.kelly.phase < 2 ? `necesitas ${CONFIG.KELLY.MIN_TRADES_PHASE2 - d.kelly.stats.total} más para Fase 2` :
+            d.kelly.phase < 3 ? `necesitas ${CONFIG.KELLY.MIN_TRADES_PHASE3 - d.kelly.stats.total} más para Fase 3` :
+            'edge estadísticamente validado'}
+        </span>
+      </div>
+      <div style="margin-top:0.5rem;font-size:0.75rem;color:var(--muted);line-height:1.5">
+        ${d.kelly.phase === 1
+          ? 'Sin edge validado: 100% del capital conceptualmente en AAVE. El paper trading sigue ejecutándose para acumular datos estadísticos.'
+          : d.kelly.phase === 2
+            ? 'Half-Kelly activo: se usa el 50% del tamaño recomendado por Kelly para protegerse de la varianza con muestra pequeña.'
+            : 'Full Kelly: el capital se divide dinámicamente según el edge calculado en tiempo real con cada ciclo.'}
+      </div>
+    </div>
+
+    <!-- KPIs Kelly -->
+    <div class="stats-grid" style="--accent:#f59e0b">
+      ${statCard('Win rate (p)',
+          d.kelly.stats.win_rate != null ? pct(d.kelly.stats.win_rate) : '—',
+          d.kelly.stats.win_rate != null ? winCls(d.kelly.stats.win_rate) : '',
+          'Porcentaje de trades cerrados con ganancia (copy + btc5m combinados).<br><br>Kelly requiere p > q/b para que el edge sea positivo.',
+          d.kelly.stats.win_rate != null ? winBcls(d.kelly.stats.win_rate) : '')}
+      ${statCard('Odds ratio (b)',
+          d.kelly.stats.b != null ? d.kelly.stats.b.toFixed(4) : '—',
+          '',
+          'Ratio ganancia media / pérdida media.<br><br>b = avg_win / avg_loss<br>b > 1 → wins mayores que losses · b < 1 → losses mayores que wins.')}
+      ${statCard('Raw Kelly f*',
+          d.kelly.rawKelly > 0 ? (d.kelly.rawKelly * 100).toFixed(2) + '%' : '—',
+          d.kelly.rawKelly > 0 ? 'pos' : '',
+          'Fracción óptima del portfolio que Kelly recomienda poner en riesgo.<br><br>f* = (p·b − q) / b<br>El resto va a AAVE generando yield.',
+          d.kelly.rawKelly > 0 ? 'border-pos' : '')}
+      ${statCard('Fracción efectiva',
+          d.kelly.tradingFraction > 0 ? (d.kelly.tradingFraction * 100).toFixed(2) + '%' : d.kelly.phase === 1 ? '0% (Fase 1)' : '—',
+          '',
+          `Raw Kelly × multiplicador de fase (${d.kelly.multiplier}x).<br><br>Fase 1: 0% · Fase 2: Kelly×0.5 · Fase 3: Kelly×1.0<br>Capeado al ${(CONFIG.KELLY.MAX_FRACTION*100).toFixed(0)}% máximo.`)}
+      ${statCard('Budget trading activo',
+          d.kelly.tradingBudget > 0 ? money(d.kelly.tradingBudget) : d.kelly.phase === 1 ? '$0 (Fase 1)' : '—',
+          '',
+          'Capital máximo que Kelly autoriza en posiciones abiertas simultáneamente.<br><br>= Portfolio × fracción efectiva')}
+      ${statCard('Tamaño por posición',
+          d.kelly.positionSize > 0 ? money(d.kelly.positionSize) : '—',
+          '',
+          `Trading budget / ${CONFIG.KELLY.POSITIONS_IN_BUDGET} posiciones simultáneas.<br><br>Este es el tamaño real que usa el simulador para cada nueva posición.`)}
+    </div>
+
+    <!-- Barra de asignación visual -->
+    <div style="margin:0.5rem 0 0.75rem; background:var(--surface-low); border-radius:0.5rem; padding:0.875rem 1rem">
+      <div style="font-size:0.55rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.6rem">
+        Asignación del portfolio — ${money(d.portfolio)}
+      </div>
+      <div style="display:flex;height:1.25rem;border-radius:0.25rem;overflow:hidden;gap:2px">
+        <div style="width:${(d.kelly.tradingFraction*100).toFixed(1)}%;background:#f59e0b;transition:width 0.4s;min-width:${d.kelly.tradingFraction>0?'2px':'0'}"></div>
+        <div style="width:${((1-d.kelly.tradingFraction)*100).toFixed(1)}%;background:#b6509e;transition:width 0.4s"></div>
+      </div>
+      <div style="display:flex;gap:1.5rem;margin-top:0.5rem;font-size:0.7rem">
+        <span><span style="color:#f59e0b">■</span> Trading activo ${(d.kelly.tradingFraction*100).toFixed(1)}% · ${money(d.kelly.tradingBudget > 0 ? d.kelly.tradingBudget : 0)}</span>
+        <span><span style="color:#b6509e">■</span> AAVE yield ${((1-d.kelly.tradingFraction)*100).toFixed(1)}% · ${money(d.kelly.aaveBudget)}</span>
+      </div>
+    </div>
+
+    <!-- Fórmula explicada -->
+    <div style="background:var(--surface-low);border-radius:0.5rem;padding:0.875rem 1rem;margin-bottom:0.75rem;font-size:0.75rem;line-height:1.8;color:var(--muted)">
+      <div style="font-size:0.55rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem">Cálculo actual</div>
+      <code style="color:var(--fg)">
+        f* = (p × b − q) / b<br>
+        f* = (${d.kelly.stats.win_rate?.toFixed(4) ?? '?'} × ${d.kelly.stats.b?.toFixed(4) ?? '?'} − ${d.kelly.stats.win_rate != null ? (1-d.kelly.stats.win_rate).toFixed(4) : '?'}) / ${d.kelly.stats.b?.toFixed(4) ?? '?'}
+             = <strong style="color:var(--fg)">${d.kelly.rawKelly > 0 ? (d.kelly.rawKelly*100).toFixed(2)+'%' : 'edge negativo'}</strong><br>
+        × multiplicador fase ${d.kelly.phase} (${d.kelly.multiplier}x) = <strong style="color:#f59e0b">${(d.kelly.tradingFraction*100).toFixed(2)}%</strong><br>
+        → ${money(d.kelly.tradingBudget > 0 ? d.kelly.tradingBudget : 0)} trading · ${money(d.kelly.aaveBudget)} AAVE · ${money(d.kelly.positionSize > 0 ? d.kelly.positionSize : 0)} / posición
+      </code>
+    </div>
+
+    <!-- Historial -->
+    <div class="table-panel">
+      <div class="table-header">
+        <span class="table-title">Evolución del sizing Kelly</span>
+        <span class="table-badge">${d.kelly.history.length} SNAPSHOTS</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th><div class="th-inner"><span>Fecha</span></div></th>
+          <th><div class="th-inner"><span>Fase</span></div></th>
+          <th><div class="th-inner"><span>Win rate</span></div></th>
+          <th><div class="th-inner"><span>Odds (b)</span></div></th>
+          <th><div class="th-inner"><span>Raw Kelly</span></div></th>
+          <th><div class="th-inner"><span>Fracción efectiva</span></div></th>
+          <th><div class="th-inner"><span>Budget trading</span></div></th>
+          <th><div class="th-inner"><span>Tamaño / pos</span></div></th>
+        </tr></thead>
+        <tbody>
+          ${d.kelly.history.length
+            ? d.kelly.history.map(k => `
+              <tr>
+                <td style="white-space:nowrap">${ts(k.created_at)}</td>
+                <td><span class="badge-option">F${k.phase}</span></td>
+                <td class="num ${k.win_rate >= 0.5 ? 'pos' : 'neg'}">${k.win_rate != null ? pct(k.win_rate) : '—'}</td>
+                <td class="num">${k.odds_b?.toFixed(4) ?? '—'}</td>
+                <td class="num">${k.raw_kelly > 0 ? (k.raw_kelly*100).toFixed(2)+'%' : '—'}</td>
+                <td class="num">${(k.fraction*100).toFixed(2)}%</td>
+                <td class="num">${money(k.trading_budget)}</td>
+                <td class="num">${money(k.position_size)}</td>
+              </tr>`).join('')
+            : `<tr><td colspan="8" class="empty">Sin snapshots todavía — se generan con cada ciclo de trading</td></tr>`
+          }
+        </tbody>
+      </table></div>
+    </div>
+
+  </div><!-- /tab-kelly -->
+
 </main>
 
 <footer class="statusbar">
@@ -1100,6 +1315,8 @@ ${(() => {
     <span>Copy: ${d.openPositions} pos</span>
     <span style="color:rgba(0,255,163,0.5)">5m: ${d.btc5mOpen} pos</span>
     <span style="color:rgba(129,140,248,0.7)">Arb: ${d.arb.openLegs} piernas</span>
+    <span style="color:rgba(182,80,158,0.8)">AAVE yield: +${money(d.aave.totalYield)}</span>
+    <span style="color:rgba(245,158,11,0.8)">Kelly F${d.kelly.phase} · ${(d.kelly.tradingFraction*100).toFixed(1)}% trading</span>
   </div>
 </footer>
 
@@ -1515,6 +1732,16 @@ async function main() {
      FROM arb_opportunities WHERE status = 'open'`
   )[0] ?? { n: 0, avg_profit: null };
 
+  // ── AAVE data ───────────────────────────────────────────────────────────────
+  const aaveStatsSummary = getAaveStats(db);
+  const aaveEntries = all(db,
+    `SELECT * FROM aave_yields ORDER BY created_at DESC LIMIT 200`
+  );
+
+  // ── Kelly data ──────────────────────────────────────────────────────────────
+  const kellyAllocation = getKellyAllocation(db, portfolio);
+  const kellyHistory    = getKellyHistory(db, 200);
+
   const data = {
     now, bankroll, pnlTotal, pnlDay, portfolio, globalOpen,
     winRate:        winRateRow?.win_rate ?? null,
@@ -1534,6 +1761,16 @@ async function main() {
       totalOps:      histRow.total_ops      ?? 0,
       openOps:       histRow.open_ops       ?? 0,
       closedOps:     histRow.closed_ops     ?? 0,
+    },
+    aave: {
+      totalYield: aaveStatsSummary.totalYield,
+      todayYield: aaveStatsSummary.todayYield,
+      avgApy:     aaveStatsSummary.avgApy,
+      entries:    aaveEntries,
+    },
+    kelly: {
+      ...kellyAllocation,
+      history: kellyHistory,
     },
     arb: {
       opportunities:       arbOpps,
