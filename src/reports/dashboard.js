@@ -3,6 +3,7 @@
 
 import { writeFileSync, mkdirSync } from 'fs';
 import { getDb, all } from '../utils/db.js';
+import { getAaveStats } from '../defi/aave.js';
 import { CONFIG } from '../../config.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -781,6 +782,9 @@ function render(d) {
     <div class="nav-item" data-tab="tab-arb">
       <span class="ms">balance</span> Arbitraje
     </div>
+    <div class="nav-item" data-tab="tab-aave">
+      <span class="ms">savings</span> AAVE Yield
+    </div>
   </nav>
   <div class="sidebar-footer">
     <div class="sf-card">
@@ -1089,6 +1093,78 @@ ${(() => {
 
   </div><!-- /tab-arb -->
 
+  <!-- ══ TAB: AAVE Yield ══ -->
+  <div class="tab-pane" id="tab-aave">
+
+    <div class="sec-div" style="--accent:#b6509e; margin-top:0">
+      <div class="sec-dot"></div>
+      <div class="sec-label">AAVE v3 — Yield sobre cash idle (Polygon)</div>
+      <div class="sec-line"></div>
+    </div>
+
+    <div class="stats-grid" style="--accent:#b6509e">
+      ${statCard('Yield hoy',
+          '+' + money(d.aave.todayYield),
+          'pos',
+          'Interés generado hoy por el cash que no está desplegado en posiciones.<br><br>Se calcula con la APY real de USDC en AAVE v3 Polygon.',
+          'border-pos')}
+      ${statCard('Yield acumulado total',
+          '+' + money(d.aave.totalYield),
+          'pos',
+          'Total de interés acumulado desde el inicio del bot.<br><br>Incrementa el bankroll directamente.',
+          'border-pos')}
+      ${statCard('APY media (USDC)',
+          (d.aave.avgApy * 100).toFixed(2) + '%',
+          '',
+          'Tasa anual media aplicada históricamente.<br><br>Se obtiene en tiempo real de AAVE v3 Polygon (USDC supply rate). Si la API no responde se usa el fallback configurado (' + (CONFIG.AAVE.FALLBACK_APY * 100).toFixed(0) + '%).')}
+    </div>
+
+    <div class="stats-grid" style="--accent:#b6509e">
+      ${statCard('Cash libre actual',
+          money(d.bankroll),
+          '',
+          'Balance líquido del bot actualmente. Es el capital que no está en posiciones abiertas y por tanto está generando yield en AAVE.')}
+      ${statCard('Yield / día est.',
+          '+' + money(d.bankroll * CONFIG.AAVE.FALLBACK_APY / 365),
+          'pos',
+          'Estimación del yield diario si el cash libre actual se mantiene constante, usando la APY de fallback configurada.')}
+      ${statCard('Yield / año est.',
+          '+' + money(d.bankroll * CONFIG.AAVE.FALLBACK_APY),
+          'pos',
+          'Estimación del yield anual si el cash libre actual se mantiene constante (proyección lineal, sin compounding).')}
+    </div>
+
+    <div class="table-panel" style="margin-top:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Historial de acumulaciones</span>
+        <span class="table-badge">${d.aave.entries.length} REGISTROS</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th><div class="th-inner"><span>Fecha</span></div></th>
+          <th><div class="th-inner"><span>Cash idle (USDC)</span></div></th>
+          <th><div class="th-inner"><span>Horas</span></div></th>
+          <th><div class="th-inner"><span>APY</span></div></th>
+          <th><div class="th-inner"><span>Yield ganado</span></div></th>
+        </tr></thead>
+        <tbody>
+          ${d.aave.entries.length
+            ? d.aave.entries.map(e => `
+              <tr>
+                <td>${ts(e.created_at)}</td>
+                <td class="num">${money(e.idle_cash)}</td>
+                <td class="num">${e.hours.toFixed(2)}h</td>
+                <td class="num">${(e.apy * 100).toFixed(2)}%</td>
+                <td class="num pos">+${money(e.amount)}</td>
+              </tr>`).join('')
+            : `<tr><td colspan="5" class="empty">Sin registros todavía — el yield se acumula con cada ciclo de trading</td></tr>`
+          }
+        </tbody>
+      </table></div>
+    </div>
+
+  </div><!-- /tab-aave -->
+
 </main>
 
 <footer class="statusbar">
@@ -1100,6 +1176,7 @@ ${(() => {
     <span>Copy: ${d.openPositions} pos</span>
     <span style="color:rgba(0,255,163,0.5)">5m: ${d.btc5mOpen} pos</span>
     <span style="color:rgba(129,140,248,0.7)">Arb: ${d.arb.openLegs} piernas</span>
+    <span style="color:rgba(182,80,158,0.8)">AAVE yield: +${money(d.aave.totalYield)}</span>
   </div>
 </footer>
 
@@ -1515,6 +1592,12 @@ async function main() {
      FROM arb_opportunities WHERE status = 'open'`
   )[0] ?? { n: 0, avg_profit: null };
 
+  // ── AAVE data ───────────────────────────────────────────────────────────────
+  const aaveStatsSummary = getAaveStats(db);
+  const aaveEntries = all(db,
+    `SELECT * FROM aave_yields ORDER BY created_at DESC LIMIT 200`
+  );
+
   const data = {
     now, bankroll, pnlTotal, pnlDay, portfolio, globalOpen,
     winRate:        winRateRow?.win_rate ?? null,
@@ -1534,6 +1617,12 @@ async function main() {
       totalOps:      histRow.total_ops      ?? 0,
       openOps:       histRow.open_ops       ?? 0,
       closedOps:     histRow.closed_ops     ?? 0,
+    },
+    aave: {
+      totalYield: aaveStatsSummary.totalYield,
+      todayYield: aaveStatsSummary.todayYield,
+      avgApy:     aaveStatsSummary.avgApy,
+      entries:    aaveEntries,
     },
     arb: {
       opportunities:       arbOpps,

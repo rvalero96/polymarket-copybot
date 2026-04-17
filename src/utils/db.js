@@ -110,6 +110,17 @@ export async function getDb() {
   `);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS aave_yields (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      amount     REAL    NOT NULL,   -- USDC earned this cycle
+      apy        REAL    NOT NULL,   -- Annualised rate used (decimal, e.g. 0.05)
+      idle_cash  REAL    NOT NULL,   -- Bankroll balance that earned the yield
+      hours      REAL    NOT NULL,   -- Hours elapsed since previous yield
+      created_at INTEGER NOT NULL
+    );
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS arb_groups (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       group_key   TEXT NOT NULL,

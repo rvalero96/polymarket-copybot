@@ -1,5 +1,6 @@
 import { detectSignals } from './signals.js';
 import { checkPositionRisks } from './risk-manager.js';
+import { applyAaveYield } from '../defi/aave.js';
 import { getDb, all, run } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../../config.js';
@@ -21,6 +22,9 @@ async function main() {
   const todaySnap = snapshots.find(s => s.date === today);
   const prevSnap  = snapshots.find(s => s.date !== today);
   let bankroll = todaySnap?.bankroll ?? prevSnap?.bankroll ?? PAPER_BANKROLL;
+
+  // ── AAVE yield: accrue interest on idle cash before processing new signals
+  bankroll = await applyAaveYield(db, bankroll);
 
   // ── Risk manager: close any positions that breach TTL / stop-loss / inactivity
   bankroll = await checkPositionRisks(db, bankroll);

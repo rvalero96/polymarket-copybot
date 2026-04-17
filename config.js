@@ -39,6 +39,14 @@ export const CONFIG = {
     // Stop-loss: close if position falls more than this % below entry price
     STOP_LOSS_PCT: 0.25,
   },
+  AAVE: {
+    // USDC supply APY to use when the on-chain API is unavailable
+    FALLBACK_APY: 0.05,           // 5 % annual
+    // Maximum hours of yield to apply in a single cycle (guards against very long gaps)
+    MAX_YIELD_HOURS: 4,
+    // Minimum idle bankroll (USDC) required before applying yield
+    MIN_IDLE_USDC: 1,
+  },
   ARB: {
     // Minimum expected profit (after fees) to trade an opportunity
     MIN_PROFIT_PCT: 0.02,
