@@ -110,6 +110,24 @@ export async function getDb() {
   `);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS kelly_snapshots (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      portfolio      REAL    NOT NULL,   -- valor total (bankroll + posiciones abiertas)
+      phase          INTEGER NOT NULL,   -- 1 | 2 | 3
+      raw_kelly      REAL    NOT NULL,   -- fracción Kelly sin escalar
+      multiplier     REAL    NOT NULL,   -- 0 | 0.5 | 1.0
+      fraction       REAL    NOT NULL,   -- fracción efectiva aplicada
+      trading_budget REAL    NOT NULL,   -- USDC asignados a trading activo
+      aave_budget    REAL    NOT NULL,   -- USDC en AAVE
+      position_size  REAL    NOT NULL,   -- USDC por posición individual
+      win_rate       REAL,
+      odds_b         REAL,
+      total_trades   INTEGER NOT NULL,
+      created_at     INTEGER NOT NULL
+    );
+  `);
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS aave_yields (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       amount     REAL    NOT NULL,   -- USDC earned this cycle

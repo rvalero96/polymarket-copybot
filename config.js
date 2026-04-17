@@ -39,6 +39,18 @@ export const CONFIG = {
     // Stop-loss: close if position falls more than this % below entry price
     STOP_LOSS_PCT: 0.25,
   },
+  KELLY: {
+    // Trades cerrados mínimos para entrar en Fase 2 (half-Kelly)
+    MIN_TRADES_PHASE2: 50,
+    // Trades cerrados mínimos para entrar en Fase 3 (full Kelly)
+    MIN_TRADES_PHASE3: 500,
+    // Multiplicador en Fase 2 (half-Kelly = 0.5)
+    HALF_KELLY_MULT: 0.5,
+    // Fracción máxima del portfolio que puede ir a trading, incluso si Kelly lo supera
+    MAX_FRACTION: 0.30,
+    // Número de posiciones simultáneas para dividir el trading budget
+    POSITIONS_IN_BUDGET: 10,
+  },
   AAVE: {
     // USDC supply APY to use when the on-chain API is unavailable
     FALLBACK_APY: 0.05,           // 5 % annual

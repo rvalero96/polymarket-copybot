@@ -1,12 +1,12 @@
 import { detectSignals } from './signals.js';
 import { checkPositionRisks } from './risk-manager.js';
 import { applyAaveYield } from '../defi/aave.js';
+import { getKellyAllocation, saveKellySnapshot } from '../defi/kelly.js';
 import { getDb, all, run } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import { CONFIG } from '../../config.js';
 
-const { POSITION_SIZE_PCT, PAPER_BANKROLL, SLIPPAGE_PCT, FEE_PCT, MAX_OPEN_POSITIONS } = CONFIG;
-const { MAX_BANKROLL_CONCENTRATION } = CONFIG.COPY_TRADING;
+const { PAPER_BANKROLL, SLIPPAGE_PCT, FEE_PCT, MAX_OPEN_POSITIONS } = CONFIG;
 
 async function main() {
   logger.info('simulator:start', { mode: CONFIG.TRADING_MODE });
@@ -29,6 +29,25 @@ async function main() {
   // ── Risk manager: close any positions that breach TTL / stop-loss / inactivity
   bankroll = await checkPositionRisks(db, bankroll);
 
+  // ── Kelly Criterion: compute optimal capital allocation ───────────────────
+  const openPositionsTotal = all(db, `SELECT COALESCE(SUM(size_usdc),0) as t FROM positions`)[0].t
+                           + all(db, `SELECT COALESCE(SUM(size_usdc),0) as t FROM btc5m_positions`)[0].t;
+  const portfolio  = bankroll + openPositionsTotal;
+  const kelly      = getKellyAllocation(db, portfolio);
+  saveKellySnapshot(db, portfolio, kelly);
+
+  // tradingBudget: capital máximo que Kelly permite en posiciones abiertas.
+  // En Fase 1 (sin edge validado) se usa el fallback POSITION_SIZE_PCT para
+  // seguir acumulando datos de paper trading sin quedar paralizado.
+  const kellyBudget   = kelly.tradingBudget > 0
+    ? kelly.tradingBudget
+    : portfolio * CONFIG.POSITION_SIZE_PCT * MAX_OPEN_POSITIONS; // fallback fase 1
+
+  // Tamaño por posición derivado de Kelly (o fallback en fase 1)
+  const kellyPosSize  = kelly.positionSize > 0
+    ? kelly.positionSize
+    : portfolio * CONFIG.POSITION_SIZE_PCT;
+
   const signals = await detectSignals();
   if (signals.length === 0) {
     logger.info('simulator:no signals, done');
@@ -44,19 +63,19 @@ async function main() {
         continue;
       }
 
-      // Concentration check: never exceed MAX_BANKROLL_CONCENTRATION in copy positions
+      // Kelly budget check: total en posiciones no puede superar el trading budget
       const totalOpen = all(db, `SELECT COALESCE(SUM(size_usdc), 0) as total FROM positions`)[0].total;
-      const newSize   = bankroll * POSITION_SIZE_PCT;
-      if ((totalOpen + newSize) / bankroll > MAX_BANKROLL_CONCENTRATION) {
-        logger.warn('simulator:concentration limit, skipping open', {
-          totalOpen: totalOpen.toFixed(2),
-          limit: `${(MAX_BANKROLL_CONCENTRATION * 100).toFixed(0)}%`,
+      if (totalOpen + kellyPosSize > kellyBudget) {
+        logger.warn('simulator:kelly budget reached, skipping open', {
+          totalOpen:    totalOpen.toFixed(2),
+          kellyBudget:  kellyBudget.toFixed(2),
+          phase:        kelly.phase,
         });
         continue;
       }
     }
     try {
-      bankroll = await executeSignal(db, signal, bankroll);
+      bankroll = await executeSignal(db, signal, bankroll, kellyPosSize);
     } catch (err) {
       logger.error('simulator:signal error', { signal, error: err.message });
     }
@@ -81,11 +100,11 @@ async function main() {
   logger.info('simulator:done', { bankroll });
 }
 
-async function executeSignal(db, signal, bankroll) {
+async function executeSignal(db, signal, bankroll, positionSize) {
   const now = Date.now();
 
   if (signal.action === 'open' || signal.action === 'increase') {
-    const sizeUsdc = bankroll * POSITION_SIZE_PCT;
+    const sizeUsdc = Math.min(positionSize, bankroll); // no gastar más de lo disponible
     const slippage = sizeUsdc * SLIPPAGE_PCT;
     const fee      = sizeUsdc * FEE_PCT;
     const effectivePrice = signal.price * (1 + SLIPPAGE_PCT);
