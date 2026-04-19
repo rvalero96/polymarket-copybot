@@ -25,8 +25,8 @@ requirements.txt  Dependencias Python
 ## Setup local
 
 ```bash
-python3.12 -m venv backend/venv
-source backend/venv/bin/activate
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # editar con tus valores
 cd backend
