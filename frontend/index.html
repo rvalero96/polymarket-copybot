@@ -1496,8 +1496,9 @@ let _gridSeries     = null;
 let _gridPriceLines = [];
 let _gridMarkers    = [];
 let _gridWs         = null;
-let _gridPollTimer  = null;
-let _gridTabActive  = false;
+let _gridPollTimer    = null;
+let _gridTabActive    = false;
+let _gridInputsFilled = false;  // only pre-fill inputs once per tab session
 
 // ── Chart init ──────────────────────────────────────────────────────────────
 function gridInitChart() {
@@ -1740,15 +1741,14 @@ async function gridPoll() {
     // Grid price lines (on config change only — check if min/max changed)
     if (d.grid_min !== undefined) {
       gridSetPriceLines(d.grid_min, d.grid_max, d.levels);
-      // Pre-fill config inputs with current config
-      const inMin = document.getElementById('grid-inp-min');
-      const inMax = document.getElementById('grid-inp-max');
-      const inLvl = document.getElementById('grid-inp-levels');
-      const inSz  = document.getElementById('grid-inp-size');
-      if (inMin && !inMin.matches(':focus')) inMin.value = d.grid_min;
-      if (inMax && !inMax.matches(':focus')) inMax.value = d.grid_max;
-      if (inLvl && !inLvl.matches(':focus')) inLvl.value = d.levels;
-      if (inSz  && !inSz.matches(':focus'))  inSz.value  = d.order_size;
+      // Pre-fill config inputs only once (never override while user is editing)
+      if (!_gridInputsFilled && d.grid_min !== undefined) {
+        document.getElementById('grid-inp-min').value    = d.grid_min;
+        document.getElementById('grid-inp-max').value    = d.grid_max;
+        document.getElementById('grid-inp-levels').value = d.levels;
+        document.getElementById('grid-inp-size').value   = d.order_size;
+        _gridInputsFilled = true;
+      }
     }
 
     // Initial price history (only once, to seed the chart before WS kicks in)
@@ -1817,6 +1817,7 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
     const target = item.dataset.tab;
     if (target === 'tab-grid') {
       _gridTabActive = true;
+      _gridInputsFilled = false;   // allow fresh pre-fill on each tab visit
       gridInitChart();
       gridLoadHistory();
       gridStartWs();
