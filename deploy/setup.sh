@@ -12,7 +12,7 @@ sudo apt install -y python3.12 python3.12-venv python3-pip nginx certbot python3
 
 echo "=== 3. Clonando repo ==="
 cd ~
-git clone -b PRO https://github.com/rvalero96/polymarket-copybot.git
+git clone -b PRO https://github.com/rvalero96/polymarket-copybot.git || true
 cd polymarket-copybot
 
 echo "=== 4. Creando entorno virtual ==="
