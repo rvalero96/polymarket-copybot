@@ -167,6 +167,43 @@ CREATE TABLE IF NOT EXISTS arb_trades (
     opened_at       INTEGER NOT NULL,
     closed_at       INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS grid_config (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    grid_min    REAL    NOT NULL,
+    grid_max    REAL    NOT NULL,
+    levels      INTEGER NOT NULL,
+    order_size  REAL    NOT NULL,
+    status      TEXT    NOT NULL DEFAULT 'stopped',
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS grid_orders (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_id       INTEGER NOT NULL REFERENCES grid_config(id),
+    level           INTEGER NOT NULL,
+    buy_price       REAL    NOT NULL,
+    sell_price      REAL    NOT NULL,
+    order_size      REAL    NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'pending',
+    buy_fill_price  REAL,
+    sell_fill_price REAL,
+    bought_at       INTEGER,
+    sold_at         INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS grid_trades (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id        INTEGER NOT NULL REFERENCES grid_orders(id),
+    buy_price       REAL    NOT NULL,
+    sell_price      REAL    NOT NULL,
+    order_size_usd  REAL    NOT NULL,
+    pnl             REAL    NOT NULL,
+    fee             REAL    NOT NULL DEFAULT 0,
+    opened_at       INTEGER NOT NULL,
+    closed_at       INTEGER NOT NULL
+);
 """
 
 MIGRATIONS = [

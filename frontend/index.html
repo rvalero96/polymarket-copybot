@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TradeBot · Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
   <style>
@@ -240,6 +241,7 @@
       </div>
     </div>
     <div class="nav-item" data-tab="tab-historial"><span class="ms">receipt_long</span> Historial</div>
+    <div class="nav-item" data-tab="tab-grid"><span class="ms">grid_on</span> Grid BTC</div>
   </nav>
   <div class="sidebar-footer">
     <div class="sf-card">
@@ -696,6 +698,133 @@
     </div>
 
   </div><!-- /tab-yield -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- GRID BTC                                                                -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-grid">
+
+    <!-- Out-of-range alert -->
+    <div id="grid-oor-alert" style="display:none;background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:0.5rem;padding:0.65rem 1rem;margin-bottom:0.75rem;font-size:0.78rem;color:#FF4D4D;">
+      <span class="ms" style="vertical-align:middle;margin-right:0.4rem;font-size:1rem">warning</span>
+      Precio fuera del rango del grid — el bot no opera. Ajusta el rango o detén el grid.
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-hd" style="margin-bottom:0.75rem">
+      <div class="metric-hero" id="grid-price-hero">
+        <div class="hero-icon-clip"><span class="ms hero-icon">currency_bitcoin</span></div>
+        <div class="hero-label">BTC / USDT · Tiempo real</div>
+        <div class="hero-value" id="grid-price-val">—</div>
+        <span class="hero-badge" id="grid-status-badge">STOPPED</span>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">PnL Total</div>
+        <div class="mc-value pos" id="grid-pnl-val">$0.00</div>
+        <div class="mc-sub">paper mode</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Trades cerrados</div>
+        <div class="mc-value" id="grid-trades-val">0</div>
+        <div class="mc-sub" id="grid-orders-sub">0 compras activas</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Win Rate</div>
+        <div class="mc-value" id="grid-wr-val">—</div>
+        <div class="mc-sub" id="grid-spacing-sub">spacing —</div>
+      </div>
+    </div>
+
+    <!-- Config + controls -->
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Precio mín ($)</div>
+          <input id="grid-inp-min" type="number" value="80000" step="100"
+            style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Precio máx ($)</div>
+          <input id="grid-inp-max" type="number" value="90000" step="100"
+            style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Niveles</div>
+          <input id="grid-inp-levels" type="number" value="10" min="2" max="100"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden ($)</div>
+          <input id="grid-inp-size" type="number" value="50" min="1"
+            style="width:90px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div style="display:flex;gap:0.5rem;padding-bottom:1px">
+          <button id="grid-btn-start" onclick="gridStart()"
+            style="background:var(--primary);border:none;border-radius:0.35rem;color:#000;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            START
+          </button>
+          <button id="grid-btn-stop" onclick="gridStop()"
+            style="background:transparent;border:1px solid var(--tertiary);border-radius:0.35rem;color:var(--tertiary);padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            STOP
+          </button>
+        </div>
+        <div id="grid-ctrl-msg" style="font-size:0.72rem;color:var(--muted);padding-bottom:2px"></div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div class="cp-hd">
+        <div class="cp-title">BTC/USDT · Precio en tiempo real</div>
+        <div class="cp-sub">Líneas = niveles del grid · ▲ compra · ▼ venta</div>
+      </div>
+      <div id="grid-chart" style="height:380px;width:100%"></div>
+    </div>
+
+    <!-- Active orders -->
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Órdenes activas del grid</span>
+        <span class="table-badge" id="grid-orders-badge">0 niveles</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Nivel</th>
+            <th>Compra</th>
+            <th>Venta</th>
+            <th>Estado</th>
+            <th>Tamaño</th>
+            <th>PnL potencial</th>
+          </tr></thead>
+          <tbody id="tbl-grid-orders"><tr><td colspan="6" class="empty">Grid no iniciado</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Trade history -->
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Historial de trades</span>
+        <span class="table-badge" id="grid-trades-badge">0 trades</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Fecha cierre</th>
+            <th>Nivel</th>
+            <th>Compra @</th>
+            <th>Venta @</th>
+            <th>Tamaño</th>
+            <th>Fee</th>
+            <th>PnL</th>
+          </tr></thead>
+          <tbody id="tbl-grid-trades"><tr><td colspan="7" class="empty">Sin trades todavía</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-grid -->
 
 </main>
 
@@ -1354,6 +1483,323 @@ async function init() {
 
 document.getElementById('token-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 window.addEventListener('load', init);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRID BTC
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _gridChart      = null;
+let _gridSeries     = null;
+let _gridPriceLines = [];
+let _gridMarkers    = [];
+let _gridWs         = null;
+let _gridPollTimer  = null;
+let _gridTabActive  = false;
+
+// ── Chart init ──────────────────────────────────────────────────────────────
+function gridInitChart() {
+  if (_gridChart) return;
+  const container = document.getElementById('grid-chart');
+  if (!container) return;
+
+  _gridChart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { type: 'solid', color: '#000' },
+      textColor: '#ADAAAA',
+    },
+    grid: {
+      vertLines: { color: 'rgba(72,72,71,0.12)' },
+      horzLines: { color: 'rgba(72,72,71,0.12)' },
+    },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)' },
+    rightPriceScale: { borderColor: 'rgba(72,72,71,0.3)' },
+    handleScroll: true,
+    handleScale: true,
+  });
+
+  _gridSeries = _gridChart.addAreaSeries({
+    lineColor: '#00FFA3',
+    topColor: 'rgba(0,255,163,0.08)',
+    bottomColor: 'rgba(0,255,163,0)',
+    lineWidth: 1.5,
+    priceLineVisible: false,
+    lastValueVisible: true,
+  });
+
+  // Resize observer
+  const ro = new ResizeObserver(() => {
+    if (_gridChart) _gridChart.applyOptions({ width: container.clientWidth });
+  });
+  ro.observe(container);
+}
+
+// ── Price lines for grid levels ─────────────────────────────────────────────
+function gridSetPriceLines(gridMin, gridMax, levels) {
+  if (!_gridSeries) return;
+  _gridPriceLines.forEach(pl => _gridSeries.removePriceLine(pl));
+  _gridPriceLines = [];
+  if (!levels || levels < 1) return;
+  const spacing = (gridMax - gridMin) / levels;
+  for (let i = 0; i <= levels; i++) {
+    const price = gridMin + i * spacing;
+    const isEdge = i === 0 || i === levels;
+    const pl = _gridSeries.createPriceLine({
+      price,
+      color:            isEdge ? 'rgba(255,77,77,0.5)' : 'rgba(0,255,163,0.2)',
+      lineWidth:        isEdge ? 1 : 1,
+      lineStyle:        LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: isEdge,
+      title:            isEdge ? (i === 0 ? 'MIN' : 'MAX') : '',
+    });
+    _gridPriceLines.push(pl);
+  }
+}
+
+// ── Trade markers ────────────────────────────────────────────────────────────
+function gridSetMarkers(trades) {
+  if (!_gridSeries || !trades) return;
+  const markers = [];
+  [...trades].reverse().forEach(t => {
+    if (t.opened_at) markers.push({
+      time:     Math.floor(t.opened_at / 1000),
+      position: 'belowBar',
+      color:    '#00FFA3',
+      shape:    'arrowUp',
+      text:     '$' + Number(t.buy_price).toFixed(0),
+    });
+    if (t.closed_at) markers.push({
+      time:     Math.floor(t.closed_at / 1000),
+      position: 'aboveBar',
+      color:    '#FF4D4D',
+      shape:    'arrowDown',
+      text:     '$' + Number(t.sell_price).toFixed(0),
+    });
+  });
+  markers.sort((a, b) => a.time - b.time);
+  _gridSeries.setMarkers(markers);
+}
+
+// ── Binance WebSocket for real-time price ───────────────────────────────────
+function gridStartWs() {
+  if (_gridWs) return;
+  _gridWs = new WebSocket('wss://stream.binance.com/ws/btcusdt@aggTrade');
+  _gridWs.onmessage = e => {
+    try {
+      const msg   = JSON.parse(e.data);
+      const price = parseFloat(msg.p);
+      const ts    = Math.floor(parseInt(msg.T) / 1000);
+      document.getElementById('grid-price-val').textContent = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (_gridSeries) {
+        _gridSeries.update({ time: ts, value: price });
+      }
+    } catch (_) {}
+  };
+  _gridWs.onerror = () => { _gridWs = null; };
+  _gridWs.onclose = () => {
+    _gridWs = null;
+    if (_gridTabActive) setTimeout(gridStartWs, 3000);
+  };
+}
+
+function gridStopWs() {
+  if (_gridWs) { _gridWs.close(); _gridWs = null; }
+}
+
+// ── Load historical klines from Binance REST for chart init ─────────────────
+async function gridLoadHistory() {
+  try {
+    const url  = 'https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=200';
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (!Array.isArray(data) || !_gridSeries) return;
+    const pts = data.map(k => ({ time: Math.floor(k[0] / 1000), value: parseFloat(k[4]) }));
+    _gridSeries.setData(pts);
+  } catch (_) {}
+}
+
+// ── Render orders table ──────────────────────────────────────────────────────
+function gridRenderOrders(orders, gridMin, gridMax, levels) {
+  const tbody  = document.getElementById('tbl-grid-orders');
+  const badge  = document.getElementById('grid-orders-badge');
+  if (!orders || !orders.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Sin órdenes activas</td></tr>';
+    if (badge) badge.textContent = '0 niveles';
+    return;
+  }
+  const spacing = levels ? (gridMax - gridMin) / levels : 0;
+  badge.textContent = orders.length + ' niveles';
+  tbody.innerHTML = orders.map(o => {
+    const isBought = o.status === 'bought';
+    const potPnl   = spacing > 0 ? ((spacing / o.buy_price) * o.order_size - o.order_size * 0.002).toFixed(4) : '—';
+    return `<tr>
+      <td class="num">${o.level}</td>
+      <td class="num">$${Number(o.buy_price).toLocaleString('en-US')}</td>
+      <td class="num">$${Number(o.sell_price).toLocaleString('en-US')}</td>
+      <td>${isBought
+        ? '<span class="tl-badge tl-open" style="background:rgba(0,255,163,0.12);color:var(--primary)">COMPRADO</span>'
+        : '<span class="tl-badge" style="background:rgba(72,72,71,0.15);color:var(--muted)">EN ESPERA</span>'
+      }</td>
+      <td class="num">$${Number(o.order_size).toFixed(2)}</td>
+      <td class="num ${potPnl > 0 ? 'pos' : ''}">$${potPnl}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render trades table ──────────────────────────────────────────────────────
+function gridRenderTrades(trades) {
+  const tbody = document.getElementById('tbl-grid-trades');
+  const badge = document.getElementById('grid-trades-badge');
+  if (!trades || !trades.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Sin trades todavía</td></tr>';
+    if (badge) badge.textContent = '0 trades';
+    return;
+  }
+  badge.textContent = trades.length + ' trades';
+  tbody.innerHTML = trades.map(t => {
+    const pnlCls = t.pnl >= 0 ? 'pos' : 'neg';
+    return `<tr>
+      <td>${fmtDate(t.closed_at)}</td>
+      <td class="num">${t.level ?? '—'}</td>
+      <td class="num">$${Number(t.buy_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+      <td class="num">$${Number(t.sell_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+      <td class="num">$${Number(t.order_size_usd).toFixed(2)}</td>
+      <td class="num neg">-$${Number(t.fee).toFixed(4)}</td>
+      <td class="num ${pnlCls}">${t.pnl >= 0 ? '+' : ''}$${Number(t.pnl).toFixed(4)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Poll backend for metrics / orders / trades ───────────────────────────────
+async function gridPoll() {
+  try {
+    const d = await apiFetch('/api/grid/status');
+
+    // Out-of-range alert
+    const oor = document.getElementById('grid-oor-alert');
+    if (oor) oor.style.display = d.out_of_range ? 'block' : 'none';
+
+    // Status badge
+    const badge = document.getElementById('grid-status-badge');
+    if (badge) {
+      badge.textContent = d.status === 'running' ? 'RUNNING' : 'STOPPED';
+      badge.className   = 'hero-badge' + (d.status === 'running' ? '' : ' neg-badge');
+    }
+
+    // Metrics
+    const m = d.metrics || {};
+    const pnlEl = document.getElementById('grid-pnl-val');
+    if (pnlEl) {
+      const pnl = m.total_pnl || 0;
+      pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Number(pnl).toFixed(4);
+      pnlEl.className   = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg');
+    }
+    const tEl = document.getElementById('grid-trades-val');
+    if (tEl) tEl.textContent = m.trade_count ?? 0;
+
+    const sub = document.getElementById('grid-orders-sub');
+    if (sub) sub.textContent = (m.bought_orders ?? 0) + ' compras activas';
+
+    const wrEl = document.getElementById('grid-wr-val');
+    if (wrEl) wrEl.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
+
+    const spEl = document.getElementById('grid-spacing-sub');
+    if (spEl && d.spacing) spEl.textContent = 'spacing $' + Number(d.spacing).toLocaleString('en-US');
+
+    // Grid price lines (on config change only — check if min/max changed)
+    if (d.grid_min !== undefined) {
+      gridSetPriceLines(d.grid_min, d.grid_max, d.levels);
+      // Pre-fill config inputs with current config
+      const inMin = document.getElementById('grid-inp-min');
+      const inMax = document.getElementById('grid-inp-max');
+      const inLvl = document.getElementById('grid-inp-levels');
+      const inSz  = document.getElementById('grid-inp-size');
+      if (inMin && !inMin.matches(':focus')) inMin.value = d.grid_min;
+      if (inMax && !inMax.matches(':focus')) inMax.value = d.grid_max;
+      if (inLvl && !inLvl.matches(':focus')) inLvl.value = d.levels;
+      if (inSz  && !inSz.matches(':focus'))  inSz.value  = d.order_size;
+    }
+
+    // Initial price history (only once, to seed the chart before WS kicks in)
+    if (d.price_history && d.price_history.length > 0 && _gridSeries) {
+      const existing = _gridSeries.data?.() || [];
+      if (existing.length === 0) {
+        _gridSeries.setData(d.price_history);
+      }
+    }
+
+    // Trade markers
+    gridSetMarkers(d.recent_trades);
+
+    // Tables
+    gridRenderOrders(d.orders, d.grid_min, d.grid_max, d.levels);
+    gridRenderTrades(d.recent_trades);
+
+  } catch (err) {
+    if (err.message !== 'Unauthorized') console.warn('grid poll:', err.message);
+  }
+}
+
+// ── Start / Stop actions ─────────────────────────────────────────────────────
+async function gridStart() {
+  const min    = parseFloat(document.getElementById('grid-inp-min').value);
+  const max    = parseFloat(document.getElementById('grid-inp-max').value);
+  const levels = parseInt(document.getElementById('grid-inp-levels').value);
+  const size   = parseFloat(document.getElementById('grid-inp-size').value);
+  const msg    = document.getElementById('grid-ctrl-msg');
+
+  if (isNaN(min) || isNaN(max) || min >= max) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Error: precio mín debe ser menor que máx'; }
+    return;
+  }
+  try {
+    const res = await apiFetch('/api/grid/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grid_min: min, grid_max: max, levels, order_size: size }),
+    });
+    if (res.ok) {
+      if (msg) { msg.style.color = 'var(--primary)'; msg.textContent = 'Grid iniciado · config_id ' + res.config_id; }
+      await gridPoll();
+    } else {
+      if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = res.error || 'Error'; }
+    }
+  } catch (e) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
+  }
+}
+
+async function gridStop() {
+  const msg = document.getElementById('grid-ctrl-msg');
+  try {
+    await apiFetch('/api/grid/stop', { method: 'POST' });
+    if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = 'Grid detenido'; }
+    await gridPoll();
+  } catch (e) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
+  }
+}
+
+// ── Tab activation hook ──────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+  item.addEventListener('click', () => {
+    const target = item.dataset.tab;
+    if (target === 'tab-grid') {
+      _gridTabActive = true;
+      gridInitChart();
+      gridLoadHistory();
+      gridStartWs();
+      gridPoll();
+      if (!_gridPollTimer) _gridPollTimer = setInterval(gridPoll, 2500);
+    } else {
+      if (_gridTabActive) {
+        _gridTabActive = false;
+        gridStopWs();
+        clearInterval(_gridPollTimer); _gridPollTimer = null;
+      }
+    }
+  });
+});
 </script>
 </body>
 </html>
