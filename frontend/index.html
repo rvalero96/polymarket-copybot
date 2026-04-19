@@ -187,7 +187,9 @@
     .nav-group-arrow { margin-left: auto; font-size: 1rem !important; transition: transform 0.2s; line-height: 1; }
     .nav-group-header.open .nav-group-arrow { transform: rotate(180deg); }
     .nav-group-items { overflow: hidden; max-height: 0; transition: max-height 0.25s ease; }
-    .nav-group-items.open { max-height: 300px; }
+    .nav-group-items.open { max-height: 500px; }
+    .nav-sub-label { padding: 0.55rem 1.5rem 0.2rem 2.75rem; font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted); opacity: 0.45; margin-top: 0.15rem; }
+    .nav-sub2 { padding-left: 3.25rem !important; font-size: 0.75rem !important; }
     .nav-sub { padding-left: 2.75rem !important; font-size: 0.75rem !important; }
     @media (max-width: 900px) {
       .sidebar { display: none; }
@@ -238,10 +240,11 @@
         <div class="nav-item nav-sub" data-tab="tab-btc5m"><span class="ms">bolt</span> Early-Bird 5m</div>
         <div class="nav-item nav-sub" data-tab="tab-yield"><span class="ms">savings</span> AAVE · Kelly</div>
         <div class="nav-item nav-sub" data-tab="tab-arb"><span class="ms">balance</span> Arbitraje</div>
+        <div class="nav-sub-label">Crypto Trading</div>
+        <div class="nav-item nav-sub nav-sub2" data-tab="tab-grid"><span class="ms">grid_on</span> Grid BTC</div>
       </div>
     </div>
     <div class="nav-item" data-tab="tab-historial"><span class="ms">receipt_long</span> Historial</div>
-    <div class="nav-item" data-tab="tab-grid"><span class="ms">grid_on</span> Grid BTC</div>
   </nav>
   <div class="sidebar-footer">
     <div class="sf-card">
@@ -1527,6 +1530,14 @@ function gridInitChart() {
     lastValueVisible: true,
   });
 
+  // Detect manual scroll — pause auto-follow until user returns to right edge
+  _gridChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (!range || !_gridWs) return;
+    // If rightmost visible bar is close to the data end, re-enable auto-follow
+    const logicalRight = range.to;
+    _gridWs._atRightEdge = logicalRight >= -2;
+  });
+
   // Resize observer
   const ro = new ResizeObserver(() => {
     if (_gridChart) _gridChart.applyOptions({ width: container.clientWidth });
@@ -1559,22 +1570,36 @@ function gridSetPriceLines(gridMin, gridMax, levels) {
 // ── Trade markers ────────────────────────────────────────────────────────────
 function gridSetMarkers(trades) {
   if (!_gridSeries || !trades) return;
+  const seen = new Set();
   const markers = [];
+  // Oldest first so sort is stable
   [...trades].reverse().forEach(t => {
-    if (t.opened_at) markers.push({
-      time:     Math.floor(t.opened_at / 1000),
-      position: 'belowBar',
-      color:    '#00FFA3',
-      shape:    'arrowUp',
-      text:     '$' + Number(t.buy_price).toFixed(0),
-    });
-    if (t.closed_at) markers.push({
-      time:     Math.floor(t.closed_at / 1000),
-      position: 'aboveBar',
-      color:    '#FF4D4D',
-      shape:    'arrowDown',
-      text:     '$' + Number(t.sell_price).toFixed(0),
-    });
+    // Buy marker — green triangle up
+    const buyKey = `b_${t.opened_at}`;
+    if (t.opened_at && !seen.has(buyKey)) {
+      seen.add(buyKey);
+      markers.push({
+        time:     Math.floor(t.opened_at / 1000),
+        position: 'belowBar',
+        color:    '#00FFA3',
+        shape:    'arrowUp',
+        size:     1,
+        text:     'B $' + Number(t.buy_price).toFixed(0),
+      });
+    }
+    // Sell marker — red triangle down
+    const sellKey = `s_${t.closed_at}`;
+    if (t.closed_at && !seen.has(sellKey)) {
+      seen.add(sellKey);
+      markers.push({
+        time:     Math.floor(t.closed_at / 1000),
+        position: 'aboveBar',
+        color:    '#FF4D4D',
+        shape:    'arrowDown',
+        size:     1,
+        text:     'S $' + Number(t.sell_price).toFixed(0),
+      });
+    }
   });
   markers.sort((a, b) => a.time - b.time);
   _gridSeries.setMarkers(markers);
@@ -1584,6 +1609,7 @@ function gridSetMarkers(trades) {
 function gridStartWs() {
   if (_gridWs) return;
   _gridWs = new WebSocket('wss://stream.binance.com/ws/btcusdt@aggTrade');
+  _gridWs._atRightEdge = true;
   _gridWs.onmessage = e => {
     try {
       const msg   = JSON.parse(e.data);
@@ -1592,6 +1618,10 @@ function gridStartWs() {
       document.getElementById('grid-price-val').textContent = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       if (_gridSeries) {
         _gridSeries.update({ time: ts, value: price });
+        // Auto-follow only if chart was already at the right edge
+        if (_gridWs._atRightEdge && _gridChart) {
+          _gridChart.timeScale().scrollToRealTime();
+        }
       }
     } catch (_) {}
   };
@@ -1615,6 +1645,7 @@ async function gridLoadHistory() {
     if (!Array.isArray(data) || !_gridSeries) return;
     const pts = data.map(k => ({ time: Math.floor(k[0] / 1000), value: parseFloat(k[4]) }));
     _gridSeries.setData(pts);
+    _gridChart.timeScale().scrollToRealTime();
   } catch (_) {}
 }
 
