@@ -7,17 +7,18 @@ import websockets
 from config import CONFIG
 from db.connection import get_db, fetchall, fetchone
 from logger import logger
+from services.binance import fetch_spot_price
 
 
 class GridEngine:
     def __init__(self):
         self._task: asyncio.Task | None = None
         self._price: float | None = None
-        self._price_history: list[dict] = []   # [{time: unix_s, value: float}]
+        self._price_history: list[dict] = []
         self._max_history = 600
         self.running = False
         self._config_id: int | None = None
-        self._pending: dict[int, dict] = {}    # oid -> order (in-memory, hot path)
+        self._pending: dict[int, dict] = {}
         self._bought: dict[int, dict] = {}
         self._last_check = 0.0
         self._check_interval = 0.15
@@ -49,7 +50,7 @@ class GridEngine:
             try:
                 q.put_nowait(data)
             except asyncio.QueueFull:
-                dead.append(q)   # slow client — drop it
+                dead.append(q)
         for q in dead:
             self.unsubscribe(q)
 
@@ -63,8 +64,13 @@ class GridEngine:
         if levels < 2 or levels > 200:
             return {"ok": False, "error": "levels must be between 2 and 200"}
 
-        db = await get_db()
+        # Get current price to avoid filling levels already above it on first tick
+        try:
+            ref_price = self._price or await fetch_spot_price("BTCUSDT")
+        except Exception:
+            ref_price = (grid_min + grid_max) / 2
 
+        db = await get_db()
         await db.execute(
             "UPDATE grid_config SET status='stopped', updated_at=? WHERE status='running'",
             (int(time.time() * 1000),)
@@ -83,9 +89,17 @@ class GridEngine:
         self._bought.clear()
 
         spacing = (grid_max - grid_min) / levels
+        active = 0
         for i in range(levels):
             buy_price  = round(grid_min + i * spacing, 2)
             sell_price = round(buy_price + spacing, 2)
+
+            # Only activate levels strictly below the current price.
+            # Levels at or above ref_price would fill on the very first tick,
+            # which is wrong — a buy order only makes sense when price falls to it.
+            if buy_price >= ref_price:
+                continue
+
             async with db.execute(
                 "INSERT INTO grid_orders (config_id, level, buy_price, sell_price, order_size, status) VALUES (?,?,?,?,?,'pending')",
                 (config_id, i, buy_price, sell_price, order_size)
@@ -95,13 +109,21 @@ class GridEngine:
                 "id": oid, "config_id": config_id, "level": i,
                 "buy_price": buy_price, "sell_price": sell_price, "order_size": order_size,
             }
+            active += 1
         await db.commit()
+
+        if active == 0:
+            # Price is below or at grid_min — no levels to watch
+            await db.execute("UPDATE grid_config SET status='stopped', updated_at=? WHERE id=?",
+                             (now_ms, config_id))
+            await db.commit()
+            return {"ok": False, "error": f"Precio actual (${ref_price:,.0f}) está por debajo del rango del grid. Baja el precio mínimo."}
 
         self.running = True
         self._task = asyncio.create_task(self._ws_loop())
-        logger.info("grid:started", {"config_id": config_id, "levels": levels, "min": grid_min, "max": grid_max})
+        logger.info("grid:started", {"config_id": config_id, "active_levels": active, "ref_price": ref_price})
         asyncio.create_task(self._broadcast())
-        return {"ok": True, "config_id": config_id}
+        return {"ok": True, "config_id": config_id, "active_levels": active, "ref_price": ref_price}
 
     async def stop(self) -> None:
         if not self.running:
@@ -114,12 +136,47 @@ class GridEngine:
             except asyncio.CancelledError:
                 pass
             self._task = None
+
+        # Sell all bought positions at current market price
+        sell_price = self._price
         db = await get_db()
+        ts_ms = int(time.time() * 1000)
+
+        if sell_price and self._bought:
+            for oid, order in list(self._bought.items()):
+                fee = order["order_size"] * CONFIG.grid_fee_pct * 2
+                pnl = round(
+                    (order["order_size"] / order["buy_fill_price"]) * (sell_price - order["buy_fill_price"]) - fee,
+                    4
+                )
+                await db.execute(
+                    "UPDATE grid_orders SET status='closed', sold_at=?, sell_fill_price=? WHERE id=?",
+                    (ts_ms, sell_price, oid)
+                )
+                await db.execute(
+                    """INSERT INTO grid_trades
+                       (order_id, buy_price, sell_price, order_size_usd, pnl, fee, opened_at, closed_at)
+                       VALUES (?,?,?,?,?,?,?,?)""",
+                    (oid, order["buy_fill_price"], sell_price, order["order_size"],
+                     pnl, round(fee, 4), order["bought_at"], ts_ms)
+                )
+            logger.info("grid:stop:sold_all", {"count": len(self._bought), "price": sell_price})
+
+        # Cancel all pending orders
+        if self._config_id:
+            await db.execute(
+                "UPDATE grid_orders SET status='cancelled' WHERE config_id=? AND status='pending'",
+                (self._config_id,)
+            )
+
         await db.execute(
             "UPDATE grid_config SET status='stopped', updated_at=? WHERE id=?",
-            (int(time.time() * 1000), self._config_id)
+            (ts_ms, self._config_id)
         )
         await db.commit()
+
+        self._bought.clear()
+        self._pending.clear()
         logger.info("grid:stopped")
         await self._broadcast()
 
@@ -131,8 +188,8 @@ class GridEngine:
             return {"status": "not_configured", "current_price": self._price}
 
         trades = await fetchall(db, """
-            SELECT gt.id, gt.buy_price, gt.sell_price, gt.order_size_usd, gt.pnl, gt.fee, gt.opened_at, gt.closed_at,
-                   go.level
+            SELECT gt.id, gt.buy_price, gt.sell_price, gt.order_size_usd, gt.pnl, gt.fee,
+                   gt.opened_at, gt.closed_at, go.level
             FROM grid_trades gt
             JOIN grid_orders go ON gt.order_id = go.id
             WHERE go.config_id = ?

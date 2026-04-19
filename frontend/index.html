@@ -1847,7 +1847,7 @@ async function gridStart() {
       body: JSON.stringify({ grid_min: min, grid_max: max, levels, order_size: size }),
     });
     if (res.ok) {
-      if (msg) { msg.style.color = 'var(--primary)'; msg.textContent = 'Grid iniciado · config_id ' + res.config_id; }
+      if (msg) { msg.style.color = 'var(--primary)'; msg.textContent = `Grid iniciado · ${res.active_levels} niveles activos · ref $${Number(res.ref_price).toLocaleString('en-US', {maximumFractionDigits:0})}`; }
       // SSE will push the updated state — no manual fetch needed
     } else {
       if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = res.error || 'Error'; }
