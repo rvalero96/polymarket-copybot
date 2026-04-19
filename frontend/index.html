@@ -743,17 +743,17 @@
       <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap">
         <div>
           <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Precio mín ($)</div>
-          <input id="grid-inp-min" type="number" value="80000" step="100"
+          <input id="grid-inp-min" type="number" value="80000" step="100" oninput="gridUpdateViability()"
             style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
         </div>
         <div>
           <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Precio máx ($)</div>
-          <input id="grid-inp-max" type="number" value="90000" step="100"
+          <input id="grid-inp-max" type="number" value="90000" step="100" oninput="gridUpdateViability()"
             style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
         </div>
         <div>
           <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Niveles</div>
-          <input id="grid-inp-levels" type="number" value="10" min="2" max="100"
+          <input id="grid-inp-levels" type="number" value="10" min="2" max="100" oninput="gridUpdateViability()"
             style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
         </div>
         <div>
@@ -773,6 +773,7 @@
         </div>
         <div id="grid-ctrl-msg" style="font-size:0.72rem;color:var(--muted);padding-bottom:2px"></div>
       </div>
+      <div id="grid-viability" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted);display:flex;gap:1.5rem;flex-wrap:wrap"></div>
     </div>
 
     <!-- Chart -->
@@ -863,7 +864,7 @@ function fmtPct(n, d = 1) { return n == null ? '—' : fmt(n, d) + '%'; }
 function fmtDate(ts) {
   if (!ts) return '—';
   const ms = ts > 1e12 ? ts : ts * 1000;
-  return new Date(ms).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+  return new Date(ms).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Madrid' });
 }
 function shortAddr(addr) { if (!addr) return '—'; return addr.slice(0, 6) + '…' + addr.slice(-4); }
 function pnlClass(n) { return n == null ? '' : n >= 0 ? 'pos' : 'neg'; }
@@ -1568,39 +1569,47 @@ function gridSetPriceLines(gridMin, gridMax, levels) {
 }
 
 // ── Trade markers ────────────────────────────────────────────────────────────
-function gridSetMarkers(trades) {
-  if (!_gridSeries || !trades) return;
+function gridSetMarkers(trades, boughtOrders = []) {
+  if (!_gridSeries) return;
   const seen = new Set();
   const markers = [];
-  // Oldest first so sort is stable
-  [...trades].reverse().forEach(t => {
-    // Buy marker — green triangle up
+
+  // Completed trades: both buy ▲ and sell ▼ markers (oldest first for stable sort)
+  [...(trades || [])].reverse().forEach(t => {
     const buyKey = `b_${t.opened_at}`;
     if (t.opened_at && !seen.has(buyKey)) {
       seen.add(buyKey);
       markers.push({
-        time:     Math.floor(t.opened_at / 1000),
-        position: 'belowBar',
-        color:    '#00FFA3',
-        shape:    'arrowUp',
-        size:     1,
-        text:     'B $' + Number(t.buy_price).toFixed(0),
+        time: Math.floor(t.opened_at / 1000), position: 'belowBar',
+        color: '#00FFA3', shape: 'arrowUp', size: 1,
+        text: 'B $' + Number(t.buy_price).toFixed(0),
       });
     }
-    // Sell marker — red triangle down
     const sellKey = `s_${t.closed_at}`;
     if (t.closed_at && !seen.has(sellKey)) {
       seen.add(sellKey);
       markers.push({
-        time:     Math.floor(t.closed_at / 1000),
-        position: 'aboveBar',
-        color:    '#FF4D4D',
-        shape:    'arrowDown',
-        size:     1,
-        text:     'S $' + Number(t.sell_price).toFixed(0),
+        time: Math.floor(t.closed_at / 1000), position: 'aboveBar',
+        color: '#FF4D4D', shape: 'arrowDown', size: 1,
+        text: 'S $' + Number(t.sell_price).toFixed(0),
       });
     }
   });
+
+  // Active bought orders: show buy ▲ immediately, before the sell completes
+  boughtOrders.forEach(o => {
+    if (!o.bought_at || !o.buy_fill_price) return;
+    const key = `ab_${o.id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      markers.push({
+        time: Math.floor(o.bought_at / 1000), position: 'belowBar',
+        color: '#00FFA3', shape: 'arrowUp', size: 1,
+        text: 'B $' + Number(o.buy_fill_price).toFixed(0),
+      });
+    }
+  });
+
   markers.sort((a, b) => a.time - b.time);
   _gridSeries.setMarkers(markers);
 }
@@ -1701,6 +1710,42 @@ function gridRenderTrades(trades) {
   }).join('');
 }
 
+// ── Viability calculator ─────────────────────────────────────────────────────
+// Fee round-trip = 0.1% buy + 0.1% sell = 0.2%
+// Break-even: spacing > avg_price * 0.002
+// Max levels: floor(range / min_spacing)
+function gridUpdateViability() {
+  const el     = document.getElementById('grid-viability');
+  if (!el) return;
+  const min    = parseFloat(document.getElementById('grid-inp-min')?.value);
+  const max    = parseFloat(document.getElementById('grid-inp-max')?.value);
+  const levels = parseInt(document.getElementById('grid-inp-levels')?.value);
+  if (isNaN(min) || isNaN(max) || isNaN(levels) || min >= max || levels < 1) {
+    el.innerHTML = ''; return;
+  }
+  const feePct     = 0.001;                          // per side
+  const avgPrice   = (min + max) / 2;
+  const minSpacing = avgPrice * feePct * 2;          // break-even spacing
+  const spacing    = (max - min) / levels;
+  const maxLevels  = Math.floor((max - min) / minSpacing);
+  const minRange   = Math.ceil(levels * minSpacing);
+  const profitable = spacing > minSpacing;
+  const pnlPerTrade = ((spacing / avgPrice) - feePct * 2) * 100; // in %
+
+  const ok   = '<span style="color:var(--primary);font-weight:700">✓ RENTABLE</span>';
+  const nok  = '<span style="color:#FF4D4D;font-weight:700">✗ PÉRDIDA</span>';
+  const hint = profitable
+    ? `Máx. ${maxLevels} niveles para este rango`
+    : `Necesitas ≤ ${maxLevels} niveles o rango ≥ $${minRange.toLocaleString('es-ES')}`;
+
+  el.innerHTML = [
+    `<span>Spacing actual: <b>$${spacing.toLocaleString('es-ES', {maximumFractionDigits:0})}</b></span>`,
+    `<span>Mín. rentable: <b>$${minSpacing.toLocaleString('es-ES', {maximumFractionDigits:0})}</b></span>`,
+    `<span>${profitable ? ok : nok} &nbsp;${hint}</span>`,
+    profitable ? `<span style="color:var(--primary)">PnL/trade ≈ ${pnlPerTrade.toFixed(3)}%</span>` : '',
+  ].join('');
+}
+
 // ── Apply status payload to UI (called from SSE events) ─────────────────────
 function gridApplyStatus(d) {
   // Out-of-range alert
@@ -1744,11 +1789,13 @@ function gridApplyStatus(d) {
       document.getElementById('grid-inp-levels').value = d.levels;
       document.getElementById('grid-inp-size').value   = d.order_size;
       _gridInputsFilled = true;
+      gridUpdateViability();
     }
   }
 
   // Trade markers + tables
-  gridSetMarkers(d.recent_trades);
+  const boughtOrders = (d.orders || []).filter(o => o.status === 'bought');
+  gridSetMarkers(d.recent_trades, boughtOrders);
   gridRenderOrders(d.orders, d.grid_min, d.grid_max, d.levels);
   gridRenderTrades(d.recent_trades);
 }
