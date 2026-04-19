@@ -1494,11 +1494,10 @@ window.addEventListener('load', init);
 let _gridChart      = null;
 let _gridSeries     = null;
 let _gridPriceLines = [];
-let _gridMarkers    = [];
-let _gridWs         = null;
-let _gridPollTimer    = null;
-let _gridTabActive    = false;
-let _gridInputsFilled = false;  // only pre-fill inputs once per tab session
+let _gridWs         = null;   // Binance WebSocket (price feed)
+let _gridSSE        = null;   // SSE connection (fills / metrics from backend)
+let _gridTabActive  = false;
+let _gridInputsFilled = false;
 
 // ── Chart init ──────────────────────────────────────────────────────────────
 function gridInitChart() {
@@ -1702,73 +1701,84 @@ function gridRenderTrades(trades) {
   }).join('');
 }
 
-// ── Poll backend for metrics / orders / trades ───────────────────────────────
-async function gridPoll() {
-  try {
-    const d = await apiFetch('/api/grid/status');
+// ── Apply status payload to UI (called from SSE events) ─────────────────────
+function gridApplyStatus(d) {
+  // Out-of-range alert
+  const oor = document.getElementById('grid-oor-alert');
+  if (oor) oor.style.display = d.out_of_range ? 'block' : 'none';
 
-    // Out-of-range alert
-    const oor = document.getElementById('grid-oor-alert');
-    if (oor) oor.style.display = d.out_of_range ? 'block' : 'none';
-
-    // Status badge
-    const badge = document.getElementById('grid-status-badge');
-    if (badge) {
-      badge.textContent = d.status === 'running' ? 'RUNNING' : 'STOPPED';
-      badge.className   = 'hero-badge' + (d.status === 'running' ? '' : ' neg-badge');
-    }
-
-    // Metrics
-    const m = d.metrics || {};
-    const pnlEl = document.getElementById('grid-pnl-val');
-    if (pnlEl) {
-      const pnl = m.total_pnl || 0;
-      pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Number(pnl).toFixed(4);
-      pnlEl.className   = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg');
-    }
-    const tEl = document.getElementById('grid-trades-val');
-    if (tEl) tEl.textContent = m.trade_count ?? 0;
-
-    const sub = document.getElementById('grid-orders-sub');
-    if (sub) sub.textContent = (m.bought_orders ?? 0) + ' compras activas';
-
-    const wrEl = document.getElementById('grid-wr-val');
-    if (wrEl) wrEl.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
-
-    const spEl = document.getElementById('grid-spacing-sub');
-    if (spEl && d.spacing) spEl.textContent = 'spacing $' + Number(d.spacing).toLocaleString('en-US');
-
-    // Grid price lines (on config change only — check if min/max changed)
-    if (d.grid_min !== undefined) {
-      gridSetPriceLines(d.grid_min, d.grid_max, d.levels);
-      // Pre-fill config inputs only once (never override while user is editing)
-      if (!_gridInputsFilled && d.grid_min !== undefined) {
-        document.getElementById('grid-inp-min').value    = d.grid_min;
-        document.getElementById('grid-inp-max').value    = d.grid_max;
-        document.getElementById('grid-inp-levels').value = d.levels;
-        document.getElementById('grid-inp-size').value   = d.order_size;
-        _gridInputsFilled = true;
-      }
-    }
-
-    // Initial price history (only once, to seed the chart before WS kicks in)
-    if (d.price_history && d.price_history.length > 0 && _gridSeries) {
-      const existing = _gridSeries.data?.() || [];
-      if (existing.length === 0) {
-        _gridSeries.setData(d.price_history);
-      }
-    }
-
-    // Trade markers
-    gridSetMarkers(d.recent_trades);
-
-    // Tables
-    gridRenderOrders(d.orders, d.grid_min, d.grid_max, d.levels);
-    gridRenderTrades(d.recent_trades);
-
-  } catch (err) {
-    if (err.message !== 'Unauthorized') console.warn('grid poll:', err.message);
+  // Status badge
+  const badge = document.getElementById('grid-status-badge');
+  if (badge) {
+    badge.textContent = d.status === 'running' ? 'RUNNING' : 'STOPPED';
+    badge.className   = 'hero-badge' + (d.status === 'running' ? '' : ' neg-badge');
   }
+
+  // Metrics
+  const m = d.metrics || {};
+  const pnlEl = document.getElementById('grid-pnl-val');
+  if (pnlEl) {
+    const pnl = m.total_pnl || 0;
+    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Number(pnl).toFixed(4);
+    pnlEl.className   = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg');
+  }
+  const tEl = document.getElementById('grid-trades-val');
+  if (tEl) tEl.textContent = m.trade_count ?? 0;
+
+  const sub = document.getElementById('grid-orders-sub');
+  if (sub) sub.textContent = (m.bought_orders ?? 0) + ' compras activas';
+
+  const wrEl = document.getElementById('grid-wr-val');
+  if (wrEl) wrEl.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
+
+  const spEl = document.getElementById('grid-spacing-sub');
+  if (spEl && d.spacing) spEl.textContent = 'spacing $' + Number(d.spacing).toLocaleString('en-US');
+
+  // Grid price lines
+  if (d.grid_min !== undefined) {
+    gridSetPriceLines(d.grid_min, d.grid_max, d.levels);
+    // Pre-fill config inputs only once per tab visit
+    if (!_gridInputsFilled) {
+      document.getElementById('grid-inp-min').value    = d.grid_min;
+      document.getElementById('grid-inp-max').value    = d.grid_max;
+      document.getElementById('grid-inp-levels').value = d.levels;
+      document.getElementById('grid-inp-size').value   = d.order_size;
+      _gridInputsFilled = true;
+    }
+  }
+
+  // Trade markers + tables
+  gridSetMarkers(d.recent_trades);
+  gridRenderOrders(d.orders, d.grid_min, d.grid_max, d.levels);
+  gridRenderTrades(d.recent_trades);
+}
+
+// ── SSE connection to backend ────────────────────────────────────────────────
+function gridStartSSE() {
+  if (_gridSSE) return;
+  const token = getToken();
+  _gridSSE = new EventSource(`/api/grid/stream?token=${encodeURIComponent(token)}`);
+
+  // Initial state on connect
+  _gridSSE.addEventListener('init', e => {
+    gridApplyStatus(JSON.parse(e.data));
+  });
+
+  // Push event on every fill / start / stop
+  _gridSSE.onmessage = e => {
+    gridApplyStatus(JSON.parse(e.data));
+  };
+
+  _gridSSE.onerror = () => {
+    // EventSource reconnects automatically — only clean up if permanently closed
+    if (_gridSSE && _gridSSE.readyState === EventSource.CLOSED) {
+      _gridSSE = null;
+    }
+  };
+}
+
+function gridStopSSE() {
+  if (_gridSSE) { _gridSSE.close(); _gridSSE = null; }
 }
 
 // ── Start / Stop actions ─────────────────────────────────────────────────────
@@ -1791,7 +1801,7 @@ async function gridStart() {
     });
     if (res.ok) {
       if (msg) { msg.style.color = 'var(--primary)'; msg.textContent = 'Grid iniciado · config_id ' + res.config_id; }
-      await gridPoll();
+      // SSE will push the updated state — no manual fetch needed
     } else {
       if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = res.error || 'Error'; }
     }
@@ -1805,7 +1815,7 @@ async function gridStop() {
   try {
     await apiFetch('/api/grid/stop', { method: 'POST' });
     if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = 'Grid detenido'; }
-    await gridPoll();
+    // SSE will push the updated state — no manual fetch needed
   } catch (e) {
     if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
   }
@@ -1816,18 +1826,17 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
   item.addEventListener('click', () => {
     const target = item.dataset.tab;
     if (target === 'tab-grid') {
-      _gridTabActive = true;
-      _gridInputsFilled = false;   // allow fresh pre-fill on each tab visit
+      _gridTabActive    = true;
+      _gridInputsFilled = false;
       gridInitChart();
       gridLoadHistory();
       gridStartWs();
-      gridPoll();
-      if (!_gridPollTimer) _gridPollTimer = setInterval(gridPoll, 2500);
+      gridStartSSE();   // SSE sends 'init' event immediately on connect
     } else {
       if (_gridTabActive) {
         _gridTabActive = false;
         gridStopWs();
-        clearInterval(_gridPollTimer); _gridPollTimer = null;
+        gridStopSSE();
       }
     }
   });

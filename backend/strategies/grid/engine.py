@@ -20,11 +20,38 @@ class GridEngine:
         self._pending: dict[int, dict] = {}    # oid -> order (in-memory, hot path)
         self._bought: dict[int, dict] = {}
         self._last_check = 0.0
-        self._check_interval = 0.15            # seconds between fill checks
+        self._check_interval = 0.15
+        self._subscribers: list[asyncio.Queue] = []
 
     @property
     def current_price(self) -> float | None:
         return self._price
+
+    # ── Pub/sub for SSE clients ────────────────────────────────────────────────
+
+    def subscribe(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue(maxsize=20)
+        self._subscribers.append(q)
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue) -> None:
+        try:
+            self._subscribers.remove(q)
+        except ValueError:
+            pass
+
+    async def _broadcast(self) -> None:
+        if not self._subscribers:
+            return
+        data = json.dumps(await self.get_status())
+        dead = []
+        for q in self._subscribers:
+            try:
+                q.put_nowait(data)
+            except asyncio.QueueFull:
+                dead.append(q)   # slow client — drop it
+        for q in dead:
+            self.unsubscribe(q)
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -38,7 +65,6 @@ class GridEngine:
 
         db = await get_db()
 
-        # Clean up any orphaned running configs (e.g. from previous server session)
         await db.execute(
             "UPDATE grid_config SET status='stopped', updated_at=? WHERE status='running'",
             (int(time.time() * 1000),)
@@ -57,27 +83,24 @@ class GridEngine:
         self._bought.clear()
 
         spacing = (grid_max - grid_min) / levels
-        rows = []
         for i in range(levels):
             buy_price  = round(grid_min + i * spacing, 2)
             sell_price = round(buy_price + spacing, 2)
-            rows.append((config_id, i, buy_price, sell_price, order_size))
-
-        for row in rows:
             async with db.execute(
                 "INSERT INTO grid_orders (config_id, level, buy_price, sell_price, order_size, status) VALUES (?,?,?,?,?,'pending')",
-                row
+                (config_id, i, buy_price, sell_price, order_size)
             ) as cur:
                 oid = cur.lastrowid
             self._pending[oid] = {
-                "id": oid, "config_id": config_id, "level": row[1],
-                "buy_price": row[2], "sell_price": row[3], "order_size": row[4],
+                "id": oid, "config_id": config_id, "level": i,
+                "buy_price": buy_price, "sell_price": sell_price, "order_size": order_size,
             }
         await db.commit()
 
         self.running = True
         self._task = asyncio.create_task(self._ws_loop())
         logger.info("grid:started", {"config_id": config_id, "levels": levels, "min": grid_min, "max": grid_max})
+        asyncio.create_task(self._broadcast())
         return {"ok": True, "config_id": config_id}
 
     async def stop(self) -> None:
@@ -98,6 +121,7 @@ class GridEngine:
         )
         await db.commit()
         logger.info("grid:stopped")
+        await self._broadcast()
 
     async def get_status(self) -> dict:
         db = await get_db()
@@ -136,27 +160,26 @@ class GridEngine:
         spacing = round((config["grid_max"] - config["grid_min"]) / config["levels"], 2) if config["levels"] else 0
 
         return {
-            "status":       "running" if self.running else config["status"],
+            "status":        "running" if self.running else config["status"],
             "current_price": self._price,
-            "grid_min":     config["grid_min"],
-            "grid_max":     config["grid_max"],
-            "levels":       config["levels"],
-            "order_size":   config["order_size"],
-            "spacing":      spacing,
-            "out_of_range": (
+            "grid_min":      config["grid_min"],
+            "grid_max":      config["grid_max"],
+            "levels":        config["levels"],
+            "order_size":    config["order_size"],
+            "spacing":       spacing,
+            "out_of_range":  (
                 self._price is not None and
                 (self._price < config["grid_min"] or self._price > config["grid_max"])
             ),
             "metrics": {
-                "total_pnl":     round(total_pnl, 4),
-                "trade_count":   len(trades),
-                "win_rate":      win_rate,
+                "total_pnl":      round(total_pnl, 4),
+                "trade_count":    len(trades),
+                "win_rate":       win_rate,
                 "pending_orders": len([o for o in active_orders if o["status"] == "pending"]),
                 "bought_orders":  len([o for o in active_orders if o["status"] == "bought"]),
             },
             "orders":        active_orders,
             "recent_trades": trades[:50],
-            "price_history": self._price_history,
         }
 
     # ── WebSocket loop ─────────────────────────────────────────────────────────
@@ -169,10 +192,10 @@ class GridEngine:
                     async for raw in ws:
                         if not self.running:
                             break
-                        msg    = json.loads(raw)
-                        price  = float(msg["p"])
-                        ts_ms  = int(msg["T"])
-                        ts_s   = ts_ms // 1000
+                        msg   = json.loads(raw)
+                        price = float(msg["p"])
+                        ts_ms = int(msg["T"])
+                        ts_s  = ts_ms // 1000
                         self._price = price
                         if not self._price_history or self._price_history[-1]["time"] != ts_s:
                             self._price_history.append({"time": ts_s, "value": price})
@@ -229,7 +252,6 @@ class GridEngine:
                    VALUES (?,?,?,?,?,?,?,?)""",
                 (oid, order["buy_fill_price"], price, order["order_size"], pnl, round(fee, 4), order["bought_at"], ts_ms)
             )
-            # Immediately reopen the level as a fresh pending order
             async with db.execute(
                 "INSERT INTO grid_orders (config_id, level, buy_price, sell_price, order_size, status) VALUES (?,?,?,?,?,'pending')",
                 (order["config_id"], order["level"], order["buy_price"], order["sell_price"], order["order_size"])
@@ -245,6 +267,7 @@ class GridEngine:
             logger.info("grid:sell:filled", {"level": order["level"], "price": price, "pnl": pnl})
 
         await db.commit()
+        asyncio.create_task(self._broadcast())
 
 
 grid_engine = GridEngine()
