@@ -3,6 +3,7 @@ Polymarket Copybot — Backend
 FastAPI + APScheduler
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +13,7 @@ from apscheduler.triggers.cron import CronTrigger
 from strategies.copy_trading import CopyTradingStrategy, DiscoveryStrategy
 from strategies.btc5m import Btc5mStrategy
 from strategies.arbitrage import ArbitrageStrategy
+from strategies.aave import KellyStrategy, AaveStrategy
 from api.routes import dashboard, positions, trades, strategies as strategies_router
 from api.routes.strategies import set_strategies
 from logger import logger
@@ -23,6 +25,8 @@ STRATEGIES = [
     CopyTradingStrategy(),
     Btc5mStrategy(),
     ArbitrageStrategy(),
+    KellyStrategy(),
+    AaveStrategy(),
 ]
 
 # ── Scheduler ─────────────────────────────────────────────────────────────────
@@ -41,7 +45,9 @@ async def _safe_run(strategy):
     if not strategy.enabled:
         return
     try:
-        await strategy.run()
+        await asyncio.shield(strategy.run())
+    except asyncio.CancelledError:
+        logger.warn(f"scheduler:{strategy.name}:cancelled")
     except Exception as err:
         logger.error(f"scheduler:{strategy.name}:error", {"error": str(err)})
 

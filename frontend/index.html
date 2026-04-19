@@ -169,13 +169,25 @@
     .asset-cell { display: flex; align-items: center; gap: 0.4rem; }
     .asset-logo { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
     /* Strategies */
-    .strategies-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem; }
+    .strategies-grid { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .strategy-group { background: var(--surface-low); border-radius: 0.5rem; overflow: hidden; }
+    .strategy-group-hd { padding: 0.55rem 1rem; font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .strategy-group-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; padding: 0.5rem; }
     .strategy-card { background: var(--bg); border: 1px solid var(--border); border-radius: 0.4rem; padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; }
     .strategy-name { font-size: 0.82rem; color: var(--text); }
     .strategy-sched { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
     .toggle-btn { padding: 0.25rem 0.65rem; border-radius: 0.3rem; border: 1px solid var(--border); cursor: pointer; font-size: 0.7rem; font-family: monospace; background: transparent; }
     .toggle-btn.on  { color: var(--primary); border-color: var(--primary); }
     .toggle-btn.off { color: var(--tertiary); border-color: var(--tertiary); }
+    /* Sidebar nav group (dropdown) */
+    .nav-group-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1.5rem; color: var(--muted); cursor: pointer; transition: all 0.15s; font-size: 0.8rem; font-weight: 600; user-select: none; }
+    .nav-group-header:hover { background: rgba(19,19,19,0.7); color: var(--text); }
+    .nav-group-header.open { color: var(--primary); }
+    .nav-group-arrow { margin-left: auto; font-size: 1rem !important; transition: transform 0.2s; line-height: 1; }
+    .nav-group-header.open .nav-group-arrow { transform: rotate(180deg); }
+    .nav-group-items { overflow: hidden; max-height: 0; transition: max-height 0.25s ease; }
+    .nav-group-items.open { max-height: 300px; }
+    .nav-sub { padding-left: 2.75rem !important; font-size: 0.75rem !important; }
     @media (max-width: 900px) {
       .sidebar { display: none; }
       .main { margin-left: 0; }
@@ -215,12 +227,19 @@
   </div>
   <nav class="sidebar-nav">
     <div class="nav-item active" data-tab="tab-dashboard"><span class="ms">grid_view</span> Dashboard</div>
-    <div class="nav-item" data-tab="tab-copy"><span class="ms">query_stats</span> Copy Trading</div>
-    <div class="nav-item" data-tab="tab-btc5m"><span class="ms">bolt</span> Early-Bird 5m</div>
+    <div class="nav-group">
+      <div class="nav-group-header open" onclick="toggleNavGroup(this)">
+        <span class="ms">auto_graph</span> Estrategias
+        <span class="nav-group-arrow ms">expand_more</span>
+      </div>
+      <div class="nav-group-items open">
+        <div class="nav-item nav-sub" data-tab="tab-copy"><span class="ms">query_stats</span> Copy Trading</div>
+        <div class="nav-item nav-sub" data-tab="tab-btc5m"><span class="ms">bolt</span> Early-Bird 5m</div>
+        <div class="nav-item nav-sub" data-tab="tab-yield"><span class="ms">savings</span> AAVE · Kelly</div>
+        <div class="nav-item nav-sub" data-tab="tab-arb"><span class="ms">balance</span> Arbitraje</div>
+      </div>
+    </div>
     <div class="nav-item" data-tab="tab-historial"><span class="ms">receipt_long</span> Historial</div>
-    <div class="nav-item" data-tab="tab-arb"><span class="ms">balance</span> Arbitraje</div>
-    <div class="nav-item" data-tab="tab-aave"><span class="ms">savings</span> AAVE Yield</div>
-    <div class="nav-item" data-tab="tab-kelly"><span class="ms">functions</span> Kelly</div>
   </nav>
   <div class="sidebar-footer">
     <div class="sf-card">
@@ -598,41 +617,10 @@
     </div>
   </div><!-- /tab-arb -->
 
-  <!-- ══ AAVE ══ -->
-  <div class="tab-pane" id="tab-aave">
-    <div class="sec-div" style="--accent:#b6509e;margin-top:0">
-      <div class="sec-dot"></div><div class="sec-label">AAVE v3 — Yield sobre cash idle (Polygon)</div><div class="sec-line"></div>
-    </div>
-    <div class="stats-grid" style="--accent:#b6509e">
-      <div class="stat-card border-pos"><div class="stat-label">Yield hoy</div><div class="stat-value pos" id="aave-today">—</div></div>
-      <div class="stat-card border-pos"><div class="stat-label">Yield acumulado total</div><div class="stat-value pos" id="aave-total">—</div></div>
-      <div class="stat-card"><div class="stat-label">APY media (USDC)</div><div class="stat-value" id="aave-apy">—</div></div>
-    </div>
-    <div class="stats-grid" style="--accent:#b6509e">
-      <div class="stat-card"><div class="stat-label">Cash libre actual</div><div class="stat-value" id="aave-cash">—</div></div>
-      <div class="stat-card"><div class="stat-label">Yield / día est.</div><div class="stat-value pos" id="aave-day-est">—</div></div>
-      <div class="stat-card"><div class="stat-label">Yield / año est.</div><div class="stat-value pos" id="aave-year-est">—</div></div>
-    </div>
-    <div class="table-panel" style="margin-top:0.75rem">
-      <div class="table-header">
-        <span class="table-title">Historial de acumulaciones</span>
-        <span class="table-badge" id="badge-aave-hist">—</span>
-      </div>
-      <div class="table-scroll"><table>
-        <thead><tr>
-          <th><div class="th-inner"><span>Fecha</span></div></th>
-          <th><div class="th-inner"><span>Cash idle (USDC)</span></div></th>
-          <th><div class="th-inner"><span>Horas</span></div></th>
-          <th><div class="th-inner"><span>APY</span></div></th>
-          <th><div class="th-inner"><span>Yield ganado</span></div></th>
-        </tr></thead>
-        <tbody id="tbl-aave-hist"><tr><td colspan="5" class="empty">Cargando…</td></tr></tbody>
-      </table></div>
-    </div>
-  </div><!-- /tab-aave -->
+  <!-- ══ AAVE · Kelly ══ -->
+  <div class="tab-pane" id="tab-yield">
 
-  <!-- ══ Kelly ══ -->
-  <div class="tab-pane" id="tab-kelly">
+    <!-- Kelly: criterio de asignación -->
     <div class="sec-div" style="--accent:#f59e0b;margin-top:0">
       <div class="sec-dot"></div><div class="sec-label">Kelly Criterion — Sizing dinámico: Trading activo vs AAVE</div><div class="sec-line"></div>
     </div>
@@ -675,7 +663,39 @@
         <tbody id="tbl-kelly-hist"><tr><td colspan="8" class="empty">Cargando…</td></tr></tbody>
       </table></div>
     </div>
-  </div><!-- /tab-kelly -->
+
+    <!-- AAVE: ejecución del yield -->
+    <div class="sec-div" style="--accent:#b6509e">
+      <div class="sec-dot"></div><div class="sec-label">AAVE v3 — Yield sobre cash idle (Polygon)</div><div class="sec-line"></div>
+    </div>
+    <div class="stats-grid" style="--accent:#b6509e">
+      <div class="stat-card border-pos"><div class="stat-label">Yield hoy</div><div class="stat-value pos" id="aave-today">—</div></div>
+      <div class="stat-card border-pos"><div class="stat-label">Yield acumulado total</div><div class="stat-value pos" id="aave-total">—</div></div>
+      <div class="stat-card"><div class="stat-label">APY media (USDC)</div><div class="stat-value" id="aave-apy">—</div></div>
+    </div>
+    <div class="stats-grid" style="--accent:#b6509e">
+      <div class="stat-card"><div class="stat-label">Cash libre actual</div><div class="stat-value" id="aave-cash">—</div></div>
+      <div class="stat-card"><div class="stat-label">Yield / día est.</div><div class="stat-value pos" id="aave-day-est">—</div></div>
+      <div class="stat-card"><div class="stat-label">Yield / año est.</div><div class="stat-value pos" id="aave-year-est">—</div></div>
+    </div>
+    <div class="table-panel" style="margin-top:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Historial de acumulaciones</span>
+        <span class="table-badge" id="badge-aave-hist">—</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th><div class="th-inner"><span>Fecha</span></div></th>
+          <th><div class="th-inner"><span>Cash idle (USDC)</span></div></th>
+          <th><div class="th-inner"><span>Horas</span></div></th>
+          <th><div class="th-inner"><span>APY</span></div></th>
+          <th><div class="th-inner"><span>Yield ganado</span></div></th>
+        </tr></thead>
+        <tbody id="tbl-aave-hist"><tr><td colspan="5" class="empty">Cargando…</td></tr></tbody>
+      </table></div>
+    </div>
+
+  </div><!-- /tab-yield -->
 
 </main>
 
@@ -1040,7 +1060,7 @@ async function loadPositions() {
   document.getElementById('tbl-arb-trades').innerHTML = arbt.length ? arbt.map(t => `
     <tr>
       <td><span class="tl-badge tl-copy">${t.arb_strategy || t.strategy || '—'}</span></td>
-      <td class="num" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><code>${t.market_id}</code></td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(() => { const u = marketUrl(t.market_slug); const lbl = t.title || t.market_id; return u ? `<a href="${u}" target="_blank" rel="noopener">${lbl}</a>` : lbl; })()}</td>
       <td class="num">${t.leg_index + 1}</td>
       <td><span class="${t.outcome === 'Yes' || t.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${t.outcome}</span></td>
       <td class="num">${fmt(t.price, 4)}</td>
@@ -1100,7 +1120,7 @@ async function loadTrades() {
   document.getElementById('tbl-arb-hist').innerHTML = arbHist.length ? arbHist.map(t => `
     <tr>
       <td><span class="tl-badge tl-copy">${t.arb_strategy || t.strategy || '—'}</span></td>
-      <td class="num" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><code>${t.market_id}</code></td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(() => { const u = marketUrl(t.market_slug); const lbl = t.title || t.market_id; return u ? `<a href="${u}" target="_blank" rel="noopener">${lbl}</a>` : lbl; })()}</td>
       <td><span class="${t.outcome === 'Yes' || t.outcome === 'UP' ? 'badge-yes' : 'badge-no'}">${t.outcome}</span></td>
       <td class="num">${fmt(t.price, 4)}</td>
       <td class="num">${fmtU(t.size_usdc)}</td>
@@ -1110,20 +1130,69 @@ async function loadTrades() {
   `).join('') : '<tr><td colspan="7" class="empty">Sin operaciones de arbitraje cerradas</td></tr>';
 }
 
+// ── Cron → human readable ──────────────────────────────────────────────────
+function cronToHuman(cron) {
+  if (!cron) return '';
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length < 5) return cron;
+  const [min, hour, dom, month, dow] = parts;
+  if (min === '*' && hour === '*' && dom === '*') return 'Cada minuto';
+  if (min.startsWith('*/') && hour === '*') return `Cada ${min.slice(2)} minutos`;
+  if (min === '0' && hour === '*') return 'Cada hora, en punto';
+  if (/^\d+$/.test(min) && hour === '*') return `Cada hora, a las :${min.padStart(2, '0')}`;
+  if (min === '0' && hour.startsWith('*/')) return `Cada ${hour.slice(2)} horas`;
+  if (dom !== '*' || month !== '*' || dow !== '*') {
+    const days = { '1':'Lun','2':'Mar','3':'Mié','4':'Jue','5':'Vie','6':'Sáb','0':'Dom','7':'Dom' };
+    if (dow !== '*') return `Cada semana (${dow.split(',').map(d => days[d] || d).join(', ')}) a las ${hour.padStart(2,'0')}:${min.padStart(2,'0')}`;
+    return `Diario a las ${hour.padStart(2,'0')}:${min.padStart(2,'0')}`;
+  }
+  if (min !== '*' && hour !== '*') return `Diario a las ${hour.padStart(2,'0')}:${min.padStart(2,'0')}`;
+  return cron;
+}
+
 // ── Load strategies ────────────────────────────────────────────────────────
+const STRATEGY_GROUPS = [
+  { label: 'Copy Trading', match: s => /copy|discovery/i.test(s.name) },
+  { label: 'Early-Bird 5m', match: s => /5m|btc5m/i.test(s.name) },
+  { label: 'AAVE Yield · Kelly', match: s => /aave|kelly/i.test(s.name) },
+  { label: 'Arbitraje', match: s => /arb/i.test(s.name) },
+  { label: 'Otras', match: () => true },
+];
+
+function strategyCard(s) {
+  return `
+    <div class="strategy-card">
+      <div>
+        <div class="strategy-name">${s.name}</div>
+        <div class="strategy-sched">${cronToHuman(s.schedule)}</div>
+      </div>
+      <button class="toggle-btn ${s.enabled ? 'on' : 'off'}" onclick="toggleStrategy('${s.name}', ${s.enabled})">${s.enabled ? 'ON' : 'OFF'}</button>
+    </div>`;
+}
+
 async function loadStrategies() {
   const data = await apiFetch('/api/strategies');
   const el = document.getElementById('strategies-list');
   if (!el) return;
-  el.innerHTML = data.map(s => `
-    <div class="strategy-card">
-      <div>
-        <div class="strategy-name">${s.name}</div>
-        <div class="strategy-sched">${s.schedule}</div>
-      </div>
-      <button class="toggle-btn ${s.enabled ? 'on' : 'off'}" onclick="toggleStrategy('${s.name}', ${s.enabled})">${s.enabled ? 'ON' : 'OFF'}</button>
-    </div>
-  `).join('');
+  const assigned = new Set();
+  let html = '';
+  for (const group of STRATEGY_GROUPS) {
+    const members = data.filter(s => !assigned.has(s.name) && group.match(s));
+    if (!members.length) continue;
+    members.forEach(s => assigned.add(s.name));
+    html += `<div class="strategy-group">
+      <div class="strategy-group-hd">${group.label}</div>
+      <div class="strategy-group-body">${members.map(strategyCard).join('')}</div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ── Sidebar nav group toggle ───────────────────────────────────────────────
+function toggleNavGroup(hdr) {
+  hdr.classList.toggle('open');
+  const items = hdr.nextElementSibling;
+  items.classList.toggle('open');
 }
 
 async function toggleStrategy(name, enabled) {

@@ -162,6 +162,8 @@ CREATE TABLE IF NOT EXISTS arb_trades (
     slippage        REAL NOT NULL DEFAULT 0,
     status          TEXT NOT NULL DEFAULT 'open',
     pnl             REAL,
+    title           TEXT,
+    market_slug     TEXT,
     opened_at       INTEGER NOT NULL,
     closed_at       INTEGER
 );
@@ -183,4 +185,6 @@ MIGRATIONS = [
     "ALTER TABLE btc5m_positions ADD COLUMN title TEXT",
     "ALTER TABLE btc5m_trades ADD COLUMN slug TEXT",
     "ALTER TABLE btc5m_trades ADD COLUMN title TEXT",
+    "ALTER TABLE arb_trades ADD COLUMN title TEXT",
+    "ALTER TABLE arb_trades ADD COLUMN market_slug TEXT",
 ]

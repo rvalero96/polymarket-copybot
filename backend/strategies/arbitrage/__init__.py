@@ -4,7 +4,7 @@ from logger import logger
 
 
 class ArbitrageStrategy(Strategy):
-    name = "arbitrage"
+    name = "arbitraje"
     enabled = True
 
     def get_schedule(self) -> str:

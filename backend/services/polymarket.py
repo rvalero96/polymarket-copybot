@@ -2,25 +2,16 @@ import httpx
 from config import CONFIG
 from logger import logger
 
-_client: httpx.AsyncClient | None = None
-
-
-def _get_client() -> httpx.AsyncClient:
-    global _client
-    if _client is None:
-        _client = httpx.AsyncClient(
-            headers={"Accept": "application/json"},
-            timeout=30.0,
-        )
-    return _client
+_HEADERS = {"Accept": "application/json"}
+_TIMEOUT = 30.0
 
 
 async def _get(url: str, params: dict | None = None) -> dict | list:
-    client = _get_client()
     logger.debug("api:get", {"url": url, "params": params})
-    resp = await client.get(url, params=params or {})
-    resp.raise_for_status()
-    return resp.json()
+    async with httpx.AsyncClient(headers=_HEADERS, timeout=_TIMEOUT) as client:
+        resp = await client.get(url, params=params or {})
+        resp.raise_for_status()
+        return resp.json()
 
 
 async def get_wallet_positions(address: str) -> list:

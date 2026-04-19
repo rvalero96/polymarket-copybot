@@ -124,11 +124,15 @@ async def _open_opportunity(db, opp: dict, bankroll: float) -> float:
         fee       = size_per_leg * CONFIG.fee_pct
         slippage  = size_per_leg * CONFIG.slippage_pct
 
+        market_data  = await get_market(leg["market_id"])
+        market_title = (market_data or {}).get("question") or None
+        market_slug  = (market_data or {}).get("slug") or None
+
         await execute(db, """
             INSERT INTO arb_trades
-                (opportunity_id, leg_index, market_id, outcome, side, price, size_usdc, fee, slippage, opened_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (opp["id"], i, leg["market_id"], leg["outcome"], leg["side"], eff_price, size_per_leg, fee, slippage, now))
+                (opportunity_id, leg_index, market_id, outcome, side, price, size_usdc, fee, slippage, title, market_slug, opened_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (opp["id"], i, leg["market_id"], leg["outcome"], leg["side"], eff_price, size_per_leg, fee, slippage, market_title, market_slug, now))
 
         bankroll -= size_per_leg + fee
 

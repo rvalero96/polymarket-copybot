@@ -241,13 +241,16 @@ async def _process_asset(db, asset: dict, bankroll: float, now: int) -> float:
     fee           = size_usdc * CONFIG.fee_pct
     slippage      = size_usdc * CONFIG.slippage_pct
 
+    market_title = target.get("question") or None
+    market_slug  = target.get("slug") or None
+
     await execute(db,
-        "INSERT OR IGNORE INTO btc5m_positions (market_id, outcome, asset, size_usdc, entry_price, token_id, opened_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (target["conditionId"], outcome, name, size_usdc, eff_price, token_id, now),
+        "INSERT OR IGNORE INTO btc5m_positions (market_id, outcome, asset, size_usdc, entry_price, token_id, slug, title, opened_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (target["conditionId"], outcome, name, size_usdc, eff_price, token_id, market_slug, market_title, now),
     )
     await execute(db,
-        "INSERT INTO btc5m_trades (market_id, asset, outcome, side, size_usdc, entry_price, fee, slippage, status, opened_at) VALUES (?, ?, ?, 'buy', ?, ?, ?, ?, 'open', ?)",
-        (target["conditionId"], name, outcome, size_usdc, eff_price, fee, slippage, now),
+        "INSERT INTO btc5m_trades (market_id, asset, outcome, side, size_usdc, entry_price, fee, slippage, status, slug, title, opened_at) VALUES (?, ?, ?, 'buy', ?, ?, ?, ?, 'open', ?, ?, ?)",
+        (target["conditionId"], name, outcome, size_usdc, eff_price, fee, slippage, market_slug, market_title, now),
     )
 
     logger.info("btc5m:enter", {
