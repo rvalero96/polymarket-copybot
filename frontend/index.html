@@ -149,6 +149,7 @@
     .tl-badge { display: inline-block; font-size: 0.55rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.15rem 0.45rem; border-radius: 0.25rem; font-family: monospace; }
     .tl-copy     { background: rgba(99,102,241,0.15); color: #818cf8; }
     .tl-5m       { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .tl-grid     { background: rgba(249,115,22,0.15); color: #f97316; }
     .tl-open     { background: rgba(245,158,11,0.12); color: #f59e0b; }
     .tl-closed   { background: rgba(173,170,170,0.1); color: var(--muted); }
     .tl-resolved { background: rgba(0,255,163,0.1); color: var(--primary); }
@@ -333,6 +334,28 @@
       </div>
     </div>
 
+    <div class="sec-div" style="--accent:#f97316">
+      <div class="sec-dot" style="background:#f97316"></div><div class="sec-label">Grid BTC (paper)</div><div class="sec-line"></div>
+    </div>
+    <div class="stats-grid" style="--accent:#f97316">
+      <div class="stat-card" id="grid-dash-pnl-card">
+        <div class="stat-label">P&amp;L realizado</div>
+        <div class="stat-value" id="grid-dash-pnl">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trades cerrados</div>
+        <div class="stat-value" id="grid-dash-closed">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Win rate</div>
+        <div class="stat-value" id="grid-dash-wr">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Órdenes activas</div>
+        <div class="stat-value" id="grid-dash-active">—</div>
+      </div>
+    </div>
+
     <div class="sec-div" style="--accent:#6366f1">
       <div class="sec-dot"></div><div class="sec-label">Estrategias</div><div class="sec-line"></div>
     </div>
@@ -493,6 +516,15 @@
           </div>
           <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-5m-bar" style="background:#f59e0b"></div></div>
         </div>
+        <div class="alloc-item">
+          <div class="alloc-item-hd">
+            <div class="alloc-dot" style="background:#f97316"></div>
+            <div class="alloc-item-label">Grid BTC</div>
+            <div class="alloc-item-value" id="alloc-grid">—</div>
+            <div class="alloc-item-pct" id="alloc-grid-pct">—</div>
+          </div>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-grid-bar" style="background:#f97316"></div></div>
+        </div>
         <div class="alloc-item" style="margin-top:0.2rem;padding-top:0.6rem;border-top:1px solid var(--border)">
           <div class="alloc-item-hd">
             <div class="alloc-dot" style="background:transparent;border:1px solid rgba(173,170,170,0.3)"></div>
@@ -527,7 +559,7 @@
       <div class="table-scroll"><table>
         <thead><tr>
           <th class="sortable" data-col="0"><div class="th-inner"><span>Fecha</span><span class="sort-icon">⇅</span></div></th>
-          <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+          <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m|Grid:grid" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="2"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="2" data-filter-type="text" data-filter-ph="Buscar…" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="3"><div class="th-inner"><span>Asset</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="3" data-filter-type="select" data-filter-opts="Todos:|BTC:btc|ETH:eth|SOL:sol|XRP:xrp" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="4"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="4" data-filter-type="select" data-filter-opts="Todos:|Yes:yes|No:no|UP:up|DOWN:down" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
@@ -841,6 +873,7 @@
     <span id="sb-copy">Copy: — pos</span>
     <span id="sb-5m" style="color:rgba(0,255,163,0.5)">5m: — pos</span>
     <span id="sb-arb" style="color:rgba(129,140,248,0.7)">Arb: — piernas</span>
+    <span id="sb-grid" style="color:rgba(249,115,22,0.8)">Grid: —</span>
     <span id="sb-aave" style="color:rgba(182,80,158,0.8)">AAVE: —</span>
     <span id="sb-kelly" style="color:rgba(245,158,11,0.8)">Kelly: —</span>
   </div>
@@ -967,7 +1000,7 @@ async function loadDashboard() {
 
   // Stats grid
   setText('d-capital-active', fmtU(d.capital_active));
-  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0);
+  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0) + (d.trade_counts?.grid || 0);
   setText('d-stat-open', d.open_positions || 0);
   setText('d-stat-closed', totalClosed);
 
@@ -1013,6 +1046,16 @@ async function loadDashboard() {
   setText('arb-stat-closed', as.closed || 0);
   const arbWrEl = document.getElementById('arb-stat-wr');
   if (arbWrEl) { arbWrEl.textContent = as.closed > 0 ? fmtPct(as.win_rate) : '—'; }
+
+  // Grid stats (initial fill from DB — SSE will keep it live)
+  const gs = d.grid_stats || {};
+  const gridDashPnlEl0 = document.getElementById('grid-dash-pnl');
+  if (gridDashPnlEl0) { gridDashPnlEl0.textContent = pnlSign(gs.pnl); gridDashPnlEl0.className = 'stat-value ' + pnlClass(gs.pnl); }
+  document.getElementById('grid-dash-pnl-card')?.classList.toggle('border-pos', (gs.pnl || 0) > 0);
+  setText('grid-dash-closed', gs.trade_count || 0);
+  setText('grid-dash-active', gs.active_orders || 0);
+  const gridWrEl0 = document.getElementById('grid-dash-wr');
+  if (gridWrEl0) { gridWrEl0.textContent = gs.trade_count > 0 ? fmtPct(gs.win_rate) : '—'; }
 
   // AAVE
   const av = d.aave || {};
@@ -1070,19 +1113,19 @@ async function loadDashboard() {
   `).join('') : '<tr><td colspan="8" class="empty">Sin snapshots Kelly</td></tr>';
 
   // Historial stats
-  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0;
-  const netPnl = copyPnl + btcPnl + arbPnl;
+  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0, gridPnl = gs.pnl || 0;
+  const netPnl = copyPnl + btcPnl + arbPnl + gridPnl;
   const histPnlEl = document.getElementById('hist-pnl');
   if (histPnlEl) { histPnlEl.textContent = pnlSign(netPnl); histPnlEl.className = 'stat-value ' + pnlClass(netPnl); }
   document.getElementById('hist-pnl-card')?.classList.toggle('border-pos', netPnl >= 0);
   document.getElementById('hist-pnl-card')?.classList.toggle('border-neg', netPnl < 0);
-  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0);
+  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0) + (gs.active_orders || 0);
   setText('hist-open', openCount);
   setText('hist-closed', totalClosed);
 
   // Alloc chart/legend
   const pt = d.portfolio_total || 1;
-  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0;
+  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0, gridAc = d.capital_grid || 0;
   setText('alloc-total', fmtU(pt));
   setText('alloc-cash', fmtU(cash));
   setText('alloc-cash-pct', fmt(cash / pt * 100, 0) + '%');
@@ -1093,6 +1136,9 @@ async function loadDashboard() {
   setText('alloc-5m', fmtU(btcAc));
   setText('alloc-5m-pct', fmt(btcAc / pt * 100, 0) + '%');
   const btcBar = document.getElementById('alloc-5m-bar'); if (btcBar) btcBar.style.width = (btcAc/pt*100).toFixed(1) + '%';
+  setText('alloc-grid', fmtU(gridAc));
+  setText('alloc-grid-pct', fmt(gridAc / pt * 100, 0) + '%');
+  const gridBar = document.getElementById('alloc-grid-bar'); if (gridBar) gridBar.style.width = (gridAc/pt*100).toFixed(1) + '%';
   const pnlTot = d.pnl_total || 0;
   const allocPnlEl = document.getElementById('alloc-pnl');
   if (allocPnlEl) { allocPnlEl.textContent = pnlSign(pnlTot); allocPnlEl.className = 'alloc-item-value ' + pnlClass(pnlTot); }
@@ -1103,8 +1149,8 @@ async function loadDashboard() {
   allocChart = new Chart(document.getElementById('allocChart'), {
     type: 'doughnut',
     data: {
-      labels: ['Cash libre', 'Copy activo', '5m activo'],
-      datasets: [{ data: [cash, copyAc, btcAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b'], borderWidth: 1.5, hoverOffset: 8 }],
+      labels: ['Cash libre', 'Copy activo', '5m activo', 'Grid BTC'],
+      datasets: [{ data: [cash, copyAc, btcAc, gridAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)', 'rgba(249,115,22,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b', '#f97316'], borderWidth: 1.5, hoverOffset: 8 }],
     },
     options: { responsive: true, maintainAspectRatio: false, cutout: '68%', layout: { padding: 8 }, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a1919', titleColor: '#ADAAAA', bodyColor: '#fff', borderColor: 'rgba(72,72,71,0.3)', borderWidth: 1, padding: 10, callbacks: { label: ctx => ' $' + ctx.parsed.toFixed(2) } } } },
   });
@@ -1126,6 +1172,8 @@ async function loadDashboard() {
   // Status bar
   setText('sb-aave', 'AAVE: +' + fmtU(av.today_yield));
   if (k) setText('sb-kelly', 'Kelly F' + k.phase + ' · ' + fmtPct((k.fraction || 0) * 100) + ' trading');
+  const gsSb = d.grid_stats || {};
+  setText('sb-grid', gsSb.active_orders > 0 ? 'Grid: ' + gsSb.active_orders + ' órd.' : 'Grid: off');
 }
 
 // ── Load positions ─────────────────────────────────────────────────────────
@@ -1216,13 +1264,16 @@ async function loadTrades() {
   const rows = [];
   (d.copy_trading || []).forEach(t => rows.push({ _strategy: 'copy', _asset: null, _date: t.executed_at, market_id: t.market_id, title: t.title, market_slug: t.market_slug, outcome: t.outcome, size_usdc: t.size_usdc, fee: (t.fee || 0) + (t.slippage || 0), status: t.status, pnl: t.pnl }));
   (d.btc5m || []).forEach(t => rows.push({ _strategy: 'btc5m', _asset: t.asset, _date: t.opened_at, market_id: t.market_id, title: t.title, market_slug: t.slug, outcome: t.outcome, size_usdc: t.size_usdc, fee: (t.fee || 0) + (t.slippage || 0), status: t.status, pnl: t.pnl }));
+  (d.grid || []).forEach(t => rows.push({ _strategy: 'grid', _asset: 'BTC', _date: t.closed_at, market_id: 'L' + t.level, title: 'Grid L' + t.level + ' · Buy $' + fmt(t.buy_price, 0) + ' → Sell $' + fmt(t.sell_price, 0), market_slug: null, outcome: 'BUY→SELL', size_usdc: t.order_size_usd, fee: t.fee, status: 'closed', pnl: t.pnl }));
   rows.sort((a, b) => (b._date || 0) - (a._date || 0));
 
   setText('badge-tradelog', rows.length + ' OPS');
   document.getElementById('tbl-tradelog').innerHTML = rows.length ? rows.map(t => {
     const stratBadge = t._strategy === 'copy'
       ? '<span class="tl-badge tl-copy">Copy</span>'
-      : `<span class="tl-badge tl-5m">5m · ${t._asset || 'BTC'}</span>`;
+      : t._strategy === 'grid'
+        ? '<span class="tl-badge tl-grid">Grid BTC</span>'
+        : `<span class="tl-badge tl-5m">5m · ${t._asset || 'BTC'}</span>`;
     const assetCell = t._asset
       ? `<span class="asset-cell"><img class="asset-logo" src="${ASSET_LOGOS[t._asset] || ''}" alt="${t._asset}" onerror="this.style.display='none'"><span>${t._asset}</span></span>`
       : '—';
@@ -1798,6 +1849,19 @@ function gridApplyStatus(d) {
   gridSetMarkers(d.recent_trades, boughtOrders);
   gridRenderOrders(d.orders, d.grid_min, d.grid_max, d.levels);
   gridRenderTrades(d.recent_trades);
+
+  // Update dashboard summary cards (grid section in tab-dashboard)
+  const totalOrders = (m.pending_orders || 0) + (m.bought_orders || 0);
+  const gridDashPnlEl = document.getElementById('grid-dash-pnl');
+  if (gridDashPnlEl) { gridDashPnlEl.textContent = pnlSign(m.total_pnl || 0); gridDashPnlEl.className = 'stat-value ' + pnlClass(m.total_pnl || 0); }
+  document.getElementById('grid-dash-pnl-card')?.classList.toggle('border-pos', (m.total_pnl || 0) > 0);
+  setText('grid-dash-closed', m.trade_count ?? 0);
+  setText('grid-dash-active', totalOrders);
+  const gwEl = document.getElementById('grid-dash-wr');
+  if (gwEl) gwEl.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
+
+  // Status bar
+  setText('sb-grid', d.status === 'running' ? 'Grid: ' + totalOrders + ' órd.' : 'Grid: off');
 }
 
 // ── SSE connection to backend ────────────────────────────────────────────────

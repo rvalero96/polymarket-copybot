@@ -19,9 +19,10 @@ async def get_dashboard(_: str = Depends(require_token)):
     open_pos_snap = (snap or {}).get("open_positions") or 0
 
     # Capital activo (live)
-    copy_active  = (await fetchone(db, "SELECT COALESCE(SUM(size_usdc), 0) AS s FROM positions"))["s"] or 0
-    btc5m_active = (await fetchone(db, "SELECT COALESCE(SUM(size_usdc), 0) AS s FROM btc5m_positions"))["s"] or 0
-    capital_active = copy_active + btc5m_active
+    copy_active   = (await fetchone(db, "SELECT COALESCE(SUM(size_usdc), 0) AS s FROM positions"))["s"] or 0
+    btc5m_active  = (await fetchone(db, "SELECT COALESCE(SUM(size_usdc), 0) AS s FROM btc5m_positions"))["s"] or 0
+    grid_capital  = (await fetchone(db, "SELECT COALESCE(SUM(order_size), 0) AS s FROM grid_orders WHERE status='bought'"))["s"] or 0
+    capital_active = copy_active + btc5m_active + grid_capital
     portfolio_total = bankroll + capital_active
 
     # Snapshot history for charts
@@ -39,6 +40,7 @@ async def get_dashboard(_: str = Depends(require_token)):
     copy_trades  = (await fetchone(db, "SELECT COUNT(*) AS n FROM trades WHERE status = 'closed'"))["n"]
     btc5m_trades = (await fetchone(db, "SELECT COUNT(*) AS n FROM btc5m_trades WHERE status != 'open'"))["n"]
     arb_trades   = (await fetchone(db, "SELECT COUNT(*) AS n FROM arb_trades WHERE status = 'closed'"))["n"]
+    grid_trades  = (await fetchone(db, "SELECT COUNT(*) AS n FROM grid_trades"))["n"]
 
     # Copy stats
     copy_open   = (await fetchone(db, "SELECT COUNT(*) AS n FROM positions"))["n"]
@@ -57,6 +59,13 @@ async def get_dashboard(_: str = Depends(require_token)):
     arb_active_opps = (await fetchone(db, "SELECT COUNT(*) AS n FROM arb_opportunities WHERE status = 'open'"))["n"]
     arb_avg_profit = (await fetchone(db, "SELECT AVG(expected_profit) AS v FROM arb_opportunities WHERE status = 'open'"))["v"]
 
+    # Grid stats
+    grid_pnl      = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM grid_trades"))["s"] or 0
+    grid_wins     = (await fetchone(db, "SELECT COUNT(*) AS n FROM grid_trades WHERE pnl > 0"))["n"]
+    grid_win_rate = round(grid_wins / grid_trades * 100, 1) if grid_trades > 0 else 0
+    grid_active   = (await fetchone(db, "SELECT COUNT(*) AS n FROM grid_orders WHERE status IN ('pending','bought')"))["n"]
+    grid_bought   = (await fetchone(db, "SELECT COUNT(*) AS n FROM grid_orders WHERE status='bought'"))["n"]
+
     # Active wallets
     active_wallets = await fetchall(
         db, "SELECT address, win_rate, roi, score, name FROM wallets WHERE active = 1 ORDER BY score DESC"
@@ -70,10 +79,11 @@ async def get_dashboard(_: str = Depends(require_token)):
         "pnl_total_pct":    ((portfolio_total - CONFIG.paper_bankroll) / CONFIG.paper_bankroll) * 100,
         "pnl_day":          pnl_day,
         "win_rate":         win_rate,
-        "open_positions":   copy_open + btc5m_open + arb_open,
+        "open_positions":   copy_open + btc5m_open + arb_open + grid_active,
         "capital_active":   capital_active,
         "capital_copy":     copy_active,
         "capital_btc5m":    btc5m_active,
+        "capital_grid":     grid_capital,
         "snapshots":        snaps_history,
         "aave": {
             **aave,
@@ -100,6 +110,7 @@ async def get_dashboard(_: str = Depends(require_token)):
             "copy_trading": copy_trades,
             "btc5m":        btc5m_trades,
             "arbitrage":    arb_trades,
+            "grid":         grid_trades,
         },
         "copy_stats": {
             "win_rate":   (copy_wins / copy_trades * 100) if copy_trades > 0 else 0,
@@ -120,6 +131,14 @@ async def get_dashboard(_: str = Depends(require_token)):
             "closed":         arb_trades,
             "active_opps":    arb_active_opps,
             "avg_profit":     arb_avg_profit,
+        },
+        "grid_stats": {
+            "win_rate":      grid_win_rate,
+            "pnl":           round(grid_pnl, 4),
+            "trade_count":   grid_trades,
+            "active_orders": grid_active,
+            "bought_orders": grid_bought,
+            "capital":       round(grid_capital, 2),
         },
         "active_wallets": active_wallets,
         "last_updated":   (snap or {}).get("created_at"),
