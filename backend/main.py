@@ -1,5 +1,5 @@
 """
-Polymarket Copybot — Backend
+TradeBot — Backend
 FastAPI + APScheduler
 """
 
@@ -85,7 +85,7 @@ async def lifespan(app: FastAPI):
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Polymarket Copybot",
+    title="TradeBot",
     version="2.0.0",
     lifespan=lifespan,
 )
