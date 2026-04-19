@@ -22,10 +22,10 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 echo "=== 5. Configurando variables de entorno ==="
-cp backend/.env.example backend/.env
+cp .env.example .env
 echo ""
 echo "IMPORTANTE: edita backend/.env y pon tu API_TOKEN seguro:"
-echo "  nano backend/.env"
+echo "  nano .env"
 echo ""
 
 echo "=== 6. Migrando base de datos ==="
