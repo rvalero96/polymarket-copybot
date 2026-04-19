@@ -5,15 +5,16 @@
 set -e
 
 echo "=== 1. Actualizando sistema ==="
-sudo apt update && sudo apt upgrade -y
+apt update && apt upgrade -y
 
 echo "=== 2. Instalando Python 3.12 y herramientas ==="
-sudo apt install -y python3.12 python3.12-venv python3-pip nginx certbot python3-certbot-nginx git
+apt install -y python3.12 python3.12-venv python3-pip nginx certbot python3-certbot-nginx git
 
 echo "=== 3. Clonando repo ==="
 cd ~
 git clone -b PRO https://github.com/rvalero96/polymarket-copybot.git || true
 cd polymarket-copybot
+git pull origin PRO || true
 
 echo "=== 4. Creando entorno virtual ==="
 python3.12 -m venv venv
@@ -22,36 +23,36 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 echo "=== 5. Configurando variables de entorno ==="
-cp .env.example .env
-echo ""
-echo "IMPORTANTE: edita backend/.env y pon tu API_TOKEN seguro:"
-echo "  nano .env"
-echo ""
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "IMPORTANTE: edita .env y pon tu API_TOKEN seguro:"
+  echo "  nano .env"
+else
+  echo ".env ya existe, no se sobreescribe."
+fi
 
-echo "=== 6. Migrando base de datos ==="
-# Copia state.db desde la rama paper-state del repo anterior
-# o créala desde cero (se inicializa al primer arranque)
+echo "=== 6. Creando carpeta de datos ==="
 mkdir -p backend/data
 
 echo "=== 7. Instalando servicio systemd ==="
-sudo cp deploy/polymarket-bot.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable polymarket-bot
-sudo systemctl start polymarket-bot
+cp deploy/polymarket-bot.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable polymarket-bot
+systemctl restart polymarket-bot
 
 echo "=== 8. Configurando nginx ==="
-# Reemplaza 'tu-dominio.com' con tu dominio real en deploy/nginx.conf
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/polymarket-bot
-sudo ln -sf /etc/nginx/sites-available/polymarket-bot /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+cp deploy/nginx.conf /etc/nginx/sites-available/polymarket-bot
+ln -sf /etc/nginx/sites-available/polymarket-bot /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
 
 echo ""
 echo "=== Setup completado ==="
 echo ""
 echo "Comandos útiles:"
-echo "  sudo systemctl status polymarket-bot   — ver estado"
-echo "  sudo journalctl -fu polymarket-bot     — ver logs en tiempo real"
-echo "  sudo systemctl restart polymarket-bot  — reiniciar"
+echo "  systemctl status polymarket-bot   — ver estado"
+echo "  journalctl -fu polymarket-bot     — ver logs en tiempo real"
+echo "  systemctl restart polymarket-bot  — reiniciar"
 echo ""
 echo "Para HTTPS con Let's Encrypt (requiere dominio apuntando al servidor):"
-echo "  sudo certbot --nginx -d tu-dominio.com"
+echo "  certbot --nginx -d tu-dominio.com"
