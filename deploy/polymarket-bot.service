@@ -1,5 +1,5 @@
 [Unit]
-Description=Polymarket Copybot
+Description=TradeBot
 After=network.target
 
 [Service]

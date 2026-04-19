@@ -12,14 +12,14 @@ sudo apt install -y python3.12 python3.12-venv python3-pip nginx certbot python3
 
 echo "=== 3. Clonando repo ==="
 cd ~
-git clone https://github.com/TU_USUARIO/polymarket-copybot.git
+git clone -b PRO https://github.com/rvalero96/polymarket-copybot.git
 cd polymarket-copybot
 
 echo "=== 4. Creando entorno virtual ==="
 python3.12 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r backend/requirements.txt
+pip install -r requirements.txt
 
 echo "=== 5. Configurando variables de entorno ==="
 cp backend/.env.example backend/.env
