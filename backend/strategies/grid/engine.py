@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import time
 
@@ -54,6 +55,24 @@ class GridEngine:
         for q in dead:
             self.unsubscribe(q)
 
+    # ── Bankroll helpers ───────────────────────────────────────────────────────
+
+    async def _get_bankroll(self, db) -> float:
+        snap = await fetchone(db, "SELECT bankroll FROM snapshots ORDER BY date DESC LIMIT 1")
+        return (snap or {}).get("bankroll") or CONFIG.paper_bankroll
+
+    async def _update_bankroll(self, db, bankroll: float) -> None:
+        today  = datetime.date.today().isoformat()
+        now_ms = int(time.time() * 1000)
+        await db.execute("""
+            INSERT INTO snapshots (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
+            VALUES (?, ?, 0, ?, 0, NULL, ?)
+            ON CONFLICT(date) DO UPDATE SET
+                bankroll   = excluded.bankroll,
+                pnl_total  = excluded.pnl_total,
+                created_at = excluded.created_at
+        """, (today, bankroll, bankroll - CONFIG.paper_bankroll, now_ms))
+
     # ── Public API ─────────────────────────────────────────────────────────────
 
     async def start(self, grid_min: float, grid_max: float, levels: int, order_size: float) -> dict:
@@ -88,40 +107,60 @@ class GridEngine:
         self._pending.clear()
         self._bought.clear()
 
-        spacing = (grid_max - grid_min) / levels
-        active = 0
+        bankroll       = await self._get_bankroll(db)
+        bankroll_spent = 0.0
+        spacing        = (grid_max - grid_min) / levels
+        active         = 0
+
         for i in range(levels):
             buy_price  = round(grid_min + i * spacing, 2)
             sell_price = round(buy_price + spacing, 2)
 
-            # Only activate levels strictly below the current price.
-            # Levels at or above ref_price would fill on the very first tick,
-            # which is wrong — a buy order only makes sense when price falls to it.
-            if buy_price >= ref_price:
-                continue
+            if buy_price < ref_price:
+                # Pending buy — waits for price to fall to this level
+                async with db.execute(
+                    "INSERT INTO grid_orders (config_id, level, buy_price, sell_price, order_size, status) VALUES (?,?,?,?,?,'pending')",
+                    (config_id, i, buy_price, sell_price, order_size)
+                ) as cur:
+                    oid = cur.lastrowid
+                self._pending[oid] = {
+                    "id": oid, "config_id": config_id, "level": i,
+                    "buy_price": buy_price, "sell_price": sell_price, "order_size": order_size,
+                }
+                active += 1
+            else:
+                # Pre-bought at current price — sell order waiting above
+                if bankroll - bankroll_spent < order_size:
+                    logger.warn("grid:start:skip_prebuy_no_funds", {"level": i, "need": order_size, "have": round(bankroll - bankroll_spent, 2)})
+                    continue
+                bankroll_spent += order_size
+                async with db.execute(
+                    """INSERT INTO grid_orders
+                       (config_id, level, buy_price, sell_price, order_size, status, buy_fill_price, bought_at)
+                       VALUES (?,?,?,?,?,'bought',?,?)""",
+                    (config_id, i, buy_price, sell_price, order_size, ref_price, now_ms)
+                ) as cur:
+                    oid = cur.lastrowid
+                self._bought[oid] = {
+                    "id": oid, "config_id": config_id, "level": i,
+                    "buy_price": buy_price, "sell_price": sell_price, "order_size": order_size,
+                    "buy_fill_price": ref_price, "bought_at": now_ms,
+                }
+                active += 1
 
-            async with db.execute(
-                "INSERT INTO grid_orders (config_id, level, buy_price, sell_price, order_size, status) VALUES (?,?,?,?,?,'pending')",
-                (config_id, i, buy_price, sell_price, order_size)
-            ) as cur:
-                oid = cur.lastrowid
-            self._pending[oid] = {
-                "id": oid, "config_id": config_id, "level": i,
-                "buy_price": buy_price, "sell_price": sell_price, "order_size": order_size,
-            }
-            active += 1
+        if bankroll_spent > 0:
+            await self._update_bankroll(db, bankroll - bankroll_spent)
         await db.commit()
 
         if active == 0:
-            # Price is below or at grid_min — no levels to watch
             await db.execute("UPDATE grid_config SET status='stopped', updated_at=? WHERE id=?",
                              (now_ms, config_id))
             await db.commit()
-            return {"ok": False, "error": f"Precio actual (${ref_price:,.0f}) está por debajo del rango del grid. Baja el precio mínimo."}
+            return {"ok": False, "error": "Sin fondos suficientes para activar ningún nivel del grid."}
 
         self.running = True
         self._task = asyncio.create_task(self._ws_loop())
-        logger.info("grid:started", {"config_id": config_id, "active_levels": active, "ref_price": ref_price})
+        logger.info("grid:started", {"config_id": config_id, "pending_buys": len(self._pending), "prebought_sells": len(self._bought), "ref_price": ref_price, "bankroll_spent": round(bankroll_spent, 2)})
         asyncio.create_task(self._broadcast())
         return {"ok": True, "config_id": config_id, "active_levels": active, "ref_price": ref_price}
 
@@ -143,12 +182,14 @@ class GridEngine:
         ts_ms = int(time.time() * 1000)
 
         if sell_price and self._bought:
+            bankroll = await self._get_bankroll(db)
             for oid, order in list(self._bought.items()):
                 fee = order["order_size"] * CONFIG.grid_fee_pct * 2
                 pnl = round(
                     (order["order_size"] / order["buy_fill_price"]) * (sell_price - order["buy_fill_price"]) - fee,
                     4
                 )
+                bankroll += order["order_size"] + pnl
                 await db.execute(
                     "UPDATE grid_orders SET status='closed', sold_at=?, sell_fill_price=? WHERE id=?",
                     (ts_ms, sell_price, oid)
@@ -160,7 +201,8 @@ class GridEngine:
                     (oid, order["buy_fill_price"], sell_price, order["order_size"],
                      pnl, round(fee, 4), order["bought_at"], ts_ms)
                 )
-            logger.info("grid:stop:sold_all", {"count": len(self._bought), "price": sell_price})
+            await self._update_bankroll(db, bankroll)
+            logger.info("grid:stop:sold_all", {"count": len(self._bought), "price": sell_price, "bankroll": round(bankroll, 2)})
 
         # Cancel all pending orders
         if self._config_id:
@@ -281,8 +323,17 @@ class GridEngine:
             return
 
         db = await get_db()
+        bankroll = await self._get_bankroll(db)
+        bankroll_changed = False
 
         for oid, order in to_buy:
+            if bankroll < order["order_size"]:
+                logger.warn("grid:buy:skipped_no_funds", {
+                    "level": order["level"], "need": order["order_size"], "have": round(bankroll, 2)
+                })
+                continue
+            bankroll -= order["order_size"]
+            bankroll_changed = True
             order["buy_fill_price"] = price
             order["bought_at"]      = ts_ms
             self._bought[oid]       = order
@@ -291,7 +342,7 @@ class GridEngine:
                 "UPDATE grid_orders SET status='bought', bought_at=?, buy_fill_price=? WHERE id=?",
                 (ts_ms, price, oid)
             )
-            logger.info("grid:buy:filled", {"level": order["level"], "price": price})
+            logger.info("grid:buy:filled", {"level": order["level"], "price": price, "bankroll_left": round(bankroll, 2)})
 
         for oid, order in to_sell:
             fee = order["order_size"] * CONFIG.grid_fee_pct * 2
@@ -299,6 +350,8 @@ class GridEngine:
                 (order["order_size"] / order["buy_fill_price"]) * (price - order["buy_fill_price"]) - fee,
                 4
             )
+            bankroll += order["order_size"] + pnl
+            bankroll_changed = True
             await db.execute(
                 "UPDATE grid_orders SET status='closed', sold_at=?, sell_fill_price=? WHERE id=?",
                 (ts_ms, price, oid)
@@ -321,8 +374,10 @@ class GridEngine:
                 "buy_price": order["buy_price"], "sell_price": order["sell_price"],
                 "order_size": order["order_size"],
             }
-            logger.info("grid:sell:filled", {"level": order["level"], "price": price, "pnl": pnl})
+            logger.info("grid:sell:filled", {"level": order["level"], "price": price, "pnl": pnl, "bankroll": round(bankroll, 2)})
 
+        if bankroll_changed:
+            await self._update_bankroll(db, bankroll)
         await db.commit()
         asyncio.create_task(self._broadcast())
 
