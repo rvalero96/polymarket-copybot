@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TradeBot · Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
   <style>
@@ -148,6 +149,7 @@
     .tl-badge { display: inline-block; font-size: 0.55rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.15rem 0.45rem; border-radius: 0.25rem; font-family: monospace; }
     .tl-copy     { background: rgba(99,102,241,0.15); color: #818cf8; }
     .tl-5m       { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .tl-grid     { background: rgba(249,115,22,0.15); color: #f97316; }
     .tl-open     { background: rgba(245,158,11,0.12); color: #f59e0b; }
     .tl-closed   { background: rgba(173,170,170,0.1); color: var(--muted); }
     .tl-resolved { background: rgba(0,255,163,0.1); color: var(--primary); }
@@ -186,7 +188,9 @@
     .nav-group-arrow { margin-left: auto; font-size: 1rem !important; transition: transform 0.2s; line-height: 1; }
     .nav-group-header.open .nav-group-arrow { transform: rotate(180deg); }
     .nav-group-items { overflow: hidden; max-height: 0; transition: max-height 0.25s ease; }
-    .nav-group-items.open { max-height: 300px; }
+    .nav-group-items.open { max-height: 500px; }
+    .nav-sub-label { padding: 0.55rem 1.5rem 0.2rem 2.75rem; font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted); opacity: 0.45; margin-top: 0.15rem; }
+    .nav-sub2 { padding-left: 3.25rem !important; font-size: 0.75rem !important; }
     .nav-sub { padding-left: 2.75rem !important; font-size: 0.75rem !important; }
     @media (max-width: 900px) {
       .sidebar { display: none; }
@@ -237,6 +241,8 @@
         <div class="nav-item nav-sub" data-tab="tab-btc5m"><span class="ms">bolt</span> Early-Bird 5m</div>
         <div class="nav-item nav-sub" data-tab="tab-yield"><span class="ms">savings</span> AAVE · Kelly</div>
         <div class="nav-item nav-sub" data-tab="tab-arb"><span class="ms">balance</span> Arbitraje</div>
+        <div class="nav-sub-label">Crypto Trading</div>
+        <div class="nav-item nav-sub nav-sub2" data-tab="tab-grid"><span class="ms">grid_on</span> Grid BTC</div>
       </div>
     </div>
     <div class="nav-item" data-tab="tab-historial"><span class="ms">receipt_long</span> Historial</div>
@@ -325,6 +331,28 @@
       <div class="stat-card">
         <div class="stat-label">Operaciones cerradas</div>
         <div class="stat-value" id="d-stat-closed">—</div>
+      </div>
+    </div>
+
+    <div class="sec-div" style="--accent:#f97316">
+      <div class="sec-dot" style="background:#f97316"></div><div class="sec-label">Grid BTC (paper)</div><div class="sec-line"></div>
+    </div>
+    <div class="stats-grid" style="--accent:#f97316">
+      <div class="stat-card" id="grid-dash-pnl-card">
+        <div class="stat-label">P&amp;L realizado</div>
+        <div class="stat-value" id="grid-dash-pnl">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trades cerrados</div>
+        <div class="stat-value" id="grid-dash-closed">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Win rate</div>
+        <div class="stat-value" id="grid-dash-wr">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Órdenes activas</div>
+        <div class="stat-value" id="grid-dash-active">—</div>
       </div>
     </div>
 
@@ -488,6 +516,15 @@
           </div>
           <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-5m-bar" style="background:#f59e0b"></div></div>
         </div>
+        <div class="alloc-item">
+          <div class="alloc-item-hd">
+            <div class="alloc-dot" style="background:#f97316"></div>
+            <div class="alloc-item-label">Grid BTC</div>
+            <div class="alloc-item-value" id="alloc-grid">—</div>
+            <div class="alloc-item-pct" id="alloc-grid-pct">—</div>
+          </div>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-grid-bar" style="background:#f97316"></div></div>
+        </div>
         <div class="alloc-item" style="margin-top:0.2rem;padding-top:0.6rem;border-top:1px solid var(--border)">
           <div class="alloc-item-hd">
             <div class="alloc-dot" style="background:transparent;border:1px solid rgba(173,170,170,0.3)"></div>
@@ -522,7 +559,7 @@
       <div class="table-scroll"><table>
         <thead><tr>
           <th class="sortable" data-col="0"><div class="th-inner"><span>Fecha</span><span class="sort-icon">⇅</span></div></th>
-          <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+          <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m|Grid:grid" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="2"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="2" data-filter-type="text" data-filter-ph="Buscar…" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="3"><div class="th-inner"><span>Asset</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="3" data-filter-type="select" data-filter-opts="Todos:|BTC:btc|ETH:eth|SOL:sol|XRP:xrp" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="4"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="4" data-filter-type="select" data-filter-opts="Todos:|Yes:yes|No:no|UP:up|DOWN:down" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
@@ -697,6 +734,134 @@
 
   </div><!-- /tab-yield -->
 
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- GRID BTC                                                                -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-grid">
+
+    <!-- Out-of-range alert -->
+    <div id="grid-oor-alert" style="display:none;background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:0.5rem;padding:0.65rem 1rem;margin-bottom:0.75rem;font-size:0.78rem;color:#FF4D4D;">
+      <span class="ms" style="vertical-align:middle;margin-right:0.4rem;font-size:1rem">warning</span>
+      Precio fuera del rango del grid — el bot no opera. Ajusta el rango o detén el grid.
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-hd" style="margin-bottom:0.75rem">
+      <div class="metric-hero" id="grid-price-hero">
+        <div class="hero-icon-clip"><span class="ms hero-icon">currency_bitcoin</span></div>
+        <div class="hero-label">BTC / USDT · Tiempo real</div>
+        <div class="hero-value" id="grid-price-val">—</div>
+        <span class="hero-badge" id="grid-status-badge">STOPPED</span>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">PnL Total</div>
+        <div class="mc-value pos" id="grid-pnl-val">$0.00</div>
+        <div class="mc-sub">paper mode</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Trades cerrados</div>
+        <div class="mc-value" id="grid-trades-val">0</div>
+        <div class="mc-sub" id="grid-orders-sub">0 compras activas</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Win Rate</div>
+        <div class="mc-value" id="grid-wr-val">—</div>
+        <div class="mc-sub" id="grid-spacing-sub">spacing —</div>
+      </div>
+    </div>
+
+    <!-- Config + controls -->
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Precio mín ($)</div>
+          <input id="grid-inp-min" type="number" value="80000" step="100" oninput="gridUpdateViability()"
+            style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Precio máx ($)</div>
+          <input id="grid-inp-max" type="number" value="90000" step="100" oninput="gridUpdateViability()"
+            style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Niveles</div>
+          <input id="grid-inp-levels" type="number" value="10" min="2" max="100" oninput="gridUpdateViability()"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden ($)</div>
+          <input id="grid-inp-size" type="number" value="50" min="1"
+            style="width:90px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div style="display:flex;gap:0.5rem;padding-bottom:1px">
+          <button id="grid-btn-start" onclick="gridStart()"
+            style="background:var(--primary);border:none;border-radius:0.35rem;color:#000;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            START
+          </button>
+          <button id="grid-btn-stop" onclick="gridStop()"
+            style="background:transparent;border:1px solid var(--tertiary);border-radius:0.35rem;color:var(--tertiary);padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            STOP
+          </button>
+        </div>
+        <div id="grid-ctrl-msg" style="font-size:0.72rem;color:var(--muted);padding-bottom:2px"></div>
+      </div>
+      <div id="grid-viability" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted);display:flex;gap:1.5rem;flex-wrap:wrap"></div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div class="cp-hd">
+        <div class="cp-title">BTC/USDT · Precio en tiempo real</div>
+        <div class="cp-sub">Líneas = niveles del grid · ▲ compra · ▼ venta</div>
+      </div>
+      <div id="grid-chart" style="height:380px;width:100%"></div>
+    </div>
+
+    <!-- Active orders -->
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Órdenes activas del grid</span>
+        <span class="table-badge" id="grid-orders-badge">0 niveles</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Nivel</th>
+            <th>Compra</th>
+            <th>Venta</th>
+            <th>Estado</th>
+            <th>Tamaño</th>
+            <th>PnL potencial</th>
+          </tr></thead>
+          <tbody id="tbl-grid-orders"><tr><td colspan="6" class="empty">Grid no iniciado</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Trade history -->
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Historial de trades</span>
+        <span class="table-badge" id="grid-trades-badge">0 trades</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Fecha cierre</th>
+            <th>Nivel</th>
+            <th>Compra @</th>
+            <th>Venta @</th>
+            <th>Tamaño</th>
+            <th>Fee</th>
+            <th>PnL</th>
+          </tr></thead>
+          <tbody id="tbl-grid-trades"><tr><td colspan="7" class="empty">Sin trades todavía</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-grid -->
+
 </main>
 
 <footer class="statusbar">
@@ -708,6 +873,7 @@
     <span id="sb-copy">Copy: — pos</span>
     <span id="sb-5m" style="color:rgba(0,255,163,0.5)">5m: — pos</span>
     <span id="sb-arb" style="color:rgba(129,140,248,0.7)">Arb: — piernas</span>
+    <span id="sb-grid" style="color:rgba(249,115,22,0.8)">Grid: —</span>
     <span id="sb-aave" style="color:rgba(182,80,158,0.8)">AAVE: —</span>
     <span id="sb-kelly" style="color:rgba(245,158,11,0.8)">Kelly: —</span>
   </div>
@@ -731,7 +897,7 @@ function fmtPct(n, d = 1) { return n == null ? '—' : fmt(n, d) + '%'; }
 function fmtDate(ts) {
   if (!ts) return '—';
   const ms = ts > 1e12 ? ts : ts * 1000;
-  return new Date(ms).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+  return new Date(ms).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Madrid' });
 }
 function shortAddr(addr) { if (!addr) return '—'; return addr.slice(0, 6) + '…' + addr.slice(-4); }
 function pnlClass(n) { return n == null ? '' : n >= 0 ? 'pos' : 'neg'; }
@@ -834,7 +1000,7 @@ async function loadDashboard() {
 
   // Stats grid
   setText('d-capital-active', fmtU(d.capital_active));
-  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0);
+  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0) + (d.trade_counts?.grid || 0);
   setText('d-stat-open', d.open_positions || 0);
   setText('d-stat-closed', totalClosed);
 
@@ -880,6 +1046,16 @@ async function loadDashboard() {
   setText('arb-stat-closed', as.closed || 0);
   const arbWrEl = document.getElementById('arb-stat-wr');
   if (arbWrEl) { arbWrEl.textContent = as.closed > 0 ? fmtPct(as.win_rate) : '—'; }
+
+  // Grid stats (initial fill from DB — SSE will keep it live)
+  const gs = d.grid_stats || {};
+  const gridDashPnlEl0 = document.getElementById('grid-dash-pnl');
+  if (gridDashPnlEl0) { gridDashPnlEl0.textContent = pnlSign(gs.pnl); gridDashPnlEl0.className = 'stat-value ' + pnlClass(gs.pnl); }
+  document.getElementById('grid-dash-pnl-card')?.classList.toggle('border-pos', (gs.pnl || 0) > 0);
+  setText('grid-dash-closed', gs.trade_count || 0);
+  setText('grid-dash-active', gs.active_orders || 0);
+  const gridWrEl0 = document.getElementById('grid-dash-wr');
+  if (gridWrEl0) { gridWrEl0.textContent = gs.trade_count > 0 ? fmtPct(gs.win_rate) : '—'; }
 
   // AAVE
   const av = d.aave || {};
@@ -937,19 +1113,19 @@ async function loadDashboard() {
   `).join('') : '<tr><td colspan="8" class="empty">Sin snapshots Kelly</td></tr>';
 
   // Historial stats
-  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0;
-  const netPnl = copyPnl + btcPnl + arbPnl;
+  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0, gridPnl = gs.pnl || 0;
+  const netPnl = copyPnl + btcPnl + arbPnl + gridPnl;
   const histPnlEl = document.getElementById('hist-pnl');
   if (histPnlEl) { histPnlEl.textContent = pnlSign(netPnl); histPnlEl.className = 'stat-value ' + pnlClass(netPnl); }
   document.getElementById('hist-pnl-card')?.classList.toggle('border-pos', netPnl >= 0);
   document.getElementById('hist-pnl-card')?.classList.toggle('border-neg', netPnl < 0);
-  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0);
+  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0) + (gs.active_orders || 0);
   setText('hist-open', openCount);
   setText('hist-closed', totalClosed);
 
   // Alloc chart/legend
   const pt = d.portfolio_total || 1;
-  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0;
+  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0, gridAc = d.capital_grid || 0;
   setText('alloc-total', fmtU(pt));
   setText('alloc-cash', fmtU(cash));
   setText('alloc-cash-pct', fmt(cash / pt * 100, 0) + '%');
@@ -960,6 +1136,9 @@ async function loadDashboard() {
   setText('alloc-5m', fmtU(btcAc));
   setText('alloc-5m-pct', fmt(btcAc / pt * 100, 0) + '%');
   const btcBar = document.getElementById('alloc-5m-bar'); if (btcBar) btcBar.style.width = (btcAc/pt*100).toFixed(1) + '%';
+  setText('alloc-grid', fmtU(gridAc));
+  setText('alloc-grid-pct', fmt(gridAc / pt * 100, 0) + '%');
+  const gridBar = document.getElementById('alloc-grid-bar'); if (gridBar) gridBar.style.width = (gridAc/pt*100).toFixed(1) + '%';
   const pnlTot = d.pnl_total || 0;
   const allocPnlEl = document.getElementById('alloc-pnl');
   if (allocPnlEl) { allocPnlEl.textContent = pnlSign(pnlTot); allocPnlEl.className = 'alloc-item-value ' + pnlClass(pnlTot); }
@@ -970,8 +1149,8 @@ async function loadDashboard() {
   allocChart = new Chart(document.getElementById('allocChart'), {
     type: 'doughnut',
     data: {
-      labels: ['Cash libre', 'Copy activo', '5m activo'],
-      datasets: [{ data: [cash, copyAc, btcAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b'], borderWidth: 1.5, hoverOffset: 8 }],
+      labels: ['Cash libre', 'Copy activo', '5m activo', 'Grid BTC'],
+      datasets: [{ data: [cash, copyAc, btcAc, gridAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)', 'rgba(249,115,22,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b', '#f97316'], borderWidth: 1.5, hoverOffset: 8 }],
     },
     options: { responsive: true, maintainAspectRatio: false, cutout: '68%', layout: { padding: 8 }, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a1919', titleColor: '#ADAAAA', bodyColor: '#fff', borderColor: 'rgba(72,72,71,0.3)', borderWidth: 1, padding: 10, callbacks: { label: ctx => ' $' + ctx.parsed.toFixed(2) } } } },
   });
@@ -993,6 +1172,8 @@ async function loadDashboard() {
   // Status bar
   setText('sb-aave', 'AAVE: +' + fmtU(av.today_yield));
   if (k) setText('sb-kelly', 'Kelly F' + k.phase + ' · ' + fmtPct((k.fraction || 0) * 100) + ' trading');
+  const gsSb = d.grid_stats || {};
+  setText('sb-grid', gsSb.active_orders > 0 ? 'Grid: ' + gsSb.active_orders + ' órd.' : 'Grid: off');
 }
 
 // ── Load positions ─────────────────────────────────────────────────────────
@@ -1083,13 +1264,16 @@ async function loadTrades() {
   const rows = [];
   (d.copy_trading || []).forEach(t => rows.push({ _strategy: 'copy', _asset: null, _date: t.executed_at, market_id: t.market_id, title: t.title, market_slug: t.market_slug, outcome: t.outcome, size_usdc: t.size_usdc, fee: (t.fee || 0) + (t.slippage || 0), status: t.status, pnl: t.pnl }));
   (d.btc5m || []).forEach(t => rows.push({ _strategy: 'btc5m', _asset: t.asset, _date: t.opened_at, market_id: t.market_id, title: t.title, market_slug: t.slug, outcome: t.outcome, size_usdc: t.size_usdc, fee: (t.fee || 0) + (t.slippage || 0), status: t.status, pnl: t.pnl }));
+  (d.grid || []).forEach(t => rows.push({ _strategy: 'grid', _asset: 'BTC', _date: t.closed_at, market_id: 'L' + t.level, title: 'Grid L' + t.level + ' · Buy $' + fmt(t.buy_price, 0) + ' → Sell $' + fmt(t.sell_price, 0), market_slug: null, outcome: 'BUY→SELL', size_usdc: t.order_size_usd, fee: t.fee, status: 'closed', pnl: t.pnl }));
   rows.sort((a, b) => (b._date || 0) - (a._date || 0));
 
   setText('badge-tradelog', rows.length + ' OPS');
   document.getElementById('tbl-tradelog').innerHTML = rows.length ? rows.map(t => {
     const stratBadge = t._strategy === 'copy'
       ? '<span class="tl-badge tl-copy">Copy</span>'
-      : `<span class="tl-badge tl-5m">5m · ${t._asset || 'BTC'}</span>`;
+      : t._strategy === 'grid'
+        ? '<span class="tl-badge tl-grid">Grid BTC</span>'
+        : `<span class="tl-badge tl-5m">5m · ${t._asset || 'BTC'}</span>`;
     const assetCell = t._asset
       ? `<span class="asset-cell"><img class="asset-logo" src="${ASSET_LOGOS[t._asset] || ''}" alt="${t._asset}" onerror="this.style.display='none'"><span>${t._asset}</span></span>`
       : '—';
@@ -1354,6 +1538,420 @@ async function init() {
 
 document.getElementById('token-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 window.addEventListener('load', init);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRID BTC
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _gridChart      = null;
+let _gridSeries     = null;
+let _gridPriceLines = [];
+let _gridWs         = null;   // Binance WebSocket (price feed)
+let _gridSSE        = null;   // SSE connection (fills / metrics from backend)
+let _gridTabActive  = false;
+let _gridInputsFilled = false;
+
+// ── Chart init ──────────────────────────────────────────────────────────────
+function gridInitChart() {
+  if (_gridChart) return;
+  const container = document.getElementById('grid-chart');
+  if (!container) return;
+
+  _gridChart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { type: 'solid', color: '#000' },
+      textColor: '#ADAAAA',
+    },
+    grid: {
+      vertLines: { color: 'rgba(72,72,71,0.12)' },
+      horzLines: { color: 'rgba(72,72,71,0.12)' },
+    },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)' },
+    rightPriceScale: { borderColor: 'rgba(72,72,71,0.3)' },
+    handleScroll: true,
+    handleScale: true,
+  });
+
+  _gridSeries = _gridChart.addAreaSeries({
+    lineColor: '#00FFA3',
+    topColor: 'rgba(0,255,163,0.08)',
+    bottomColor: 'rgba(0,255,163,0)',
+    lineWidth: 1.5,
+    priceLineVisible: false,
+    lastValueVisible: true,
+  });
+
+  // Detect manual scroll — pause auto-follow until user returns to right edge
+  _gridChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (!range || !_gridWs) return;
+    // If rightmost visible bar is close to the data end, re-enable auto-follow
+    const logicalRight = range.to;
+    _gridWs._atRightEdge = logicalRight >= -2;
+  });
+
+  // Resize observer
+  const ro = new ResizeObserver(() => {
+    if (_gridChart) _gridChart.applyOptions({ width: container.clientWidth });
+  });
+  ro.observe(container);
+}
+
+// ── Price lines for grid levels ─────────────────────────────────────────────
+function gridSetPriceLines(gridMin, gridMax, levels) {
+  if (!_gridSeries) return;
+  _gridPriceLines.forEach(pl => _gridSeries.removePriceLine(pl));
+  _gridPriceLines = [];
+  if (!levels || levels < 1) return;
+  const spacing = (gridMax - gridMin) / levels;
+  for (let i = 0; i <= levels; i++) {
+    const price = gridMin + i * spacing;
+    const isEdge = i === 0 || i === levels;
+    const pl = _gridSeries.createPriceLine({
+      price,
+      color:            isEdge ? 'rgba(255,77,77,0.5)' : 'rgba(0,255,163,0.2)',
+      lineWidth:        isEdge ? 1 : 1,
+      lineStyle:        LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: isEdge,
+      title:            isEdge ? (i === 0 ? 'MIN' : 'MAX') : '',
+    });
+    _gridPriceLines.push(pl);
+  }
+}
+
+// ── Trade markers ────────────────────────────────────────────────────────────
+function gridSetMarkers(trades, boughtOrders = []) {
+  if (!_gridSeries) return;
+  const seen = new Set();
+  const markers = [];
+
+  // Completed trades: both buy ▲ and sell ▼ markers (oldest first for stable sort)
+  [...(trades || [])].reverse().forEach(t => {
+    const buyKey = `b_${t.opened_at}`;
+    if (t.opened_at && !seen.has(buyKey)) {
+      seen.add(buyKey);
+      markers.push({
+        time: Math.floor(t.opened_at / 1000), position: 'belowBar',
+        color: '#00FFA3', shape: 'arrowUp', size: 1,
+        text: 'B $' + Number(t.buy_price).toFixed(0),
+      });
+    }
+    const sellKey = `s_${t.closed_at}`;
+    if (t.closed_at && !seen.has(sellKey)) {
+      seen.add(sellKey);
+      markers.push({
+        time: Math.floor(t.closed_at / 1000), position: 'aboveBar',
+        color: '#FF4D4D', shape: 'arrowDown', size: 1,
+        text: 'S $' + Number(t.sell_price).toFixed(0),
+      });
+    }
+  });
+
+  // Active bought orders: show buy ▲ immediately, before the sell completes
+  boughtOrders.forEach(o => {
+    if (!o.bought_at || !o.buy_fill_price) return;
+    const key = `ab_${o.id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      markers.push({
+        time: Math.floor(o.bought_at / 1000), position: 'belowBar',
+        color: '#00FFA3', shape: 'arrowUp', size: 1,
+        text: 'B $' + Number(o.buy_fill_price).toFixed(0),
+      });
+    }
+  });
+
+  markers.sort((a, b) => a.time - b.time);
+  _gridSeries.setMarkers(markers);
+}
+
+// ── Binance WebSocket for real-time price ───────────────────────────────────
+function gridStartWs() {
+  if (_gridWs) return;
+  _gridWs = new WebSocket('wss://stream.binance.com/ws/btcusdt@aggTrade');
+  _gridWs._atRightEdge = true;
+  _gridWs.onmessage = e => {
+    try {
+      const msg   = JSON.parse(e.data);
+      const price = parseFloat(msg.p);
+      const ts    = Math.floor(parseInt(msg.T) / 1000);
+      document.getElementById('grid-price-val').textContent = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (_gridSeries) {
+        _gridSeries.update({ time: ts, value: price });
+        // Auto-follow only if chart was already at the right edge
+        if (_gridWs._atRightEdge && _gridChart) {
+          _gridChart.timeScale().scrollToRealTime();
+        }
+      }
+    } catch (_) {}
+  };
+  _gridWs.onerror = () => { _gridWs = null; };
+  _gridWs.onclose = () => {
+    _gridWs = null;
+    if (_gridTabActive) setTimeout(gridStartWs, 3000);
+  };
+}
+
+function gridStopWs() {
+  if (_gridWs) { _gridWs.close(); _gridWs = null; }
+}
+
+// ── Load historical klines from Binance REST for chart init ─────────────────
+async function gridLoadHistory() {
+  try {
+    const url  = 'https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=200';
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (!Array.isArray(data) || !_gridSeries) return;
+    const pts = data.map(k => ({ time: Math.floor(k[0] / 1000), value: parseFloat(k[4]) }));
+    _gridSeries.setData(pts);
+    _gridChart.timeScale().scrollToRealTime();
+  } catch (_) {}
+}
+
+// ── Render orders table ──────────────────────────────────────────────────────
+function gridRenderOrders(orders, gridMin, gridMax, levels) {
+  const tbody  = document.getElementById('tbl-grid-orders');
+  const badge  = document.getElementById('grid-orders-badge');
+  if (!orders || !orders.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Sin órdenes activas</td></tr>';
+    if (badge) badge.textContent = '0 niveles';
+    return;
+  }
+  const spacing = levels ? (gridMax - gridMin) / levels : 0;
+  badge.textContent = orders.length + ' niveles';
+  tbody.innerHTML = orders.map(o => {
+    const isBought = o.status === 'bought';
+    const potPnl   = spacing > 0 ? ((spacing / o.buy_price) * o.order_size - o.order_size * 0.002).toFixed(4) : '—';
+    return `<tr>
+      <td class="num">${o.level}</td>
+      <td class="num">$${Number(o.buy_price).toLocaleString('en-US')}</td>
+      <td class="num">$${Number(o.sell_price).toLocaleString('en-US')}</td>
+      <td>${isBought
+        ? '<span class="tl-badge tl-open" style="background:rgba(0,255,163,0.12);color:var(--primary)">COMPRADO</span>'
+        : '<span class="tl-badge" style="background:rgba(72,72,71,0.15);color:var(--muted)">EN ESPERA</span>'
+      }</td>
+      <td class="num">$${Number(o.order_size).toFixed(2)}</td>
+      <td class="num ${potPnl > 0 ? 'pos' : ''}">$${potPnl}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render trades table ──────────────────────────────────────────────────────
+function gridRenderTrades(trades) {
+  const tbody = document.getElementById('tbl-grid-trades');
+  const badge = document.getElementById('grid-trades-badge');
+  if (!trades || !trades.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Sin trades todavía</td></tr>';
+    if (badge) badge.textContent = '0 trades';
+    return;
+  }
+  badge.textContent = trades.length + ' trades';
+  tbody.innerHTML = trades.map(t => {
+    const pnlCls = t.pnl >= 0 ? 'pos' : 'neg';
+    return `<tr>
+      <td>${fmtDate(t.closed_at)}</td>
+      <td class="num">${t.level ?? '—'}</td>
+      <td class="num">$${Number(t.buy_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+      <td class="num">$${Number(t.sell_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+      <td class="num">$${Number(t.order_size_usd).toFixed(2)}</td>
+      <td class="num neg">-$${Number(t.fee).toFixed(4)}</td>
+      <td class="num ${pnlCls}">${t.pnl >= 0 ? '+' : ''}$${Number(t.pnl).toFixed(4)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Viability calculator ─────────────────────────────────────────────────────
+// Fee round-trip = 0.1% buy + 0.1% sell = 0.2%
+// Break-even: spacing > avg_price * 0.002
+// Max levels: floor(range / min_spacing)
+function gridUpdateViability() {
+  const el     = document.getElementById('grid-viability');
+  if (!el) return;
+  const min    = parseFloat(document.getElementById('grid-inp-min')?.value);
+  const max    = parseFloat(document.getElementById('grid-inp-max')?.value);
+  const levels = parseInt(document.getElementById('grid-inp-levels')?.value);
+  if (isNaN(min) || isNaN(max) || isNaN(levels) || min >= max || levels < 1) {
+    el.innerHTML = ''; return;
+  }
+  const feePct     = 0.001;                          // per side
+  const avgPrice   = (min + max) / 2;
+  const minSpacing = avgPrice * feePct * 2;          // break-even spacing
+  const spacing    = (max - min) / levels;
+  const maxLevels  = Math.floor((max - min) / minSpacing);
+  const minRange   = Math.ceil(levels * minSpacing);
+  const profitable = spacing > minSpacing;
+  const pnlPerTrade = ((spacing / avgPrice) - feePct * 2) * 100; // in %
+
+  const ok   = '<span style="color:var(--primary);font-weight:700">✓ RENTABLE</span>';
+  const nok  = '<span style="color:#FF4D4D;font-weight:700">✗ PÉRDIDA</span>';
+  const hint = profitable
+    ? `Máx. ${maxLevels} niveles para este rango`
+    : `Necesitas ≤ ${maxLevels} niveles o rango ≥ $${minRange.toLocaleString('es-ES')}`;
+
+  el.innerHTML = [
+    `<span>Spacing actual: <b>$${spacing.toLocaleString('es-ES', {maximumFractionDigits:0})}</b></span>`,
+    `<span>Mín. rentable: <b>$${minSpacing.toLocaleString('es-ES', {maximumFractionDigits:0})}</b></span>`,
+    `<span>${profitable ? ok : nok} &nbsp;${hint}</span>`,
+    profitable ? `<span style="color:var(--primary)">PnL/trade ≈ ${pnlPerTrade.toFixed(3)}%</span>` : '',
+  ].join('');
+}
+
+// ── Apply status payload to UI (called from SSE events) ─────────────────────
+function gridApplyStatus(d) {
+  // Out-of-range alert
+  const oor = document.getElementById('grid-oor-alert');
+  if (oor) oor.style.display = d.out_of_range ? 'block' : 'none';
+
+  // Status badge
+  const badge = document.getElementById('grid-status-badge');
+  if (badge) {
+    badge.textContent = d.status === 'running' ? 'RUNNING' : 'STOPPED';
+    badge.className   = 'hero-badge' + (d.status === 'running' ? '' : ' neg-badge');
+  }
+
+  // Metrics
+  const m = d.metrics || {};
+  const pnlEl = document.getElementById('grid-pnl-val');
+  if (pnlEl) {
+    const pnl = m.total_pnl || 0;
+    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Number(pnl).toFixed(4);
+    pnlEl.className   = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg');
+  }
+  const tEl = document.getElementById('grid-trades-val');
+  if (tEl) tEl.textContent = m.trade_count ?? 0;
+
+  const sub = document.getElementById('grid-orders-sub');
+  if (sub) sub.textContent = (m.bought_orders ?? 0) + ' compras activas';
+
+  const wrEl = document.getElementById('grid-wr-val');
+  if (wrEl) wrEl.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
+
+  const spEl = document.getElementById('grid-spacing-sub');
+  if (spEl && d.spacing) spEl.textContent = 'spacing $' + Number(d.spacing).toLocaleString('en-US');
+
+  // Grid price lines
+  if (d.grid_min !== undefined) {
+    gridSetPriceLines(d.grid_min, d.grid_max, d.levels);
+    // Pre-fill config inputs only once per tab visit
+    if (!_gridInputsFilled) {
+      document.getElementById('grid-inp-min').value    = d.grid_min;
+      document.getElementById('grid-inp-max').value    = d.grid_max;
+      document.getElementById('grid-inp-levels').value = d.levels;
+      document.getElementById('grid-inp-size').value   = d.order_size;
+      _gridInputsFilled = true;
+      gridUpdateViability();
+    }
+  }
+
+  // Trade markers + tables
+  const boughtOrders = (d.orders || []).filter(o => o.status === 'bought');
+  gridSetMarkers(d.recent_trades, boughtOrders);
+  gridRenderOrders(d.orders, d.grid_min, d.grid_max, d.levels);
+  gridRenderTrades(d.recent_trades);
+
+  // Update dashboard summary cards (grid section in tab-dashboard)
+  const totalOrders = (m.pending_orders || 0) + (m.bought_orders || 0);
+  const gridDashPnlEl = document.getElementById('grid-dash-pnl');
+  if (gridDashPnlEl) { gridDashPnlEl.textContent = pnlSign(m.total_pnl || 0); gridDashPnlEl.className = 'stat-value ' + pnlClass(m.total_pnl || 0); }
+  document.getElementById('grid-dash-pnl-card')?.classList.toggle('border-pos', (m.total_pnl || 0) > 0);
+  setText('grid-dash-closed', m.trade_count ?? 0);
+  setText('grid-dash-active', totalOrders);
+  const gwEl = document.getElementById('grid-dash-wr');
+  if (gwEl) gwEl.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
+
+  // Status bar
+  setText('sb-grid', d.status === 'running' ? 'Grid: ' + totalOrders + ' órd.' : 'Grid: off');
+}
+
+// ── SSE connection to backend ────────────────────────────────────────────────
+function gridStartSSE() {
+  if (_gridSSE) return;
+  const token = getToken();
+  _gridSSE = new EventSource(`/api/grid/stream?token=${encodeURIComponent(token)}`);
+
+  // Initial state on connect
+  _gridSSE.addEventListener('init', e => {
+    gridApplyStatus(JSON.parse(e.data));
+  });
+
+  // Push event on every fill / start / stop
+  _gridSSE.onmessage = e => {
+    gridApplyStatus(JSON.parse(e.data));
+  };
+
+  _gridSSE.onerror = () => {
+    // EventSource reconnects automatically — only clean up if permanently closed
+    if (_gridSSE && _gridSSE.readyState === EventSource.CLOSED) {
+      _gridSSE = null;
+    }
+  };
+}
+
+function gridStopSSE() {
+  if (_gridSSE) { _gridSSE.close(); _gridSSE = null; }
+}
+
+// ── Start / Stop actions ─────────────────────────────────────────────────────
+async function gridStart() {
+  const min    = parseFloat(document.getElementById('grid-inp-min').value);
+  const max    = parseFloat(document.getElementById('grid-inp-max').value);
+  const levels = parseInt(document.getElementById('grid-inp-levels').value);
+  const size   = parseFloat(document.getElementById('grid-inp-size').value);
+  const msg    = document.getElementById('grid-ctrl-msg');
+
+  if (isNaN(min) || isNaN(max) || min >= max) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Error: precio mín debe ser menor que máx'; }
+    return;
+  }
+  try {
+    const res = await apiFetch('/api/grid/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grid_min: min, grid_max: max, levels, order_size: size }),
+    });
+    if (res.ok) {
+      if (msg) { msg.style.color = 'var(--primary)'; msg.textContent = `Grid iniciado · ${res.active_levels} niveles activos · ref $${Number(res.ref_price).toLocaleString('en-US', {maximumFractionDigits:0})}`; }
+      // SSE will push the updated state — no manual fetch needed
+    } else {
+      if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = res.error || 'Error'; }
+    }
+  } catch (e) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
+  }
+}
+
+async function gridStop() {
+  const msg = document.getElementById('grid-ctrl-msg');
+  try {
+    await apiFetch('/api/grid/stop', { method: 'POST' });
+    if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = 'Grid detenido'; }
+    // SSE will push the updated state — no manual fetch needed
+  } catch (e) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
+  }
+}
+
+// ── Tab activation hook ──────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+  item.addEventListener('click', () => {
+    const target = item.dataset.tab;
+    if (target === 'tab-grid') {
+      _gridTabActive    = true;
+      _gridInputsFilled = false;
+      gridInitChart();
+      gridLoadHistory();
+      gridStartWs();
+      gridStartSSE();   // SSE sends 'init' event immediately on connect
+    } else {
+      if (_gridTabActive) {
+        _gridTabActive = false;
+        gridStopWs();
+        gridStopSSE();
+      }
+    }
+  });
+});
 </script>
 </body>
 </html>

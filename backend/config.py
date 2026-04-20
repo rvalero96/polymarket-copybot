@@ -80,5 +80,13 @@ class Settings(BaseSettings):
     defillama_pools_api: str = "https://yields.llama.fi/pools"
     aave_v3_polygon_usdc_pool: str = "1b8b4cdb-0728-42a8-bf13-2c8fea7427ee"
 
+    # Grid trading
+    grid_min_price: float = 80000.0
+    grid_max_price: float = 90000.0
+    grid_levels: int = 10
+    grid_order_size_usd: float = 50.0
+    grid_fee_pct: float = 0.001
+    grid_ws_url: str = "wss://stream.binance.com/ws/btcusdt@aggTrade"
+
 
 CONFIG = Settings()
