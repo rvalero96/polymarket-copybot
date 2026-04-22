@@ -31,11 +31,12 @@ async def fetch_candles(symbol: str, interval: str = "1m", limit: int = 20) -> l
     # Binance kline: [openTime, open, high, low, close, volume, ...]
     return [
         {
-            "open":   float(k[1]),
-            "high":   float(k[2]),
-            "low":    float(k[3]),
-            "close":  float(k[4]),
-            "volume": float(k[5]),
+            "open_time": int(k[0]),
+            "open":      float(k[1]),
+            "high":      float(k[2]),
+            "low":       float(k[3]),
+            "close":     float(k[4]),
+            "volume":    float(k[5]),
         }
         for k in raw
     ]
