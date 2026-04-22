@@ -17,7 +17,9 @@ from strategies.aave import KellyStrategy, AaveStrategy
 from api.routes import dashboard, positions, trades, strategies as strategies_router
 from api.routes.strategies import set_strategies
 from api.routes.grid import router as grid_router
+from api.routes.grid_pepe import router as grid_pepe_router
 from strategies.grid import grid_engine
+from strategies.grid_pepe import pepe_grid_engine
 from logger import logger
 
 # ── Instancias de estrategias ─────────────────────────────────────────────────
@@ -81,6 +83,7 @@ async def lifespan(app: FastAPI):
     yield
 
     await grid_engine.stop()
+    await pepe_grid_engine.stop()
     scheduler.shutdown()
     logger.info("app:shutdown")
 
@@ -99,6 +102,7 @@ app.include_router(positions.router)
 app.include_router(trades.router)
 app.include_router(strategies_router.router)
 app.include_router(grid_router)
+app.include_router(grid_pepe_router)
 
 # Inyectar instancias de estrategias en el router de strategies
 set_strategies(STRATEGIES)
