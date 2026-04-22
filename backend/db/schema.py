@@ -204,6 +204,52 @@ CREATE TABLE IF NOT EXISTS grid_trades (
     opened_at       INTEGER NOT NULL,
     closed_at       INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS pepe_grid_config (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_size   REAL    NOT NULL,
+    ma_type      TEXT    NOT NULL DEFAULT 'EMA',
+    ma_period    INTEGER NOT NULL DEFAULT 20,
+    interval_pct REAL    NOT NULL DEFAULT 0.02,
+    laziness_pct REAL    NOT NULL DEFAULT 0.015,
+    candle_tf    TEXT    NOT NULL DEFAULT '1m',
+    anchor_price REAL,
+    grid_interval REAL,
+    status       TEXT    NOT NULL DEFAULT 'stopped',
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pepe_grid_orders (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_id       INTEGER NOT NULL REFERENCES pepe_grid_config(id),
+    grid_epoch      INTEGER NOT NULL DEFAULT 0,
+    level_index     INTEGER NOT NULL,
+    buy_price       REAL    NOT NULL,
+    sell_price      REAL    NOT NULL,
+    order_size      REAL    NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'pending',
+    buy_fill_price  REAL,
+    sell_fill_price REAL,
+    bought_at       INTEGER,
+    sold_at         INTEGER,
+    cooldown_until  INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS pepe_grid_trades (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id        INTEGER NOT NULL REFERENCES pepe_grid_orders(id),
+    level_index     INTEGER NOT NULL,
+    grid_epoch      INTEGER NOT NULL DEFAULT 0,
+    buy_price       REAL    NOT NULL,
+    sell_price      REAL    NOT NULL,
+    order_size_usd  REAL    NOT NULL,
+    pnl             REAL    NOT NULL,
+    fee             REAL    NOT NULL DEFAULT 0,
+    anchor_at_trade REAL,
+    opened_at       INTEGER NOT NULL,
+    closed_at       INTEGER NOT NULL
+);
 """
 
 MIGRATIONS = [

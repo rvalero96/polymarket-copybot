@@ -28,13 +28,14 @@ async def fetch_candles(symbol: str, interval: str = "1m", limit: int = 20) -> l
     )
     resp.raise_for_status()
     raw = resp.json()
-    # Binance kline: [openTime, open, high, low, close, ...]
+    # Binance kline: [openTime, open, high, low, close, volume, ...]
     return [
         {
-            "open":  float(k[1]),
-            "high":  float(k[2]),
-            "low":   float(k[3]),
-            "close": float(k[4]),
+            "open":   float(k[1]),
+            "high":   float(k[2]),
+            "low":    float(k[3]),
+            "close":  float(k[4]),
+            "volume": float(k[5]),
         }
         for k in raw
     ]

@@ -243,6 +243,7 @@
         <div class="nav-item nav-sub" data-tab="tab-arb"><span class="ms">balance</span> Arbitraje</div>
         <div class="nav-sub-label">Crypto Trading</div>
         <div class="nav-item nav-sub nav-sub2" data-tab="tab-grid"><span class="ms">grid_on</span> Grid BTC</div>
+        <div class="nav-item nav-sub nav-sub2" data-tab="tab-grid-pepe"><span class="ms">blur_on</span> Grid PEPE</div>
       </div>
     </div>
     <div class="nav-item" data-tab="tab-historial"><span class="ms">receipt_long</span> Historial</div>
@@ -862,6 +863,148 @@
 
   </div><!-- /tab-grid -->
 
+  <!-- GRID PEPE (Adaptive)                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-grid-pepe">
+
+    <!-- Metrics -->
+    <div class="metrics-hd" style="margin-bottom:0.75rem">
+      <div class="metric-hero" id="pepe-price-hero">
+        <div class="hero-icon-clip"><span class="ms hero-icon">waterfall_chart</span></div>
+        <div class="hero-label">PEPE / USDT · Tiempo real</div>
+        <div class="hero-value" id="pepe-price-val">—</div>
+        <span class="hero-badge" id="pepe-status-badge">STOPPED</span>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">PnL Total</div>
+        <div class="mc-value pos" id="pepe-pnl-val">$0.00</div>
+        <div class="mc-sub">paper mode</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Trades cerrados</div>
+        <div class="mc-value" id="pepe-trades-val">0</div>
+        <div class="mc-sub" id="pepe-orders-sub">0 compras activas</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Win Rate</div>
+        <div class="mc-value" id="pepe-wr-val">—</div>
+        <div class="mc-sub" id="pepe-epoch-sub">epoch —</div>
+      </div>
+    </div>
+
+    <!-- Config + controls -->
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden ($)</div>
+          <input id="pepe-inp-size" type="number" value="10" min="1"
+            style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">MA Type</div>
+          <select id="pepe-inp-ma-type"
+            style="width:90px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+            <option value="EMA" selected>EMA</option>
+            <option value="SMA">SMA</option>
+            <option value="VWMA">VWMA</option>
+            <option value="TEMA">TEMA</option>
+            <option value="LREG">LREG</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">MA Period</div>
+          <input id="pepe-inp-ma-period" type="number" value="20" min="5" max="200"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Grid Interval (%)</div>
+          <input id="pepe-inp-interval" type="number" value="2" min="0.1" max="49" step="0.1"
+            style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Laziness (%)</div>
+          <input id="pepe-inp-laziness" type="number" value="1.5" min="0.1" max="49" step="0.1"
+            style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div style="display:flex;gap:0.5rem;padding-bottom:1px">
+          <button id="pepe-btn-start" onclick="pepeStart()"
+            style="background:#f97316;border:none;border-radius:0.35rem;color:#000;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            START
+          </button>
+          <button id="pepe-btn-stop" onclick="pepeStop()"
+            style="background:transparent;border:1px solid var(--tertiary);border-radius:0.35rem;color:var(--tertiary);padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            STOP
+          </button>
+        </div>
+        <div id="pepe-ctrl-msg" style="font-size:0.72rem;color:var(--muted);padding-bottom:2px"></div>
+      </div>
+      <!-- Adaptive grid info -->
+      <div id="pepe-grid-info" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted);display:flex;gap:1.5rem;flex-wrap:wrap">
+        <span>AP: <b id="pepe-info-ap">—</b></span>
+        <span>GI: <b id="pepe-info-gi">—</b></span>
+        <span>MA: <b id="pepe-info-ma">—</b></span>
+        <span>Epoch: <b id="pepe-info-epoch">—</b></span>
+        <span id="pepe-info-viability"></span>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div class="cp-hd">
+        <div class="cp-title">PEPE/USDT · Adaptive Grid</div>
+        <div class="cp-sub">Líneas de grid dinámicas · AP = Moving Average · ▲ compra · ▼ venta</div>
+      </div>
+      <div id="pepe-grid-chart" style="height:380px;width:100%"></div>
+    </div>
+
+    <!-- Active orders -->
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Órdenes activas del grid PEPE</span>
+        <span class="table-badge" id="pepe-orders-badge">0 niveles</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Level idx</th>
+            <th>Compra @</th>
+            <th>Venta @</th>
+            <th>Estado</th>
+            <th>Tamaño</th>
+            <th>PnL potencial</th>
+            <th>Epoch</th>
+          </tr></thead>
+          <tbody id="tbl-pepe-orders"><tr><td colspan="7" class="empty">Grid no iniciado</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Trade history -->
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Historial de trades PEPE</span>
+        <span class="table-badge" id="pepe-trades-badge">0 trades</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Fecha cierre</th>
+            <th>Level</th>
+            <th>Epoch</th>
+            <th>Compra @</th>
+            <th>Venta @</th>
+            <th>Tamaño</th>
+            <th>Fee</th>
+            <th>PnL</th>
+            <th>Anchor @</th>
+          </tr></thead>
+          <tbody id="tbl-pepe-trades"><tr><td colspan="9" class="empty">Sin trades todavía</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-grid-pepe -->
+
 </main>
 
 <footer class="statusbar">
@@ -874,6 +1017,7 @@
     <span id="sb-5m" style="color:rgba(0,255,163,0.5)">5m: — pos</span>
     <span id="sb-arb" style="color:rgba(129,140,248,0.7)">Arb: — piernas</span>
     <span id="sb-grid" style="color:rgba(249,115,22,0.8)">Grid: —</span>
+    <span id="sb-pepe-grid" style="color:rgba(249,115,22,0.6)">PEPE Grid: —</span>
     <span id="sb-aave" style="color:rgba(182,80,158,0.8)">AAVE: —</span>
     <span id="sb-kelly" style="color:rgba(245,158,11,0.8)">Kelly: —</span>
   </div>
@@ -1959,8 +2103,401 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
         gridStopSSE();
       }
     }
+    if (target === 'tab-grid-pepe') {
+      _pepeTabActive    = true;
+      _pepeInputsFilled = false;
+      pepeInitChart();
+      pepeLoadHistory();
+      pepeStartWs();
+      pepeStartSSE();
+    } else {
+      if (_pepeTabActive) {
+        _pepeTabActive = false;
+        pepeStopWs();
+        pepeStopSSE();
+      }
+    }
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRID PEPE (Adaptive)
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _pepeChart      = null;
+let _pepeSeries     = null;
+let _pepePriceLines = [];
+let _pepeWs         = null;
+let _pepeSSE        = null;
+let _pepeTabActive  = false;
+let _pepeInputsFilled = false;
+
+function fmtPepe(n) {
+  if (n == null) return '—';
+  const v = Number(n);
+  if (v === 0) return '0';
+  // Use exponential for tiny PEPE prices, fixed for larger
+  return v < 0.001 ? v.toExponential(4) : v.toFixed(8);
+}
+
+// ── Chart init ──────────────────────────────────────────────────────────────
+function pepeInitChart() {
+  if (_pepeChart) return;
+  const container = document.getElementById('pepe-grid-chart');
+  if (!container) return;
+
+  _pepeChart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { type: 'solid', color: '#000' },
+      textColor: '#ADAAAA',
+    },
+    grid: {
+      vertLines: { color: 'rgba(72,72,71,0.12)' },
+      horzLines: { color: 'rgba(72,72,71,0.12)' },
+    },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    localization: {
+      locale: 'es-ES',
+      timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
+      priceFormatter: p => fmtPepe(p),
+    },
+    timeScale: {
+      timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)',
+      tickMarkFormatter: (ts, type) => {
+        const d = new Date(ts * 1000);
+        if (type <= 2) return d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' });
+        return d.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
+      },
+    },
+    rightPriceScale: { borderColor: 'rgba(72,72,71,0.3)' },
+    handleScroll: true,
+    handleScale: true,
+  });
+
+  _pepeSeries = _pepeChart.addAreaSeries({
+    lineColor: '#f97316',
+    topColor: 'rgba(249,115,22,0.08)',
+    bottomColor: 'rgba(249,115,22,0)',
+    lineWidth: 1.5,
+    priceLineVisible: false,
+    lastValueVisible: true,
+  });
+
+  _pepeChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (!range || !_pepeWs) return;
+    _pepeWs._atRightEdge = range.to >= -2;
+  });
+
+  const ro = new ResizeObserver(() => {
+    if (_pepeChart) _pepeChart.applyOptions({ width: container.clientWidth });
+  });
+  ro.observe(container);
+}
+
+// ── Price lines for adaptive grid levels ────────────────────────────────────
+function pepeSetPriceLines(gridLevels, anchor) {
+  if (!_pepeSeries) return;
+  _pepePriceLines.forEach(pl => _pepeSeries.removePriceLine(pl));
+  _pepePriceLines = [];
+  if (!gridLevels || !gridLevels.length) return;
+
+  gridLevels.forEach((price, i) => {
+    const isAnchor = (i === 4);  // G4 is the anchor level
+    const isTop    = (i === 0);
+    const isBottom = (i === gridLevels.length - 1);
+    let color;
+    if (isAnchor)      color = 'rgba(0,255,163,0.6)';   // anchor = green
+    else if (i < 4)    color = 'rgba(249,115,22,0.35)'; // above anchor = amber
+    else               color = 'rgba(255,77,77,0.35)';  // below anchor = red
+    const pl = _pepeSeries.createPriceLine({
+      price,
+      color,
+      lineWidth:        isAnchor ? 1.5 : 1,
+      lineStyle:        LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: isAnchor || isTop || isBottom,
+      title:            isAnchor ? 'AP' : (isTop ? 'TOP' : (isBottom ? 'BOT' : '')),
+    });
+    _pepePriceLines.push(pl);
+  });
+}
+
+// ── Trade markers ────────────────────────────────────────────────────────────
+function pepeSetMarkers(trades, boughtOrders = []) {
+  if (!_pepeSeries) return;
+  const seen = new Set();
+  const markers = [];
+
+  [...(trades || [])].reverse().forEach(t => {
+    const buyKey = `b_${t.opened_at}`;
+    if (t.opened_at && !seen.has(buyKey)) {
+      seen.add(buyKey);
+      markers.push({
+        time: Math.floor(t.opened_at / 1000), position: 'belowBar',
+        color: '#f97316', shape: 'arrowUp', size: 1,
+        text: 'B ' + fmtPepe(t.buy_price),
+      });
+    }
+    const sellKey = `s_${t.closed_at}`;
+    if (t.closed_at && !seen.has(sellKey)) {
+      seen.add(sellKey);
+      markers.push({
+        time: Math.floor(t.closed_at / 1000), position: 'aboveBar',
+        color: '#FF4D4D', shape: 'arrowDown', size: 1,
+        text: 'S ' + fmtPepe(t.sell_price),
+      });
+    }
+  });
+
+  boughtOrders.forEach(o => {
+    if (!o.bought_at || !o.buy_fill_price) return;
+    const key = `ab_${o.id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      markers.push({
+        time: Math.floor(o.bought_at / 1000), position: 'belowBar',
+        color: '#f97316', shape: 'arrowUp', size: 1,
+        text: 'B ' + fmtPepe(o.buy_fill_price),
+      });
+    }
+  });
+
+  markers.sort((a, b) => a.time - b.time);
+  _pepeSeries.setMarkers(markers);
+}
+
+// ── Binance WebSocket for real-time PEPE price ───────────────────────────────
+function pepeStartWs() {
+  if (_pepeWs) return;
+  _pepeWs = new WebSocket('wss://stream.binance.com/ws/pepeusdt@aggTrade');
+  _pepeWs._atRightEdge = true;
+  _pepeWs.onmessage = e => {
+    try {
+      const msg   = JSON.parse(e.data);
+      const price = parseFloat(msg.p);
+      const ts    = Math.floor(parseInt(msg.T) / 1000);
+      document.getElementById('pepe-price-val').textContent = fmtPepe(price);
+      if (_pepeSeries) {
+        _pepeSeries.update({ time: ts, value: price });
+        if (_pepeWs._atRightEdge && _pepeChart) {
+          _pepeChart.timeScale().scrollToRealTime();
+        }
+      }
+    } catch (_) {}
+  };
+  _pepeWs.onerror = () => { _pepeWs = null; };
+  _pepeWs.onclose = () => {
+    _pepeWs = null;
+    if (_pepeTabActive) setTimeout(pepeStartWs, 3000);
+  };
+}
+
+function pepeStopWs() {
+  if (_pepeWs) { _pepeWs.close(); _pepeWs = null; }
+}
+
+// ── Load historical klines ──────────────────────────────────────────────────
+async function pepeLoadHistory() {
+  try {
+    const url  = 'https://api.binance.us/api/v3/klines?symbol=PEPEUSDT&interval=1m&limit=200';
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (!Array.isArray(data) || !_pepeSeries) return;
+    const pts = data.map(k => ({ time: Math.floor(k[0] / 1000), value: parseFloat(k[4]) }));
+    _pepeSeries.setData(pts);
+    _pepeChart.timeScale().scrollToRealTime();
+  } catch (_) {}
+}
+
+// ── Render orders table ──────────────────────────────────────────────────────
+function pepeRenderOrders(orders) {
+  const tbody = document.getElementById('tbl-pepe-orders');
+  const badge = document.getElementById('pepe-orders-badge');
+  if (!orders || !orders.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Sin órdenes activas</td></tr>';
+    if (badge) badge.textContent = '0 niveles';
+    return;
+  }
+  badge.textContent = orders.length + ' niveles';
+  tbody.innerHTML = orders.map(o => {
+    const isBought = o.status === 'bought';
+    const gi = o.sell_price - o.buy_price;
+    const potPnl = gi > 0
+      ? ((gi / o.buy_price) * o.order_size - o.order_size * 0.002).toFixed(6)
+      : '—';
+    return `<tr>
+      <td class="num">${o.level_index >= 0 ? '+' : ''}${o.level_index}</td>
+      <td class="num">${fmtPepe(o.buy_price)}</td>
+      <td class="num">${fmtPepe(o.sell_price)}</td>
+      <td>${isBought
+        ? '<span class="tl-badge tl-open" style="background:rgba(249,115,22,0.12);color:#f97316">COMPRADO</span>'
+        : '<span class="tl-badge" style="background:rgba(72,72,71,0.15);color:var(--muted)">EN ESPERA</span>'
+      }</td>
+      <td class="num">$${Number(o.order_size).toFixed(2)}</td>
+      <td class="num ${parseFloat(potPnl) > 0 ? 'pos' : ''}">$${potPnl}</td>
+      <td class="num">${o.grid_epoch ?? '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render trades table ──────────────────────────────────────────────────────
+function pepeRenderTrades(trades) {
+  const tbody = document.getElementById('tbl-pepe-trades');
+  const badge = document.getElementById('pepe-trades-badge');
+  if (!trades || !trades.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">Sin trades todavía</td></tr>';
+    if (badge) badge.textContent = '0 trades';
+    return;
+  }
+  badge.textContent = trades.length + ' trades';
+  tbody.innerHTML = trades.map(t => {
+    const pnlCls = t.pnl >= 0 ? 'pos' : 'neg';
+    return `<tr>
+      <td>${fmtDate(t.closed_at)}</td>
+      <td class="num">${t.level_index >= 0 ? '+' : ''}${t.level_index ?? '—'}</td>
+      <td class="num">${t.grid_epoch ?? '—'}</td>
+      <td class="num">${fmtPepe(t.buy_price)}</td>
+      <td class="num">${fmtPepe(t.sell_price)}</td>
+      <td class="num">$${Number(t.order_size_usd).toFixed(2)}</td>
+      <td class="num neg">-$${Number(t.fee).toFixed(6)}</td>
+      <td class="num ${pnlCls}">${t.pnl >= 0 ? '+' : ''}$${Number(t.pnl).toFixed(6)}</td>
+      <td class="num">${fmtPepe(t.anchor_at_trade)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Apply status payload from SSE ────────────────────────────────────────────
+function pepeApplyStatus(d) {
+  // Status badge
+  const badge = document.getElementById('pepe-status-badge');
+  if (badge) {
+    badge.textContent = d.status === 'running' ? 'RUNNING' : 'STOPPED';
+    badge.className   = 'hero-badge' + (d.status === 'running' ? '' : ' neg-badge');
+  }
+
+  // Metrics
+  const m = d.metrics || {};
+  const pnlEl = document.getElementById('pepe-pnl-val');
+  if (pnlEl) {
+    const pnl = m.total_pnl || 0;
+    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Number(pnl).toFixed(6);
+    pnlEl.className   = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg');
+  }
+  const tEl = document.getElementById('pepe-trades-val');
+  if (tEl) tEl.textContent = m.trade_count ?? 0;
+
+  const sub = document.getElementById('pepe-orders-sub');
+  if (sub) sub.textContent = (m.bought_orders ?? 0) + ' compras activas';
+
+  const wrEl = document.getElementById('pepe-wr-val');
+  if (wrEl) wrEl.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
+
+  const epSub = document.getElementById('pepe-epoch-sub');
+  if (epSub) epSub.textContent = 'epoch ' + (d.grid_epoch ?? '—');
+
+  // Adaptive grid info bar
+  setText('pepe-info-ap',    fmtPepe(d.anchor));
+  setText('pepe-info-gi',    fmtPepe(d.grid_interval));
+  setText('pepe-info-ma',    fmtPepe(d.ma_value));
+  setText('pepe-info-epoch', d.grid_epoch ?? '—');
+
+  // Viability hint
+  const viabEl = document.getElementById('pepe-info-viability');
+  if (viabEl && d.grid_interval && d.anchor) {
+    const giPct = (d.grid_interval / d.anchor * 100).toFixed(2);
+    const feePct = 0.002;
+    const profitable = (d.grid_interval / d.anchor) > feePct;
+    const estPnl = ((d.grid_interval / d.anchor) - feePct) * 100;
+    viabEl.innerHTML = profitable
+      ? `<span style="color:var(--primary);font-weight:700">✓</span> GI=${giPct}% · PnL/trade ≈ ${estPnl.toFixed(3)}%`
+      : `<span style="color:#FF4D4D;font-weight:700">✗ PÉRDIDA</span> GI=${giPct}% — necesitas GI > ${(feePct*100).toFixed(1)}%`;
+  }
+
+  // Grid price lines and markers
+  if (d.grid_levels && d.grid_levels.length) {
+    pepeSetPriceLines(d.grid_levels, d.anchor);
+    if (!_pepeInputsFilled && d.ma_type) {
+      document.getElementById('pepe-inp-ma-type').value  = d.ma_type;
+      document.getElementById('pepe-inp-ma-period').value = d.ma_period;
+      document.getElementById('pepe-inp-interval').value  = (d.interval_pct * 100).toFixed(1);
+      document.getElementById('pepe-inp-laziness').value  = (d.laziness_pct * 100).toFixed(1);
+      _pepeInputsFilled = true;
+    }
+  }
+
+  const boughtOrders = (d.orders || []).filter(o => o.status === 'bought');
+  pepeSetMarkers(d.recent_trades, boughtOrders);
+  pepeRenderOrders(d.orders);
+  pepeRenderTrades(d.recent_trades);
+
+  // Status bar
+  const totalOrders = (m.pending_orders || 0) + (m.bought_orders || 0);
+  setText('sb-pepe-grid', d.status === 'running' ? 'PEPE Grid: ' + totalOrders + ' órd.' : 'PEPE Grid: off');
+}
+
+// ── SSE connection ───────────────────────────────────────────────────────────
+function pepeStartSSE() {
+  if (_pepeSSE) return;
+  const token = getToken();
+  _pepeSSE = new EventSource(`/api/grid-pepe/stream?token=${encodeURIComponent(token)}`);
+  _pepeSSE.addEventListener('init', e => {
+    pepeApplyStatus(JSON.parse(e.data));
+  });
+  _pepeSSE.onmessage = e => {
+    pepeApplyStatus(JSON.parse(e.data));
+  };
+  _pepeSSE.onerror = () => {
+    if (_pepeSSE && _pepeSSE.readyState === EventSource.CLOSED) {
+      _pepeSSE = null;
+    }
+  };
+}
+
+function pepeStopSSE() {
+  if (_pepeSSE) { _pepeSSE.close(); _pepeSSE = null; }
+}
+
+// ── Start / Stop actions ─────────────────────────────────────────────────────
+async function pepeStart() {
+  const size      = parseFloat(document.getElementById('pepe-inp-size').value);
+  const maType    = document.getElementById('pepe-inp-ma-type').value;
+  const maPeriod  = parseInt(document.getElementById('pepe-inp-ma-period').value);
+  const intervalP = parseFloat(document.getElementById('pepe-inp-interval').value) / 100;
+  const lazinessP = parseFloat(document.getElementById('pepe-inp-laziness').value) / 100;
+  const msg       = document.getElementById('pepe-ctrl-msg');
+
+  if (isNaN(size) || size <= 0) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Error: orden debe ser > 0'; }
+    return;
+  }
+  try {
+    const res = await apiFetch('/api/grid-pepe/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        order_size: size, ma_type: maType, ma_period: maPeriod,
+        interval_pct: intervalP, laziness_pct: lazinessP,
+      }),
+    });
+    if (res.ok) {
+      const ap = fmtPepe(res.anchor);
+      if (msg) { msg.style.color = '#f97316'; msg.textContent = `Grid PEPE iniciado · AP=${ap} · 8 niveles`; }
+    } else {
+      if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = res.error || 'Error'; }
+    }
+  } catch (e) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
+  }
+}
+
+async function pepeStop() {
+  const msg = document.getElementById('pepe-ctrl-msg');
+  try {
+    await apiFetch('/api/grid-pepe/stop', { method: 'POST' });
+    if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = 'Grid PEPE detenido'; }
+  } catch (e) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
+  }
+}
 </script>
 </body>
 </html>
