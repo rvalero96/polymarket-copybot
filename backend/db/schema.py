@@ -247,6 +247,7 @@ CREATE TABLE IF NOT EXISTS pepe_grid_trades (
     pnl             REAL    NOT NULL,
     fee             REAL    NOT NULL DEFAULT 0,
     anchor_at_trade REAL,
+    close_reason    TEXT    NOT NULL DEFAULT 'grid',
     opened_at       INTEGER NOT NULL,
     closed_at       INTEGER NOT NULL
 );
@@ -270,4 +271,5 @@ MIGRATIONS = [
     "ALTER TABLE btc5m_trades ADD COLUMN title TEXT",
     "ALTER TABLE arb_trades ADD COLUMN title TEXT",
     "ALTER TABLE arb_trades ADD COLUMN market_slug TEXT",
+    "ALTER TABLE pepe_grid_trades ADD COLUMN close_reason TEXT NOT NULL DEFAULT 'grid'",
 ]

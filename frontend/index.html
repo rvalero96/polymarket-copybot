@@ -907,14 +907,19 @@
         <span class="hero-badge" id="pepe-status-badge">STOPPED</span>
       </div>
       <div class="metric-card">
-        <div class="mc-label">PnL Total</div>
-        <div class="mc-value pos" id="pepe-pnl-val">$0.00</div>
-        <div class="mc-sub">paper mode</div>
+        <div class="mc-label">PnL realizado</div>
+        <div class="mc-value" id="pepe-pnl-val">$0.00</div>
+        <div class="mc-sub" id="pepe-pnl-sub">paper mode</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">PnL no realizado</div>
+        <div class="mc-value" id="pepe-unrealized-val">—</div>
+        <div class="mc-sub" id="pepe-orders-sub">0 compras activas</div>
       </div>
       <div class="metric-card">
         <div class="mc-label">Trades cerrados</div>
         <div class="mc-value" id="pepe-trades-val">0</div>
-        <div class="mc-sub" id="pepe-orders-sub">0 compras activas</div>
+        <div class="mc-sub" id="pepe-trades-sub">0 stops</div>
       </div>
       <div class="metric-card">
         <div class="mc-label">Win Rate</div>
@@ -975,6 +980,7 @@
         <span>GI: <b id="pepe-info-gi">—</b></span>
         <span>MA: <b id="pepe-info-ma">—</b></span>
         <span>Epoch: <b id="pepe-info-epoch">—</b></span>
+        <span>Último reset: <b id="pepe-info-reset">—</b></span>
         <span id="pepe-info-viability"></span>
       </div>
     </div>
@@ -2183,8 +2189,7 @@ function fmtPepe(n) {
   if (n == null) return '—';
   const v = Number(n);
   if (v === 0) return '0';
-  // Use exponential for tiny PEPE prices, fixed for larger
-  return v < 0.001 ? v.toExponential(4) : v.toFixed(8);
+  return v.toFixed(9);
 }
 
 // ── Chart init ──────────────────────────────────────────────────────────────
@@ -2430,17 +2435,34 @@ function pepeApplyStatus(d) {
 
   // Metrics
   const m = d.metrics || {};
-  const pnlEl = document.getElementById('pepe-pnl-val');
-  if (pnlEl) {
-    const pnl = m.total_pnl || 0;
-    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Number(pnl).toFixed(6);
-    pnlEl.className   = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg');
-  }
-  const tEl = document.getElementById('pepe-trades-val');
-  if (tEl) tEl.textContent = m.trade_count ?? 0;
 
+  // Realised P&L (grid trades only, excludes stop-sells)
+  const pnlEl = document.getElementById('pepe-pnl-val');
+  const gridPnl = (m.total_pnl || 0) - (m.stop_pnl || 0);
+  if (pnlEl) { pnlEl.textContent = pnlSign(gridPnl); pnlEl.className = 'mc-value ' + pnlClass(gridPnl); }
+  const pnlSub = document.getElementById('pepe-pnl-sub');
+  if (pnlSub && (m.stop_count || 0) > 0) {
+    pnlSub.textContent = 'stops: ' + pnlSign(m.stop_pnl || 0);
+    pnlSub.className = 'mc-sub ' + pnlClass(m.stop_pnl || 0);
+  } else if (pnlSub) { pnlSub.textContent = 'paper mode'; pnlSub.className = 'mc-sub'; }
+
+  // Unrealized P&L
+  const urEl = document.getElementById('pepe-unrealized-val');
+  if (urEl) {
+    const ur = m.unrealized_pnl;
+    if (ur != null && (m.bought_orders || 0) > 0) {
+      urEl.textContent = pnlSign(ur);
+      urEl.className = 'mc-value ' + pnlClass(ur);
+    } else { urEl.textContent = '—'; urEl.className = 'mc-value'; }
+  }
   const sub = document.getElementById('pepe-orders-sub');
   if (sub) sub.textContent = (m.bought_orders ?? 0) + ' compras activas';
+
+  // Trades count (grid only) + stop count sub
+  const tEl = document.getElementById('pepe-trades-val');
+  if (tEl) tEl.textContent = m.trade_count ?? 0;
+  const tSub = document.getElementById('pepe-trades-sub');
+  if (tSub) tSub.textContent = (m.stop_count || 0) + ' stops';
 
   const wrEl = document.getElementById('pepe-wr-val');
   if (wrEl) wrEl.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
@@ -2453,6 +2475,8 @@ function pepeApplyStatus(d) {
   setText('pepe-info-gi',    fmtPepe(d.grid_interval));
   setText('pepe-info-ma',    fmtPepe(d.ma_value));
   setText('pepe-info-epoch', d.grid_epoch ?? '—');
+  const resetEl = document.getElementById('pepe-info-reset');
+  if (resetEl) resetEl.textContent = d.last_reset_at ? fmtDate(d.last_reset_at) : '—';
 
   // Viability hint
   const viabEl = document.getElementById('pepe-info-viability');
@@ -2466,9 +2490,9 @@ function pepeApplyStatus(d) {
       : `<span style="color:#FF4D4D;font-weight:700">✗ PÉRDIDA</span> GI=${giPct}% — necesitas GI > ${(feePct*100).toFixed(1)}%`;
   }
 
-  // Grid price lines and markers
+  // Grid price lines and markers — always call so lines clear when stopped
+  pepeSetPriceLines(d.grid_levels || [], d.anchor);
   if (d.grid_levels && d.grid_levels.length) {
-    pepeSetPriceLines(d.grid_levels, d.anchor);
     if (!_pepeInputsFilled && d.ma_type) {
       document.getElementById('pepe-inp-ma-type').value  = d.ma_type;
       document.getElementById('pepe-inp-ma-period').value = d.ma_period;
@@ -2482,6 +2506,13 @@ function pepeApplyStatus(d) {
   pepeSetMarkers(d.recent_trades, boughtOrders);
   pepeRenderOrders(d.orders);
   pepeRenderTrades(d.recent_trades);
+
+  // Live-update alloc legend row for Grid PEPE (capital = bought_orders × order_size)
+  // We don't know exact order_size here but bought capital ≈ unrealized position value
+  // Use bought_orders count × order_size from config if available; best effort from SSE
+  const pepeCapitalLive = (d.orders || []).filter(o => o.status === 'bought').reduce((s, o) => s + (o.order_size || 0), 0);
+  const allocPepeEl = document.getElementById('alloc-pepe');
+  if (allocPepeEl) allocPepeEl.textContent = '$' + pepeCapitalLive.toFixed(2);
 
   // Update dashboard summary cards (PEPE section in tab-dashboard)
   const totalOrders = (m.pending_orders || 0) + (m.bought_orders || 0);
