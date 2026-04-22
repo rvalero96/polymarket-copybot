@@ -2156,11 +2156,7 @@ function pepeInitChart() {
       horzLines: { color: 'rgba(72,72,71,0.12)' },
     },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    localization: {
-      locale: 'es-ES',
-      timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
-      priceFormatter: p => fmtPepe(p),
-    },
+    localization: { locale: 'es-ES', timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }) },
     timeScale: {
       timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)',
       tickMarkFormatter: (ts, type) => {
@@ -2183,11 +2179,14 @@ function pepeInitChart() {
     lastValueVisible: true,
   });
 
+  // Detect manual scroll — pause auto-follow until user returns to right edge
   _pepeChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
     if (!range || !_pepeWs) return;
-    _pepeWs._atRightEdge = range.to >= -2;
+    const logicalRight = range.to;
+    _pepeWs._atRightEdge = logicalRight >= -2;
   });
 
+  // Resize observer
   const ro = new ResizeObserver(() => {
     if (_pepeChart) _pepeChart.applyOptions({ width: container.clientWidth });
   });
