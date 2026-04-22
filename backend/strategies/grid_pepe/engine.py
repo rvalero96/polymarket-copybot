@@ -98,6 +98,9 @@ class AdaptiveGridPepeEngine:
         # Cooldown per level_index (monotonic time)
         self._cooldown_until: dict[int, float] = {}
 
+        # Last anchor reset timestamp (ms)
+        self._last_reset_at: int | None = None
+
         # Candle / MA state
         self._candles: list[dict] = []
         self._ma_value: float | None = None
@@ -197,6 +200,7 @@ class AdaptiveGridPepeEngine:
         self._grid_levels = self._build_grid_levels(ma)
         self._ma_value = ma
         self._grid_epoch += 1
+        self._last_reset_at = int(time.time() * 1000)
         logger.info("pepe_grid:anchor:updated", {
             "ap": ma, "gi": self._gi, "epoch": self._grid_epoch
         })
@@ -381,10 +385,12 @@ class AdaptiveGridPepeEngine:
     # ── WebSocket loop ──────────────────────────────────────────────────────────
 
     async def _ws_loop(self) -> None:
+        backoff = 1.0
         while self.running:
             try:
                 async with websockets.connect(CONFIG.pepe_grid_ws_url, ping_interval=20) as ws:
                     logger.info("pepe_grid:ws:connected")
+                    backoff = 1.0  # reset on successful connect
                     async for raw in ws:
                         if not self.running:
                             break
@@ -404,9 +410,10 @@ class AdaptiveGridPepeEngine:
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                logger.error("pepe_grid:ws:error", {"error": str(exc)})
+                logger.error("pepe_grid:ws:error", {"error": str(exc), "retry_in": backoff})
                 if self.running:
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, 60.0)  # cap at 60s
 
     # ── Candle refresh loop ─────────────────────────────────────────────────────
 
@@ -485,6 +492,7 @@ class AdaptiveGridPepeEngine:
         self._interval_pct = interval_pct
         self._laziness_pct = laziness_pct
         self._grid_epoch   = 1
+        self._last_reset_at = int(time.time() * 1000)
         self._grid_levels = self._build_grid_levels(ma)
         self._pending.clear()
         self._bought.clear()
@@ -561,8 +569,8 @@ class AdaptiveGridPepeEngine:
                 await db.execute(
                     """INSERT INTO pepe_grid_trades
                        (order_id, level_index, grid_epoch, buy_price, sell_price, order_size_usd,
-                        pnl, fee, anchor_at_trade, opened_at, closed_at)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                        pnl, fee, anchor_at_trade, close_reason, opened_at, closed_at)
+                       VALUES (?,?,?,?,?,?,?,?,?,'stop',?,?)""",
                     (oid, order["level_index"], order["grid_epoch"],
                      order["buy_fill_price"], sell_price, order["order_size"],
                      pnl, round(fee, 10), self._anchor, order["bought_at"], ts_ms)
@@ -585,7 +593,10 @@ class AdaptiveGridPepeEngine:
         await db.commit()
         self._pending.clear()
         self._bought.clear()
-        self._anchor = None
+        self._anchor      = None
+        self._gi          = None
+        self._grid_levels = []
+        self._ma_value    = None
         logger.info("pepe_grid:stopped")
         await self._broadcast()
 
@@ -599,7 +610,7 @@ class AdaptiveGridPepeEngine:
         trades = await fetchall(db, """
             SELECT pt.id, pt.level_index, pt.grid_epoch, pt.buy_price, pt.sell_price,
                    pt.order_size_usd, pt.pnl, pt.fee, pt.anchor_at_trade,
-                   pt.opened_at, pt.closed_at
+                   pt.close_reason, pt.opened_at, pt.closed_at
             FROM pepe_grid_trades pt
             JOIN pepe_grid_orders po ON pt.order_id = po.id
             WHERE po.config_id = ?
@@ -607,9 +618,21 @@ class AdaptiveGridPepeEngine:
             LIMIT 100
         """, (config["id"],))
 
-        total_pnl = sum(t["pnl"] for t in trades)
-        wins      = sum(1 for t in trades if t["pnl"] > 0)
-        win_rate  = round(wins / len(trades) * 100, 1) if trades else 0
+        total_pnl   = sum(t["pnl"] for t in trades)
+        grid_trades = [t for t in trades if (t.get("close_reason") or "grid") != "stop"]
+        wins        = sum(1 for t in grid_trades if t["pnl"] > 0)
+        win_rate    = round(wins / len(grid_trades) * 100, 1) if grid_trades else 0
+        stop_pnl    = sum(t["pnl"] for t in trades if (t.get("close_reason") or "grid") == "stop")
+
+        # Unrealized P&L from currently bought positions
+        unrealized_pnl = 0.0
+        if self._price and self._bought:
+            fee_pct = CONFIG.pepe_grid_fee_pct
+            for order in self._bought.values():
+                if order.get("buy_fill_price"):
+                    units = order["order_size"] / order["buy_fill_price"]
+                    fee   = order["order_size"] * fee_pct * 2
+                    unrealized_pnl += units * (self._price - order["buy_fill_price"]) - fee
 
         if self.running and self._config_id == config["id"]:
             active_orders = sorted(
@@ -637,9 +660,13 @@ class AdaptiveGridPepeEngine:
             "interval_pct":  config["interval_pct"],
             "laziness_pct":  config["laziness_pct"],
             "ma_value":      self._ma_value,
+            "last_reset_at": self._last_reset_at,
             "metrics": {
                 "total_pnl":      round(total_pnl, 10),
-                "trade_count":    len(trades),
+                "unrealized_pnl": round(unrealized_pnl, 10),
+                "stop_pnl":       round(stop_pnl, 10),
+                "trade_count":    len(grid_trades),
+                "stop_count":     len(trades) - len(grid_trades),
                 "win_rate":       win_rate,
                 "pending_orders": len([o for o in active_orders if o["status"] == "pending"]),
                 "bought_orders":  len([o for o in active_orders if o["status"] == "bought"]),
