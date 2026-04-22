@@ -2531,6 +2531,12 @@ function pepeApplyStatus(d) {
     btnStop.style.color       = running ? '#ef4444' : '';
   }
 
+  // Clear stale "already running" error message when grid is stopped
+  if (!running) {
+    const ctrlMsg = document.getElementById('pepe-ctrl-msg');
+    if (ctrlMsg && ctrlMsg.style.color === 'rgb(239, 68, 68)') ctrlMsg.textContent = '';
+  }
+
   // Chart overlay: dim when stopped
   const chartEl = document.getElementById('pepe-grid-chart');
   if (chartEl) chartEl.style.opacity = running ? '1' : '0.45';

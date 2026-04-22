@@ -442,7 +442,14 @@ class AdaptiveGridPepeEngine:
         laziness_pct: float,
     ) -> dict:
         if self.running:
-            return {"ok": False, "error": "PEPE grid already running"}
+            # Auto-recover if tasks died without clearing running flag
+            task_alive   = self._task        and not self._task.done()
+            candle_alive = self._candle_task and not self._candle_task.done()
+            if task_alive or candle_alive:
+                return {"ok": False, "error": "PEPE grid already running"}
+            # Tasks are dead — treat as stopped and allow restart
+            logger.warning("pepe_grid:start:stale_running", "Tasks dead but running=True; auto-clearing")
+            self.running = False
 
         # Fetch initial candles and compute first MA
         try:
@@ -550,7 +557,7 @@ class AdaptiveGridPepeEngine:
         }
 
     async def stop(self) -> None:
-        if not self.running:
+        if not self.running and not self._config_id:
             return
         self.running = False
 
@@ -693,7 +700,7 @@ class AdaptiveGridPepeEngine:
                         ma_history.append({"time": c["open_time"] // 1000, "value": val})
 
         return {
-            "status":        "running" if self.running else config["status"],
+            "status":        "running" if self.running else "stopped",
             "current_price": self._price,
             "anchor":        self._anchor,
             "grid_interval": self._gi,
