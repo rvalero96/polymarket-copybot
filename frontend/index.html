@@ -2662,7 +2662,10 @@ function pepeStartSSE() {
   };
   _pepeSSE.onerror = () => {
     if (_pepeSSE && _pepeSSE.readyState === EventSource.CLOSED) {
+      _pepeSSE.close();
       _pepeSSE = null;
+      // Auto-reconnect after 3s
+      setTimeout(() => { if (_pepeTabActive) pepeStartSSE(); }, 3000);
     }
   };
 }
@@ -2685,15 +2688,26 @@ async function pepeStart() {
     if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Error: % de orden inválido'; }
     return;
   }
+  const startPayload = JSON.stringify({
+    order_size: size, ma_type: maType, ma_period: maPeriod,
+    interval_pct: intervalP, laziness_pct: lazinessP,
+  });
   try {
-    const res = await apiFetch('/api/grid-pepe/start', {
+    let res = await apiFetch('/api/grid-pepe/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        order_size: size, ma_type: maType, ma_period: maPeriod,
-        interval_pct: intervalP, laziness_pct: lazinessP,
-      }),
+      body: startPayload,
     });
+    // Backend cleared stale state — retry automatically
+    if (!res.ok && res.error === 'PEPE grid already running') {
+      if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = 'Deteniendo estado anterior…'; }
+      await apiFetch('/api/grid-pepe/stop', { method: 'POST' }).catch(() => {});
+      res = await apiFetch('/api/grid-pepe/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: startPayload,
+      });
+    }
     if (res.ok) {
       const ap = fmtPepe(res.anchor);
       if (msg) { msg.style.color = '#f97316'; msg.textContent = `Grid PEPE iniciado · AP=${ap} · 8 niveles`; }

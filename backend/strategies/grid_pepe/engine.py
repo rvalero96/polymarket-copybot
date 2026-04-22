@@ -113,6 +113,9 @@ class AdaptiveGridPepeEngine:
         # SSE pub/sub
         self._subscribers: list[asyncio.Queue] = []
 
+        # Mutex: prevents concurrent start() calls
+        self._start_lock: asyncio.Lock = asyncio.Lock()
+
     # ── Pub/sub ────────────────────────────────────────────────────────────────
 
     def subscribe(self) -> asyncio.Queue:
@@ -441,14 +444,29 @@ class AdaptiveGridPepeEngine:
         interval_pct: float,
         laziness_pct: float,
     ) -> dict:
-        if self.running:
-            # Auto-recover if tasks died without clearing the running flag
-            task_alive   = self._task        and not self._task.done()
-            candle_alive = self._candle_task and not self._candle_task.done()
-            if task_alive or candle_alive:
-                return {"ok": False, "error": "PEPE grid already running"}
-            logger.warning("pepe_grid:start:stale_running", "Tasks dead but running=True; auto-clearing")
-            self.running = False
+        if self._start_lock.locked():
+            return {"ok": False, "error": "PEPE grid start already in progress"}
+
+        async with self._start_lock:
+            return await self._start_inner(order_size, ma_type, ma_period, interval_pct, laziness_pct)
+
+    async def _start_inner(
+        self,
+        order_size: float,
+        ma_type: str,
+        ma_period: int,
+        interval_pct: float,
+        laziness_pct: float,
+    ) -> dict:
+        # If tasks are still alive, refuse
+        task_alive   = self._task        and not self._task.done()
+        candle_alive = self._candle_task and not self._candle_task.done()
+        if self.running and (task_alive or candle_alive):
+            return {"ok": False, "error": "PEPE grid already running"}
+        # Stale state (tasks dead but flags/config not cleared) — force-stop first
+        if self.running or self._config_id:
+            logger.warning("pepe_grid:start:force_stop", "Clearing stale state before start")
+            await self.stop()
 
         # Fetch initial candles and compute first MA
         try:
@@ -556,8 +574,6 @@ class AdaptiveGridPepeEngine:
         }
 
     async def stop(self) -> None:
-        if not self.running and not self._config_id:
-            return
         self.running = False
 
         for t in [self._task, self._candle_task]:
