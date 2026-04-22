@@ -523,6 +523,18 @@ class AdaptiveGridPepeEngine:
         self._task = asyncio.create_task(self._ws_loop())
         self._candle_task = asyncio.create_task(self._candle_refresh_loop())
 
+        # Detect silent task death (unhandled exception) and mark as stopped
+        def _on_task_done(task: asyncio.Task) -> None:
+            if not self.running:
+                return
+            if not task.cancelled() and task.exception() is not None:
+                logger.error("pepe_grid:task:died", {"error": str(task.exception())})
+                self.running = False
+                asyncio.create_task(self._broadcast())
+
+        self._task.add_done_callback(_on_task_done)
+        self._candle_task.add_done_callback(_on_task_done)
+
         logger.info("pepe_grid:started", {
             "config_id": self._config_id, "ap": ma, "gi": gi,
             "ref_price": ref_price, "levels": len(self._pending),
@@ -648,6 +660,38 @@ class AdaptiveGridPepeEngine:
                 ORDER BY level_index DESC
             """, (config["id"],))
 
+        # Build MA history series from candles for chart overlay
+        ma_history: list[dict] = []
+        if self._candles and len(self._candles) >= self._ma_period:
+            closes = [c["close"] for c in self._candles]
+            period = self._ma_period
+            ma_type = self._ma_type.upper()
+            if ma_type == "EMA":
+                series = _ema_series(closes, period)
+                offset = len(closes) - len(series)
+                for idx, val in enumerate(series):
+                    c = self._candles[offset + idx]
+                    if "open_time" in c:
+                        ma_history.append({"time": c["open_time"] // 1000, "value": val})
+            # For other MA types, compute rolling windows
+            else:
+                for idx in range(period - 1, len(closes)):
+                    window_closes = closes[:idx + 1]
+                    window_candles = self._candles[:idx + 1]
+                    if ma_type == "SMA":
+                        val = _sma(window_closes, period)
+                    elif ma_type == "VWMA":
+                        val = _vwma(window_candles, period)
+                    elif ma_type == "TEMA":
+                        val = _tema(window_closes, period)
+                    elif ma_type == "LREG":
+                        val = _lreg(window_closes, period)
+                    else:
+                        val = _ema(window_closes, period)
+                    c = self._candles[idx]
+                    if "open_time" in c:
+                        ma_history.append({"time": c["open_time"] // 1000, "value": val})
+
         return {
             "status":        "running" if self.running else config["status"],
             "current_price": self._price,
@@ -660,6 +704,7 @@ class AdaptiveGridPepeEngine:
             "interval_pct":  config["interval_pct"],
             "laziness_pct":  config["laziness_pct"],
             "ma_value":      self._ma_value,
+            "ma_history":    ma_history,
             "last_reset_at": self._last_reset_at,
             "metrics": {
                 "total_pnl":      round(total_pnl, 10),
