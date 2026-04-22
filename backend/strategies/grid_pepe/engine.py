@@ -288,6 +288,24 @@ class AdaptiveGridPepeEngine:
         if anchor_changed:
             await self._handle_grid_reset(db)
 
+        # Stop-loss: if unrealized PnL < -stop_loss_pct of deployed capital, stop the grid
+        if self._bought:
+            deployed = sum(o["order_size"] for o in self._bought.values())
+            unrealized = sum(
+                (o["order_size"] / o["buy_fill_price"]) * (price - o["buy_fill_price"])
+                - o["order_size"] * CONFIG.pepe_grid_fee_pct * 2
+                for o in self._bought.values()
+                if o.get("buy_fill_price")
+            )
+            if deployed > 0 and (unrealized / deployed) < -CONFIG.pepe_grid_stop_loss_pct:
+                logger.warning("pepe_grid:stop_loss:triggered", {
+                    "unrealized_pnl": round(unrealized, 6),
+                    "deployed": round(deployed, 4),
+                    "drawdown_pct": round(unrealized / deployed * 100, 2),
+                })
+                asyncio.create_task(self.stop())
+                return
+
         to_buy = [
             (oid, o) for oid, o in list(self._pending.items())
             if price <= o["buy_price"]

@@ -953,16 +953,16 @@
           <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">MA Type</div>
           <select id="pepe-inp-ma-type"
             style="width:90px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
-            <option value="EMA" selected>EMA</option>
+            <option value="EMA">EMA</option>
             <option value="SMA">SMA</option>
             <option value="VWMA">VWMA</option>
-            <option value="TEMA">TEMA</option>
+            <option value="TEMA" selected>TEMA</option>
             <option value="LREG">LREG</option>
           </select>
         </div>
         <div>
           <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">MA Period</div>
-          <input id="pepe-inp-ma-period" type="number" value="20" min="5" max="200"
+          <input id="pepe-inp-ma-period" type="number" value="10" min="5" max="200"
             style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
         </div>
         <div>
@@ -1784,6 +1784,8 @@ let _gridWs         = null;   // Binance WebSocket (price feed)
 let _gridSSE        = null;   // SSE connection (fills / metrics from backend)
 let _gridTabActive  = false;
 let _gridInputsFilled = false;
+let _gridRangeMin   = null;   // for autoscale provider
+let _gridRangeMax   = null;
 
 // ── Chart init ──────────────────────────────────────────────────────────────
 function gridInitChart() {
@@ -1844,15 +1846,39 @@ function gridSetPriceLines(gridMin, gridMax, levels) {
   if (!_gridSeries) return;
   _gridPriceLines.forEach(pl => _gridSeries.removePriceLine(pl));
   _gridPriceLines = [];
-  if (!levels || levels < 1) return;
+  if (!levels || levels < 1) {
+    _gridRangeMin = _gridRangeMax = null;
+    _gridSeries.applyOptions({ autoscaleInfoProvider: null });
+    return;
+  }
+  _gridRangeMin = gridMin;
+  _gridRangeMax = gridMax;
+
+  // Force price scale to include grid levels even when price is outside range
+  _gridSeries.applyOptions({
+    autoscaleInfoProvider: original => {
+      const res = original();
+      const lo = _gridRangeMin, hi = _gridRangeMax;
+      if (lo == null || hi == null) return res;
+      const pad = (hi - lo) * 0.08;
+      return {
+        priceRange: {
+          minValue: Math.min(res ? res.priceRange.minValue : lo, lo) - pad,
+          maxValue: Math.max(res ? res.priceRange.maxValue : hi, hi) + pad,
+        },
+        margins: { above: 0.05, below: 0.05 },
+      };
+    },
+  });
+
   const spacing = (gridMax - gridMin) / levels;
   for (let i = 0; i <= levels; i++) {
     const price = gridMin + i * spacing;
     const isEdge = i === 0 || i === levels;
     const pl = _gridSeries.createPriceLine({
       price,
-      color:            isEdge ? 'rgba(255,77,77,0.5)' : 'rgba(0,255,163,0.2)',
-      lineWidth:        isEdge ? 1 : 1,
+      color:            isEdge ? 'rgba(255,77,77,0.6)' : 'rgba(0,255,163,0.25)',
+      lineWidth:        isEdge ? 1.5 : 1,
       lineStyle:        LightweightCharts.LineStyle.Dashed,
       axisLabelVisible: isEdge,
       title:            isEdge ? (i === 0 ? 'MIN' : 'MAX') : '',
@@ -2041,6 +2067,8 @@ function gridUpdateViability() {
 
 // ── Apply status payload to UI (called from SSE events) ─────────────────────
 function gridApplyStatus(d) {
+  const running = d.status === 'running';
+
   // Out-of-range alert
   const oor = document.getElementById('grid-oor-alert');
   if (oor) oor.style.display = d.out_of_range ? 'block' : 'none';
@@ -2048,8 +2076,37 @@ function gridApplyStatus(d) {
   // Status badge
   const badge = document.getElementById('grid-status-badge');
   if (badge) {
-    badge.textContent = d.status === 'running' ? 'RUNNING' : 'STOPPED';
-    badge.className   = 'hero-badge' + (d.status === 'running' ? '' : ' neg-badge');
+    badge.textContent    = running ? 'RUNNING' : 'STOPPED';
+    badge.className      = 'hero-badge' + (running ? '' : ' neg-badge');
+    badge.style.fontSize = '0.8rem';
+    badge.style.fontWeight = '700';
+    badge.style.letterSpacing = '0.08em';
+  }
+
+  // Button states
+  const btnStart = document.getElementById('grid-btn-start');
+  const btnStop  = document.getElementById('grid-btn-stop');
+  if (btnStart) {
+    btnStart.disabled      = running;
+    btnStart.style.opacity = running ? '0.35' : '1';
+    btnStart.style.cursor  = running ? 'not-allowed' : 'pointer';
+  }
+  if (btnStop) {
+    btnStop.disabled          = !running;
+    btnStop.style.opacity     = running ? '1' : '0.35';
+    btnStop.style.cursor      = running ? 'pointer' : 'not-allowed';
+    btnStop.style.borderColor = running ? '#ef4444' : '';
+    btnStop.style.color       = running ? '#ef4444' : '';
+  }
+
+  // Dim chart when stopped
+  const chartEl = document.getElementById('grid-chart');
+  if (chartEl) chartEl.style.opacity = running ? '1' : '0.45';
+
+  // Clear stale error on stop
+  if (!running) {
+    const ctrlMsg = document.getElementById('grid-ctrl-msg');
+    if (ctrlMsg && ctrlMsg.style.color !== 'var(--muted)') ctrlMsg.textContent = '';
   }
 
   // Metrics
