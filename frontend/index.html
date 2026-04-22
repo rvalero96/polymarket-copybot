@@ -2159,7 +2159,6 @@ function pepeInitChart() {
     localization: {
       locale: 'es-ES',
       timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
-      priceFormatter: price => price === 0 ? '0' : price.toFixed(9),
     },
     timeScale: {
       timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)',
@@ -2181,6 +2180,11 @@ function pepeInitChart() {
     lineWidth: 1.5,
     priceLineVisible: false,
     lastValueVisible: true,
+    priceFormat: {
+      type: 'custom',
+      formatter: price => price === 0 ? '0' : price.toFixed(9),
+      minMove: 0.000000001,
+    },
   });
 
   // Detect manual scroll — pause auto-follow until user returns to right edge
