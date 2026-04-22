@@ -357,6 +357,28 @@
       </div>
     </div>
 
+    <div class="sec-div" style="--accent:#fb923c">
+      <div class="sec-dot" style="background:#fb923c"></div><div class="sec-label">Grid PEPE (paper)</div><div class="sec-line"></div>
+    </div>
+    <div class="stats-grid" style="--accent:#fb923c">
+      <div class="stat-card" id="pepe-dash-pnl-card">
+        <div class="stat-label">P&amp;L realizado</div>
+        <div class="stat-value" id="pepe-dash-pnl">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trades cerrados</div>
+        <div class="stat-value" id="pepe-dash-closed">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Win rate</div>
+        <div class="stat-value" id="pepe-dash-wr">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Órdenes activas</div>
+        <div class="stat-value" id="pepe-dash-active">—</div>
+      </div>
+    </div>
+
     <div class="sec-div" style="--accent:#6366f1">
       <div class="sec-dot"></div><div class="sec-label">Estrategias</div><div class="sec-line"></div>
     </div>
@@ -526,6 +548,15 @@
           </div>
           <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-grid-bar" style="background:#f97316"></div></div>
         </div>
+        <div class="alloc-item">
+          <div class="alloc-item-hd">
+            <div class="alloc-dot" style="background:#fb923c"></div>
+            <div class="alloc-item-label">Grid PEPE</div>
+            <div class="alloc-item-value" id="alloc-pepe">—</div>
+            <div class="alloc-item-pct" id="alloc-pepe-pct">—</div>
+          </div>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-pepe-bar" style="background:#fb923c"></div></div>
+        </div>
         <div class="alloc-item" style="margin-top:0.2rem;padding-top:0.6rem;border-top:1px solid var(--border)">
           <div class="alloc-item-hd">
             <div class="alloc-dot" style="background:transparent;border:1px solid rgba(173,170,170,0.3)"></div>
@@ -560,7 +591,7 @@
       <div class="table-scroll"><table>
         <thead><tr>
           <th class="sortable" data-col="0"><div class="th-inner"><span>Fecha</span><span class="sort-icon">⇅</span></div></th>
-          <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m|Grid:grid" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+          <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m|Grid BTC:grid|Grid PEPE:grid_pepe" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="2"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="2" data-filter-type="text" data-filter-ph="Buscar…" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="3"><div class="th-inner"><span>Asset</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="3" data-filter-type="select" data-filter-opts="Todos:|BTC:btc|ETH:eth|SOL:sol|XRP:xrp" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="4"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="4" data-filter-type="select" data-filter-opts="Todos:|Yes:yes|No:no|UP:up|DOWN:down" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
@@ -1144,7 +1175,7 @@ async function loadDashboard() {
 
   // Stats grid
   setText('d-capital-active', fmtU(d.capital_active));
-  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0) + (d.trade_counts?.grid || 0);
+  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0) + (d.trade_counts?.grid || 0) + (d.trade_counts?.grid_pepe || 0);
   setText('d-stat-open', d.open_positions || 0);
   setText('d-stat-closed', totalClosed);
 
@@ -1191,7 +1222,7 @@ async function loadDashboard() {
   const arbWrEl = document.getElementById('arb-stat-wr');
   if (arbWrEl) { arbWrEl.textContent = as.closed > 0 ? fmtPct(as.win_rate) : '—'; }
 
-  // Grid stats (initial fill from DB — SSE will keep it live)
+  // Grid BTC stats (initial fill from DB — SSE will keep it live)
   const gs = d.grid_stats || {};
   const gridDashPnlEl0 = document.getElementById('grid-dash-pnl');
   if (gridDashPnlEl0) { gridDashPnlEl0.textContent = pnlSign(gs.pnl); gridDashPnlEl0.className = 'stat-value ' + pnlClass(gs.pnl); }
@@ -1200,6 +1231,16 @@ async function loadDashboard() {
   setText('grid-dash-active', gs.active_orders || 0);
   const gridWrEl0 = document.getElementById('grid-dash-wr');
   if (gridWrEl0) { gridWrEl0.textContent = gs.trade_count > 0 ? fmtPct(gs.win_rate) : '—'; }
+
+  // Grid PEPE stats (initial fill from DB — SSE will keep it live)
+  const ps = d.pepe_grid_stats || {};
+  const pepeDashPnlEl = document.getElementById('pepe-dash-pnl');
+  if (pepeDashPnlEl) { pepeDashPnlEl.textContent = ps.pnl != null ? pnlSign(ps.pnl) : '—'; pepeDashPnlEl.className = 'stat-value ' + pnlClass(ps.pnl); }
+  document.getElementById('pepe-dash-pnl-card')?.classList.toggle('border-pos', (ps.pnl || 0) > 0);
+  setText('pepe-dash-closed', ps.trade_count || 0);
+  setText('pepe-dash-active', ps.active_orders || 0);
+  const pepeWrEl = document.getElementById('pepe-dash-wr');
+  if (pepeWrEl) { pepeWrEl.textContent = ps.trade_count > 0 ? fmtPct(ps.win_rate) : '—'; }
 
   // AAVE
   const av = d.aave || {};
@@ -1257,19 +1298,19 @@ async function loadDashboard() {
   `).join('') : '<tr><td colspan="8" class="empty">Sin snapshots Kelly</td></tr>';
 
   // Historial stats
-  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0, gridPnl = gs.pnl || 0;
-  const netPnl = copyPnl + btcPnl + arbPnl + gridPnl;
+  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0, gridPnl = gs.pnl || 0, pepePnl = ps.pnl || 0;
+  const netPnl = copyPnl + btcPnl + arbPnl + gridPnl + pepePnl;
   const histPnlEl = document.getElementById('hist-pnl');
   if (histPnlEl) { histPnlEl.textContent = pnlSign(netPnl); histPnlEl.className = 'stat-value ' + pnlClass(netPnl); }
   document.getElementById('hist-pnl-card')?.classList.toggle('border-pos', netPnl >= 0);
   document.getElementById('hist-pnl-card')?.classList.toggle('border-neg', netPnl < 0);
-  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0) + (gs.active_orders || 0);
+  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0) + (gs.active_orders || 0) + (ps.active_orders || 0);
   setText('hist-open', openCount);
   setText('hist-closed', totalClosed);
 
   // Alloc chart/legend
   const pt = d.portfolio_total || 1;
-  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0, gridAc = d.capital_grid || 0;
+  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0, gridAc = d.capital_grid || 0, pepeAc = d.capital_pepe || 0;
   setText('alloc-total', fmtU(pt));
   setText('alloc-cash', fmtU(cash));
   setText('alloc-cash-pct', fmt(cash / pt * 100, 0) + '%');
@@ -1283,6 +1324,9 @@ async function loadDashboard() {
   setText('alloc-grid', fmtU(gridAc));
   setText('alloc-grid-pct', fmt(gridAc / pt * 100, 0) + '%');
   const gridBar = document.getElementById('alloc-grid-bar'); if (gridBar) gridBar.style.width = (gridAc/pt*100).toFixed(1) + '%';
+  setText('alloc-pepe', fmtU(pepeAc));
+  setText('alloc-pepe-pct', fmt(pepeAc / pt * 100, 0) + '%');
+  const pepeBar = document.getElementById('alloc-pepe-bar'); if (pepeBar) pepeBar.style.width = (pepeAc/pt*100).toFixed(1) + '%';
   const pnlTot = d.pnl_total || 0;
   const allocPnlEl = document.getElementById('alloc-pnl');
   if (allocPnlEl) { allocPnlEl.textContent = pnlSign(pnlTot); allocPnlEl.className = 'alloc-item-value ' + pnlClass(pnlTot); }
@@ -1293,8 +1337,8 @@ async function loadDashboard() {
   allocChart = new Chart(document.getElementById('allocChart'), {
     type: 'doughnut',
     data: {
-      labels: ['Cash libre', 'Copy activo', '5m activo', 'Grid BTC'],
-      datasets: [{ data: [cash, copyAc, btcAc, gridAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)', 'rgba(249,115,22,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b', '#f97316'], borderWidth: 1.5, hoverOffset: 8 }],
+      labels: ['Cash libre', 'Copy activo', '5m activo', 'Grid BTC', 'Grid PEPE'],
+      datasets: [{ data: [cash, copyAc, btcAc, gridAc, pepeAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)', 'rgba(249,115,22,0.8)', 'rgba(251,146,60,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b', '#f97316', '#fb923c'], borderWidth: 1.5, hoverOffset: 8 }],
     },
     options: { responsive: true, maintainAspectRatio: false, cutout: '68%', layout: { padding: 8 }, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a1919', titleColor: '#ADAAAA', bodyColor: '#fff', borderColor: 'rgba(72,72,71,0.3)', borderWidth: 1, padding: 10, callbacks: { label: ctx => ' $' + ctx.parsed.toFixed(2) } } } },
   });
@@ -1409,6 +1453,7 @@ async function loadTrades() {
   (d.copy_trading || []).forEach(t => rows.push({ _strategy: 'copy', _asset: null, _date: t.executed_at, market_id: t.market_id, title: t.title, market_slug: t.market_slug, outcome: t.outcome, size_usdc: t.size_usdc, fee: (t.fee || 0) + (t.slippage || 0), status: t.status, pnl: t.pnl }));
   (d.btc5m || []).forEach(t => rows.push({ _strategy: 'btc5m', _asset: t.asset, _date: t.opened_at, market_id: t.market_id, title: t.title, market_slug: t.slug, outcome: t.outcome, size_usdc: t.size_usdc, fee: (t.fee || 0) + (t.slippage || 0), status: t.status, pnl: t.pnl }));
   (d.grid || []).forEach(t => rows.push({ _strategy: 'grid', _asset: 'BTC', _date: t.closed_at, market_id: 'L' + t.level, title: 'Grid L' + t.level + ' · Buy $' + fmt(t.buy_price, 0) + ' → Sell $' + fmt(t.sell_price, 0), market_slug: null, outcome: 'BUY→SELL', size_usdc: t.order_size_usd, fee: t.fee, status: 'closed', pnl: t.pnl }));
+  (d.grid_pepe || []).forEach(t => rows.push({ _strategy: 'grid_pepe', _asset: 'PEPE', _date: t.closed_at, market_id: 'Li' + t.level_index, title: 'PEPE Lv' + t.level_index + ' · Buy ' + fmtPepe(t.buy_price) + ' → Sell ' + fmtPepe(t.sell_price), market_slug: null, outcome: 'BUY→SELL', size_usdc: t.order_size_usd, fee: t.fee, status: 'closed', pnl: t.pnl }));
   rows.sort((a, b) => (b._date || 0) - (a._date || 0));
 
   setText('badge-tradelog', rows.length + ' OPS');
@@ -1417,7 +1462,9 @@ async function loadTrades() {
       ? '<span class="tl-badge tl-copy">Copy</span>'
       : t._strategy === 'grid'
         ? '<span class="tl-badge tl-grid">Grid BTC</span>'
-        : `<span class="tl-badge tl-5m">5m · ${t._asset || 'BTC'}</span>`;
+        : t._strategy === 'grid_pepe'
+          ? '<span class="tl-badge tl-grid" style="background:rgba(251,146,60,0.15);color:#fb923c;border-color:rgba(251,146,60,0.3)">Grid PEPE</span>'
+          : `<span class="tl-badge tl-5m">5m · ${t._asset || 'BTC'}</span>`;
     const assetCell = t._asset
       ? `<span class="asset-cell"><img class="asset-logo" src="${ASSET_LOGOS[t._asset] || ''}" alt="${t._asset}" onerror="this.style.display='none'"><span>${t._asset}</span></span>`
       : '—';
@@ -2436,8 +2483,17 @@ function pepeApplyStatus(d) {
   pepeRenderOrders(d.orders);
   pepeRenderTrades(d.recent_trades);
 
-  // Status bar
+  // Update dashboard summary cards (PEPE section in tab-dashboard)
   const totalOrders = (m.pending_orders || 0) + (m.bought_orders || 0);
+  const pepeDashPnl = document.getElementById('pepe-dash-pnl');
+  if (pepeDashPnl) { pepeDashPnl.textContent = pnlSign(m.total_pnl || 0); pepeDashPnl.className = 'stat-value ' + pnlClass(m.total_pnl || 0); }
+  document.getElementById('pepe-dash-pnl-card')?.classList.toggle('border-pos', (m.total_pnl || 0) > 0);
+  setText('pepe-dash-closed', m.trade_count ?? 0);
+  setText('pepe-dash-active', totalOrders);
+  const pepeDashWr = document.getElementById('pepe-dash-wr');
+  if (pepeDashWr) pepeDashWr.textContent = m.trade_count > 0 ? fmtPct(m.win_rate) : '—';
+
+  // Status bar
   setText('sb-pepe-grid', d.status === 'running' ? 'PEPE Grid: ' + totalOrders + ' órd.' : 'PEPE Grid: off');
 }
 

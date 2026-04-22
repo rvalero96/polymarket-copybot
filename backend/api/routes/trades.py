@@ -43,4 +43,14 @@ async def get_trades(
             LIMIT ?
         """, (limit,))
 
+    if strategy in ("all", "grid_pepe"):
+        result["grid_pepe"] = await fetchall(db, """
+            SELECT pt.id, pt.order_id, pt.level_index, pt.grid_epoch,
+                   pt.buy_price, pt.sell_price, pt.order_size_usd,
+                   pt.pnl, pt.fee, pt.anchor_at_trade, pt.opened_at, pt.closed_at
+            FROM pepe_grid_trades pt
+            ORDER BY pt.closed_at DESC
+            LIMIT ?
+        """, (limit,))
+
     return result
