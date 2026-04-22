@@ -2156,7 +2156,11 @@ function pepeInitChart() {
       horzLines: { color: 'rgba(72,72,71,0.12)' },
     },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    localization: { locale: 'es-ES', timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }) },
+    localization: {
+      locale: 'es-ES',
+      timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
+      priceFormatter: price => price === 0 ? '0' : price.toFixed(9),
+    },
     timeScale: {
       timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)',
       tickMarkFormatter: (ts, type) => {
@@ -2297,7 +2301,7 @@ function pepeStopWs() {
 // ── Load historical klines ──────────────────────────────────────────────────
 async function pepeLoadHistory() {
   try {
-    const url  = 'https://api.binance.us/api/v3/klines?symbol=PEPEUSDT&interval=1m&limit=200';
+    const url  = 'https://api.binance.com/api/v3/klines?symbol=PEPEUSDT&interval=1m&limit=200';
     const resp = await fetch(url);
     const data = await resp.json();
     if (!Array.isArray(data) || !_pepeSeries) return;
