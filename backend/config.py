@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     # PEPE Adaptive Grid
     pepe_grid_ws_url:       str   = "wss://stream.binance.com/ws/pepeusdt@aggTrade"
     pepe_grid_fee_pct:      float = 0.001
-    pepe_grid_order_size:   float = 10.0
+    pepe_grid_order_size:   float = 50.0   # 10% of 50% of $1000 initial portfolio
     pepe_grid_ma_type:      str   = "EMA"   # SMA | EMA | VWMA | TEMA | LREG
     pepe_grid_ma_period:    int   = 20
     pepe_grid_interval_pct: float = 0.02    # GI = AP × 2%
