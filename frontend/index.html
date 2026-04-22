@@ -828,9 +828,12 @@
             style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
         </div>
         <div>
-          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden ($)</div>
-          <input id="grid-inp-size" type="number" value="50" min="1"
-            style="width:90px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden (% portfolio)</div>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <input id="grid-inp-size-pct" type="number" value="5" min="0.1" max="100" step="0.1" oninput="gridUpdateOrderPreview()"
+              style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+            <span style="font-size:0.72rem;color:var(--muted)">≈ <b id="grid-inp-size-preview">$50</b></span>
+          </div>
         </div>
         <div style="display:flex;gap:0.5rem;padding-bottom:1px">
           <button id="grid-btn-start" onclick="gridStart()"
@@ -939,9 +942,12 @@
     <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
       <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap">
         <div>
-          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden ($)</div>
-          <input id="pepe-inp-size" type="number" value="50" min="1"
-            style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden (% portfolio)</div>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <input id="pepe-inp-size-pct" type="number" value="5" min="0.1" max="100" step="0.1" oninput="pepeUpdateOrderPreview()"
+              style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+            <span style="font-size:0.72rem;color:var(--muted)">≈ <b id="pepe-inp-size-preview">$50</b></span>
+          </div>
         </div>
         <div>
           <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">MA Type</div>
@@ -1125,6 +1131,7 @@ async function apiFetch(path, opts = {}) {
 // ── Charts state ───────────────────────────────────────────────────────────
 let bankrollChart = null, pnlChart = null, allocChart = null;
 let _snaps = [];
+let _portfolioTotal = 1000; // updated on every dashboard fetch
 
 Chart.defaults.color = '#ADAAAA';
 Chart.defaults.font.family = 'Inter';
@@ -1182,6 +1189,11 @@ async function resetAll() {
 async function loadDashboard() {
   const d = await apiFetch('/api/dashboard');
   _snaps = (d.snapshots || []).map(s => ({ date: s.date, bankroll: s.bankroll, pnl_day: s.pnl_day }));
+  if (d.portfolio_total > 0) {
+    _portfolioTotal = d.portfolio_total;
+    gridUpdateOrderPreview();
+    pepeUpdateOrderPreview();
+  }
 
   // Topnav
   setText('topnav-ts', d.last_updated ? 'Actualizado ' + fmtDate(d.last_updated) + ' · paper trading' : 'paper trading');
@@ -2068,7 +2080,11 @@ function gridApplyStatus(d) {
       document.getElementById('grid-inp-min').value    = d.grid_min;
       document.getElementById('grid-inp-max').value    = d.grid_max;
       document.getElementById('grid-inp-levels').value = d.levels;
-      document.getElementById('grid-inp-size').value   = d.order_size;
+      // Restore % from stored dollar size
+      if (d.order_size && _portfolioTotal > 0) {
+        document.getElementById('grid-inp-size-pct').value = (d.order_size / _portfolioTotal * 100).toFixed(2);
+        gridUpdateOrderPreview();
+      }
       _gridInputsFilled = true;
       gridUpdateViability();
     }
@@ -2123,16 +2139,34 @@ function gridStopSSE() {
   if (_gridSSE) { _gridSSE.close(); _gridSSE = null; }
 }
 
+// ── Order size preview helpers ────────────────────────────────────────────────
+function gridUpdateOrderPreview() {
+  const pct = parseFloat(document.getElementById('grid-inp-size-pct')?.value);
+  const el  = document.getElementById('grid-inp-size-preview');
+  if (el && !isNaN(pct)) el.textContent = '$' + (_portfolioTotal * pct / 100).toFixed(2);
+}
+
+function pepeUpdateOrderPreview() {
+  const pct = parseFloat(document.getElementById('pepe-inp-size-pct')?.value);
+  const el  = document.getElementById('pepe-inp-size-preview');
+  if (el && !isNaN(pct)) el.textContent = '$' + (_portfolioTotal * pct / 100).toFixed(2);
+}
+
 // ── Start / Stop actions ─────────────────────────────────────────────────────
 async function gridStart() {
   const min    = parseFloat(document.getElementById('grid-inp-min').value);
   const max    = parseFloat(document.getElementById('grid-inp-max').value);
   const levels = parseInt(document.getElementById('grid-inp-levels').value);
-  const size   = parseFloat(document.getElementById('grid-inp-size').value);
+  const pct    = parseFloat(document.getElementById('grid-inp-size-pct').value);
+  const size   = parseFloat((_portfolioTotal * pct / 100).toFixed(2));
   const msg    = document.getElementById('grid-ctrl-msg');
 
   if (isNaN(min) || isNaN(max) || min >= max) {
     if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Error: precio mín debe ser menor que máx'; }
+    return;
+  }
+  if (isNaN(pct) || pct <= 0) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Error: % de orden inválido'; }
     return;
   }
   try {
@@ -2519,10 +2553,16 @@ function pepeApplyStatus(d) {
   pepeSetPriceLines(d.grid_levels || [], d.anchor);
   if (d.grid_levels && d.grid_levels.length) {
     if (!_pepeInputsFilled && d.ma_type) {
-      document.getElementById('pepe-inp-ma-type').value  = d.ma_type;
-      document.getElementById('pepe-inp-ma-period').value = d.ma_period;
-      document.getElementById('pepe-inp-interval').value  = (d.interval_pct * 100).toFixed(1);
-      document.getElementById('pepe-inp-laziness').value  = (d.laziness_pct * 100).toFixed(1);
+      document.getElementById('pepe-inp-ma-type').value   = d.ma_type;
+      document.getElementById('pepe-inp-ma-period').value  = d.ma_period;
+      document.getElementById('pepe-inp-interval').value   = (d.interval_pct * 100).toFixed(1);
+      document.getElementById('pepe-inp-laziness').value   = (d.laziness_pct * 100).toFixed(1);
+      // Restore % from stored order_size
+      const storedSize = (d.orders && d.orders[0]) ? d.orders[0].order_size : null;
+      if (storedSize && _portfolioTotal > 0) {
+        document.getElementById('pepe-inp-size-pct').value = (storedSize / _portfolioTotal * 100).toFixed(2);
+        pepeUpdateOrderPreview();
+      }
       _pepeInputsFilled = true;
     }
   }
@@ -2577,15 +2617,16 @@ function pepeStopSSE() {
 
 // ── Start / Stop actions ─────────────────────────────────────────────────────
 async function pepeStart() {
-  const size      = parseFloat(document.getElementById('pepe-inp-size').value);
+  const pct       = parseFloat(document.getElementById('pepe-inp-size-pct').value);
+  const size      = parseFloat((_portfolioTotal * pct / 100).toFixed(4));
   const maType    = document.getElementById('pepe-inp-ma-type').value;
   const maPeriod  = parseInt(document.getElementById('pepe-inp-ma-period').value);
   const intervalP = parseFloat(document.getElementById('pepe-inp-interval').value) / 100;
   const lazinessP = parseFloat(document.getElementById('pepe-inp-laziness').value) / 100;
   const msg       = document.getElementById('pepe-ctrl-msg');
 
-  if (isNaN(size) || size <= 0) {
-    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Error: orden debe ser > 0'; }
+  if (isNaN(pct) || pct <= 0) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Error: % de orden inválido'; }
     return;
   }
   try {
