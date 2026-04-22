@@ -18,20 +18,23 @@ from api.routes import dashboard, positions, trades, strategies as strategies_ro
 from api.routes.strategies import set_strategies
 from api.routes.grid import router as grid_router
 from api.routes.grid_pepe import router as grid_pepe_router
+from api.routes.reset import router as reset_router
 from strategies.grid import grid_engine
 from strategies.grid_pepe import pepe_grid_engine
 from logger import logger
 
 # ── Instancias de estrategias ─────────────────────────────────────────────────
+# Only Kelly is enabled by default; grids are started manually from the UI.
+# Copy trading, discovery, 5m, arbitrage and AAVE are disabled until turned on.
 
-STRATEGIES = [
-    DiscoveryStrategy(),
-    CopyTradingStrategy(),
-    Btc5mStrategy(),
-    ArbitrageStrategy(),
-    KellyStrategy(),
-    AaveStrategy(),
-]
+_discovery = DiscoveryStrategy(); _discovery.enabled = False
+_copy      = CopyTradingStrategy(); _copy.enabled = False
+_btc5m     = Btc5mStrategy();  _btc5m.enabled = False
+_arb       = ArbitrageStrategy(); _arb.enabled = False
+_kelly     = KellyStrategy()   # enabled by default
+_aave      = AaveStrategy();   _aave.enabled = False
+
+STRATEGIES = [_discovery, _copy, _btc5m, _arb, _kelly, _aave]
 
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 
@@ -103,6 +106,7 @@ app.include_router(trades.router)
 app.include_router(strategies_router.router)
 app.include_router(grid_router)
 app.include_router(grid_pepe_router)
+app.include_router(reset_router)
 
 # Inyectar instancias de estrategias en el router de strategies
 set_strategies(STRATEGIES)
