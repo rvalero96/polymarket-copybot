@@ -24,6 +24,7 @@ class GridEngine:
         self._last_check = 0.0
         self._check_interval = 0.15
         self._subscribers: list[asyncio.Queue] = []
+        self._start_lock: asyncio.Lock = asyncio.Lock()
 
     @property
     def current_price(self) -> float | None:
@@ -76,8 +77,18 @@ class GridEngine:
     # ── Public API ─────────────────────────────────────────────────────────────
 
     async def start(self, grid_min: float, grid_max: float, levels: int, order_size: float) -> dict:
-        if self.running:
+        if self._start_lock.locked():
+            return {"ok": False, "error": "Grid start already in progress"}
+        async with self._start_lock:
+            return await self._start_inner(grid_min, grid_max, levels, order_size)
+
+    async def _start_inner(self, grid_min: float, grid_max: float, levels: int, order_size: float) -> dict:
+        task_alive = self._task and not self._task.done()
+        if self.running and task_alive:
             return {"ok": False, "error": "Grid already running"}
+        if self.running or self._config_id:
+            logger.warning("grid:start:force_stop", "Clearing stale state before start")
+            await self.stop()
         if grid_min >= grid_max:
             return {"ok": False, "error": "grid_min must be less than grid_max"}
         if levels < 2 or levels > 200:
@@ -160,13 +171,23 @@ class GridEngine:
 
         self.running = True
         self._task = asyncio.create_task(self._ws_loop())
+
+        def _on_task_done(task: asyncio.Task) -> None:
+            if not self.running:
+                return
+            if not task.cancelled() and task.exception() is not None:
+                logger.error("grid:task:died", {"error": str(task.exception())})
+                self.running = False
+                asyncio.create_task(self._broadcast())
+
+        self._task.add_done_callback(_on_task_done)
+
         logger.info("grid:started", {"config_id": config_id, "pending_buys": len(self._pending), "prebought_sells": len(self._bought), "ref_price": ref_price, "bankroll_spent": round(bankroll_spent, 2)})
         asyncio.create_task(self._broadcast())
         return {"ok": True, "config_id": config_id, "active_levels": active, "ref_price": ref_price}
 
     async def stop(self) -> None:
-        if not self.running:
-            return
+        """Fully idempotent: always cancels tasks and updates DB."""
         self.running = False
         if self._task:
             self._task.cancel()
@@ -259,7 +280,7 @@ class GridEngine:
         spacing = round((config["grid_max"] - config["grid_min"]) / config["levels"], 2) if config["levels"] else 0
 
         return {
-            "status":        "running" if self.running else config["status"],
+            "status":        "running" if self.running else "stopped",
             "current_price": self._price,
             "grid_min":      config["grid_min"],
             "grid_max":      config["grid_max"],
@@ -284,10 +305,12 @@ class GridEngine:
     # ── WebSocket loop ─────────────────────────────────────────────────────────
 
     async def _ws_loop(self):
+        backoff = 1.0
         while self.running:
             try:
                 async with websockets.connect(CONFIG.grid_ws_url, ping_interval=20) as ws:
                     logger.info("grid:ws:connected")
+                    backoff = 1.0
                     async for raw in ws:
                         if not self.running:
                             break
@@ -304,9 +327,10 @@ class GridEngine:
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                logger.error("grid:ws:error", {"error": str(exc)})
+                logger.error("grid:ws:error", {"error": str(exc), "retry_in": backoff})
                 if self.running:
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, 60.0)
 
     # ── Fill detection (in-memory hot path, DB writes only on fills) ───────────
 
