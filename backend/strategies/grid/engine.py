@@ -182,8 +182,7 @@ class GridEngine:
                 return
             if not task.cancelled() and task.exception() is not None:
                 logger.error("grid:task:died", {"error": str(task.exception())})
-                self.running = False
-                asyncio.create_task(self._broadcast())
+                asyncio.create_task(self.stop())
 
         self._task.add_done_callback(_on_task_done)
 
@@ -195,10 +194,11 @@ class GridEngine:
         """Fully idempotent: always cancels tasks and updates DB."""
         self.running = False
         if self._task:
-            self._task.cancel()
+            if not self._task.done():
+                self._task.cancel()
             try:
                 await self._task
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, Exception):
                 pass
             self._task = None
 
@@ -245,6 +245,7 @@ class GridEngine:
 
         self._bought.clear()
         self._pending.clear()
+        self._config_id = None
         logger.info("grid:stopped")
         await self._broadcast()
 

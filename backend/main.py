@@ -66,26 +66,22 @@ async def lifespan(app: FastAPI):
     import time as _time
     # Inicializar DB
     from db.connection import get_db
+    import time as _time
     db = await get_db()
     logger.info("app:db:ready")
 
-    # On startup, mark any configs that were left as 'running' (from a hard kill)
-    # as stopped, and cancel their orphaned orders so they don't pollute the UI.
+    # Clean up stale 'running' state left by any ungraceful previous shutdown
     _now_ms = int(_time.time() * 1000)
     await db.execute(
-        "UPDATE grid_config SET status='stopped', updated_at=? WHERE status='running'", (_now_ms,)
+        "UPDATE pepe_grid_config SET status='stopped', updated_at=? WHERE status='running'",
+        (_now_ms,)
     )
     await db.execute(
-        "UPDATE pepe_grid_config SET status='stopped', updated_at=? WHERE status='running'", (_now_ms,)
-    )
-    await db.execute(
-        "UPDATE grid_orders SET status='cancelled' WHERE status IN ('pending','bought')"
-    )
-    await db.execute(
-        "UPDATE pepe_grid_orders SET status='cancelled' WHERE status IN ('pending','bought')"
+        "UPDATE grid_config SET status='stopped', updated_at=? WHERE status='running'",
+        (_now_ms,)
     )
     await db.commit()
-    logger.info("app:startup:stale_cleanup")
+    logger.info("app:startup:stale_configs_cleared")
 
     # Registrar estrategias en el scheduler
     for strategy in STRATEGIES:
