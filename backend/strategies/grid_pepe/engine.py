@@ -487,7 +487,10 @@ class AdaptiveGridPepeEngine:
             logger.warning("pepe_grid:start:force_stop", "Clearing stale state before start")
             await self.stop()
 
-        # Fetch initial candles and compute first MA
+        # Fetch initial candles and compute first MA.
+        # Use at least 200 so the MA history line spans the full chart
+        # (the price chart always loads 200 candles from the frontend).
+        candle_limit = max(ma_period * 5, 200)
         try:
             candles = await fetch_candles("PEPEUSDT", CONFIG.pepe_grid_candle_tf, max(ma_period * 5, 200))
         except Exception as exc:
@@ -711,8 +714,9 @@ class AdaptiveGridPepeEngine:
         # Build MA history series from candles for chart overlay (all O(N))
         ma_history: list[dict] = []
         if self._candles and len(self._candles) >= self._ma_period:
-            closes = [c["close"] for c in self._candles]
-            period = self._ma_period
+            closes  = [c["close"]  for c in self._candles]
+            volumes = [c["volume"] for c in self._candles]
+            period  = self._ma_period
             ma_type = self._ma_type.upper()
             if ma_type in ("EMA", "TEMA"):
                 e1 = _ema_series(closes, period)
