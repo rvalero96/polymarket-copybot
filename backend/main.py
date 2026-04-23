@@ -63,6 +63,7 @@ async def _safe_run(strategy):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import time as _time
     # Inicializar DB
     from db.connection import get_db
     import time as _time

@@ -513,6 +513,11 @@ class AdaptiveGridPepeEngine:
             "UPDATE pepe_grid_config SET status='stopped', updated_at=? WHERE status='running'",
             (now_ms,)
         )
+        # Cancel any orphaned orders left by the previous run so they don't
+        # appear as ghost positions in the UI or interfere with the new grid.
+        await db.execute(
+            "UPDATE pepe_grid_orders SET status='cancelled' WHERE status IN ('pending','bought')"
+        )
 
         gi = ma * interval_pct
         async with db.execute(
