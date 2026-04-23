@@ -101,12 +101,17 @@ class GridEngine:
             ref_price = (grid_min + grid_max) / 2
 
         db = await get_db()
+        now_ms = int(time.time() * 1000)
         await db.execute(
             "UPDATE grid_config SET status='stopped', updated_at=? WHERE status='running'",
-            (int(time.time() * 1000),)
+            (now_ms,)
+        )
+        # Cancel any orphaned orders left by the previous run so they don't
+        # appear as ghost positions in the UI or interfere with the new grid.
+        await db.execute(
+            "UPDATE grid_orders SET status='cancelled' WHERE status IN ('pending','bought')"
         )
 
-        now_ms = int(time.time() * 1000)
         async with db.execute(
             "INSERT INTO grid_config (grid_min, grid_max, levels, order_size, status, created_at, updated_at) VALUES (?,?,?,?,'running',?,?)",
             (grid_min, grid_max, levels, order_size, now_ms, now_ms)
