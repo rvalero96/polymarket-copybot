@@ -492,7 +492,7 @@ class AdaptiveGridPepeEngine:
         # (the price chart always loads 200 candles from the frontend).
         candle_limit = max(ma_period * 5, 200)
         try:
-            candles = await fetch_candles("PEPEUSDT", CONFIG.pepe_grid_candle_tf, candle_limit)
+            candles = await fetch_candles("PEPEUSDT", CONFIG.pepe_grid_candle_tf, max(ma_period * 5, 200))
         except Exception as exc:
             return {"ok": False, "error": f"Failed to fetch candles: {exc}"}
 
@@ -515,6 +515,11 @@ class AdaptiveGridPepeEngine:
         await db.execute(
             "UPDATE pepe_grid_config SET status='stopped', updated_at=? WHERE status='running'",
             (now_ms,)
+        )
+        # Cancel any orphaned orders left by the previous run so they don't
+        # appear as ghost positions in the UI or interfere with the new grid.
+        await db.execute(
+            "UPDATE pepe_grid_orders SET status='cancelled' WHERE status IN ('pending','bought')"
         )
 
         gi = ma * interval_pct
@@ -569,14 +574,13 @@ class AdaptiveGridPepeEngine:
         self._task = asyncio.create_task(self._ws_loop())
         self._candle_task = asyncio.create_task(self._candle_refresh_loop())
 
-        # Detect silent task death (unhandled exception) and mark as stopped
+        # Detect silent task death (unhandled exception) → full stop for clean DB state
         def _on_task_done(task: asyncio.Task) -> None:
             if not self.running:
                 return
             if not task.cancelled() and task.exception() is not None:
                 logger.error("pepe_grid:task:died", {"error": str(task.exception())})
-                self.running = False
-                asyncio.create_task(self._broadcast())
+                asyncio.create_task(self.stop())
 
         self._task.add_done_callback(_on_task_done)
         self._candle_task.add_done_callback(_on_task_done)
@@ -601,10 +605,11 @@ class AdaptiveGridPepeEngine:
 
         for t in [self._task, self._candle_task]:
             if t:
-                t.cancel()
+                if not t.done():
+                    t.cancel()
                 try:
                     await t
-                except asyncio.CancelledError:
+                except (asyncio.CancelledError, Exception):
                     pass
         self._task = self._candle_task = None
 
@@ -654,6 +659,7 @@ class AdaptiveGridPepeEngine:
         self._gi          = None
         self._grid_levels = []
         self._ma_value    = None
+        self._config_id   = None
         logger.info("pepe_grid:stopped")
         await self._broadcast()
 
@@ -705,54 +711,53 @@ class AdaptiveGridPepeEngine:
                 ORDER BY level_index DESC
             """, (config["id"],))
 
-        # Build MA history series from candles for chart overlay.
-        # Use O(N) series methods for each MA type to avoid O(N²) rolling windows.
+        # Build MA history series from candles for chart overlay (all O(N))
         ma_history: list[dict] = []
         if self._candles and len(self._candles) >= self._ma_period:
             closes  = [c["close"]  for c in self._candles]
             volumes = [c["volume"] for c in self._candles]
             period  = self._ma_period
             ma_type = self._ma_type.upper()
-
-            if ma_type == "EMA":
-                series = _ema_series(closes, period)
-                offset = len(closes) - len(series)
-                for i, val in enumerate(series):
-                    c = self._candles[offset + i]
-                    if "open_time" in c:
-                        ma_history.append({"time": c["open_time"] // 1000, "value": val})
-
-            elif ma_type == "TEMA":
+            if ma_type in ("EMA", "TEMA"):
                 e1 = _ema_series(closes, period)
-                e2 = _ema_series(e1, period)
-                e3 = _ema_series(e2, period)
-                n3 = len(e3)
-                if n3 > 0:
-                    e1_off = len(e1) - n3
-                    e2_off = len(e2) - n3
-                    c_off  = len(closes) - n3
-                    for i in range(n3):
-                        val = 3 * e1[e1_off + i] - 3 * e2[e2_off + i] + e3[i]
-                        c   = self._candles[c_off + i]
+                if ma_type == "EMA":
+                    offset = len(closes) - len(e1)
+                    for idx, val in enumerate(e1):
+                        c = self._candles[offset + idx]
                         if "open_time" in c:
                             ma_history.append({"time": c["open_time"] // 1000, "value": val})
-
-            else:
-                # SMA, VWMA, LREG — rolling window per candle (O(N·period), acceptable)
+                else:  # TEMA — needs 3 passes, only emit where all three are valid
+                    e2 = _ema_series(e1, period)
+                    e3 = _ema_series(e2, period)
+                    # e3 is shortest; align all series at their ends
+                    n3 = len(e3)
+                    if n3 > 0:
+                        e1_off = len(e1) - n3
+                        e2_off = len(e2) - n3
+                        candle_off = len(closes) - n3
+                        for i in range(n3):
+                            val = 3 * e1[e1_off + i] - 3 * e2[e2_off + i] + e3[i]
+                            c = self._candles[candle_off + i]
+                            if "open_time" in c:
+                                ma_history.append({"time": c["open_time"] // 1000, "value": val})
+            elif ma_type == "SMA":
                 for idx in range(period - 1, len(closes)):
-                    if ma_type == "SMA":
-                        val = _sma(closes[:idx + 1], period)
-                    elif ma_type == "VWMA":
-                        total_vol = sum(volumes[idx - period + 1:idx + 1])
-                        val = (
-                            sum(closes[idx - period + 1 + j] * volumes[idx - period + 1 + j]
-                                for j in range(period)) / total_vol
-                            if total_vol else _sma(closes[:idx + 1], period)
-                        )
-                    elif ma_type == "LREG":
-                        val = _lreg(closes[:idx + 1], period)
-                    else:
-                        val = _ema(closes[:idx + 1], period)
+                    val = sum(closes[idx - period + 1:idx + 1]) / period
+                    c = self._candles[idx]
+                    if "open_time" in c:
+                        ma_history.append({"time": c["open_time"] // 1000, "value": val})
+            elif ma_type == "VWMA":
+                vols = [c["volume"] for c in self._candles]
+                for idx in range(period - 1, len(closes)):
+                    tv = sum(vols[idx - period + 1:idx + 1])
+                    val = (sum(closes[j] * vols[j] for j in range(idx - period + 1, idx + 1)) / tv
+                           if tv else sum(closes[idx - period + 1:idx + 1]) / period)
+                    c = self._candles[idx]
+                    if "open_time" in c:
+                        ma_history.append({"time": c["open_time"] // 1000, "value": val})
+            elif ma_type == "LREG":
+                for idx in range(period - 1, len(closes)):
+                    val = _lreg(closes[:idx + 1], period)
                     c = self._candles[idx]
                     if "open_time" in c:
                         ma_history.append({"time": c["open_time"] // 1000, "value": val})
