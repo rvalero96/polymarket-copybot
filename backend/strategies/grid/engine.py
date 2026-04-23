@@ -177,8 +177,7 @@ class GridEngine:
                 return
             if not task.cancelled() and task.exception() is not None:
                 logger.error("grid:task:died", {"error": str(task.exception())})
-                self.running = False
-                asyncio.create_task(self._broadcast())
+                asyncio.create_task(self.stop())
 
         self._task.add_done_callback(_on_task_done)
 

@@ -566,14 +566,13 @@ class AdaptiveGridPepeEngine:
         self._task = asyncio.create_task(self._ws_loop())
         self._candle_task = asyncio.create_task(self._candle_refresh_loop())
 
-        # Detect silent task death (unhandled exception) and mark as stopped
+        # Detect silent task death (unhandled exception) → full stop for clean DB state
         def _on_task_done(task: asyncio.Task) -> None:
             if not self.running:
                 return
             if not task.cancelled() and task.exception() is not None:
                 logger.error("pepe_grid:task:died", {"error": str(task.exception())})
-                self.running = False
-                asyncio.create_task(self._broadcast())
+                asyncio.create_task(self.stop())
 
         self._task.add_done_callback(_on_task_done)
         self._candle_task.add_done_callback(_on_task_done)
