@@ -190,10 +190,11 @@ class GridEngine:
         """Fully idempotent: always cancels tasks and updates DB."""
         self.running = False
         if self._task:
-            self._task.cancel()
+            if not self._task.done():
+                self._task.cancel()
             try:
                 await self._task
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, Exception):
                 pass
             self._task = None
 
@@ -240,6 +241,7 @@ class GridEngine:
 
         self._bought.clear()
         self._pending.clear()
+        self._config_id = None
         logger.info("grid:stopped")
         await self._broadcast()
 

@@ -598,10 +598,11 @@ class AdaptiveGridPepeEngine:
 
         for t in [self._task, self._candle_task]:
             if t:
-                t.cancel()
+                if not t.done():
+                    t.cancel()
                 try:
                     await t
-                except asyncio.CancelledError:
+                except (asyncio.CancelledError, Exception):
                     pass
         self._task = self._candle_task = None
 
@@ -651,6 +652,7 @@ class AdaptiveGridPepeEngine:
         self._gi          = None
         self._grid_levels = []
         self._ma_value    = None
+        self._config_id   = None
         logger.info("pepe_grid:stopped")
         await self._broadcast()
 
