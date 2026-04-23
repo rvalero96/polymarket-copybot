@@ -8,6 +8,8 @@ from db.connection import get_db
 
 router = APIRouter(prefix="/api/reset", tags=["reset"])
 
+# Imported lazily inside handler to avoid circular imports at module load time
+
 # Tables to wipe completely (order matters for FK constraints)
 _WIPE_TABLES = [
     "pepe_grid_trades",
@@ -40,6 +42,12 @@ async def reset_all(_: str = Depends(require_token)):
     Returns the list of tables cleared and the new snapshot.
     """
     from api.routes.strategies import _strategies  # live list from main.py
+    from strategies.grid import grid_engine
+    from strategies.grid_pepe import pepe_grid_engine
+
+    # 0. Stop grid engines first so they release in-memory state and DB references
+    await grid_engine.stop()
+    await pepe_grid_engine.stop()
 
     db = await get_db()
 
