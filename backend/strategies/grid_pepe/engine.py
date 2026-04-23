@@ -443,7 +443,7 @@ class AdaptiveGridPepeEngine:
             try:
                 period = self._ma_period
                 candles = await fetch_candles(
-                    "PEPEUSDT", CONFIG.pepe_grid_candle_tf, period + 10
+                    "PEPEUSDT", CONFIG.pepe_grid_candle_tf, max(period * 5, 200)
                 )
                 if candles and len(candles) >= period:
                     self._candles = candles
@@ -487,9 +487,12 @@ class AdaptiveGridPepeEngine:
             logger.warning("pepe_grid:start:force_stop", "Clearing stale state before start")
             await self.stop()
 
-        # Fetch initial candles and compute first MA
+        # Fetch initial candles and compute first MA.
+        # Use at least 200 so the MA history line spans the full chart
+        # (the price chart always loads 200 candles from the frontend).
+        candle_limit = max(ma_period * 5, 200)
         try:
-            candles = await fetch_candles("PEPEUSDT", CONFIG.pepe_grid_candle_tf, ma_period + 10)
+            candles = await fetch_candles("PEPEUSDT", CONFIG.pepe_grid_candle_tf, candle_limit)
         except Exception as exc:
             return {"ok": False, "error": f"Failed to fetch candles: {exc}"}
 
@@ -702,34 +705,54 @@ class AdaptiveGridPepeEngine:
                 ORDER BY level_index DESC
             """, (config["id"],))
 
-        # Build MA history series from candles for chart overlay
+        # Build MA history series from candles for chart overlay.
+        # Use O(N) series methods for each MA type to avoid O(N²) rolling windows.
         ma_history: list[dict] = []
         if self._candles and len(self._candles) >= self._ma_period:
-            closes = [c["close"] for c in self._candles]
-            period = self._ma_period
+            closes  = [c["close"]  for c in self._candles]
+            volumes = [c["volume"] for c in self._candles]
+            period  = self._ma_period
             ma_type = self._ma_type.upper()
+
             if ma_type == "EMA":
                 series = _ema_series(closes, period)
                 offset = len(closes) - len(series)
-                for idx, val in enumerate(series):
-                    c = self._candles[offset + idx]
+                for i, val in enumerate(series):
+                    c = self._candles[offset + i]
                     if "open_time" in c:
                         ma_history.append({"time": c["open_time"] // 1000, "value": val})
-            # For other MA types, compute rolling windows
+
+            elif ma_type == "TEMA":
+                e1 = _ema_series(closes, period)
+                e2 = _ema_series(e1, period)
+                e3 = _ema_series(e2, period)
+                n3 = len(e3)
+                if n3 > 0:
+                    e1_off = len(e1) - n3
+                    e2_off = len(e2) - n3
+                    c_off  = len(closes) - n3
+                    for i in range(n3):
+                        val = 3 * e1[e1_off + i] - 3 * e2[e2_off + i] + e3[i]
+                        c   = self._candles[c_off + i]
+                        if "open_time" in c:
+                            ma_history.append({"time": c["open_time"] // 1000, "value": val})
+
             else:
+                # SMA, VWMA, LREG — rolling window per candle (O(N·period), acceptable)
                 for idx in range(period - 1, len(closes)):
-                    window_closes = closes[:idx + 1]
-                    window_candles = self._candles[:idx + 1]
                     if ma_type == "SMA":
-                        val = _sma(window_closes, period)
+                        val = _sma(closes[:idx + 1], period)
                     elif ma_type == "VWMA":
-                        val = _vwma(window_candles, period)
-                    elif ma_type == "TEMA":
-                        val = _tema(window_closes, period)
+                        total_vol = sum(volumes[idx - period + 1:idx + 1])
+                        val = (
+                            sum(closes[idx - period + 1 + j] * volumes[idx - period + 1 + j]
+                                for j in range(period)) / total_vol
+                            if total_vol else _sma(closes[:idx + 1], period)
+                        )
                     elif ma_type == "LREG":
-                        val = _lreg(window_closes, period)
+                        val = _lreg(closes[:idx + 1], period)
                     else:
-                        val = _ema(window_closes, period)
+                        val = _ema(closes[:idx + 1], period)
                     c = self._candles[idx]
                     if "open_time" in c:
                         ma_history.append({"time": c["open_time"] // 1000, "value": val})
