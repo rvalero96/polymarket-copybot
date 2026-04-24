@@ -1,6 +1,18 @@
-node_modules/
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Base de datos
+backend/data/state.db
+backend/data/state.db-shm
+backend/data/state.db-wal
+
+# Entorno
 .env
-*.local
-data/state.db
+
+# OS
 .DS_Store
 Thumbs.db
