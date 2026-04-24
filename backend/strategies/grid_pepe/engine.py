@@ -492,7 +492,7 @@ class AdaptiveGridPepeEngine:
         # (the price chart loads 500 candles from the frontend).
         candle_limit = max(ma_period * 5, 500)
         try:
-            candles = await fetch_candles("PEPEUSDT", CONFIG.pepe_grid_candle_tf, max(ma_period * 5, 200))
+            candles = await fetch_candles("PEPEUSDT", CONFIG.pepe_grid_candle_tf, candle_limit)
         except Exception as exc:
             return {"ok": False, "error": f"Failed to fetch candles: {exc}"}
 
@@ -769,6 +769,7 @@ class AdaptiveGridPepeEngine:
             "grid_interval": self._gi,
             "grid_levels":   self._grid_levels,
             "grid_epoch":    self._grid_epoch,
+            "order_size":    config["order_size"],
             "ma_type":       config["ma_type"],
             "ma_period":     config["ma_period"],
             "interval_pct":  config["interval_pct"],
