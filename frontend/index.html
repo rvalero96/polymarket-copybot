@@ -2317,6 +2317,8 @@ function pepeInitChart() {
   if (_pepeChart) return;
   const container = document.getElementById('pepe-grid-chart');
   if (!container) return;
+  // Required so that position:absolute children (overlay, dots) resolve to this element
+  container.style.position = 'relative';
 
   _pepeChart = LightweightCharts.createChart(container, {
     layout: {
@@ -2365,7 +2367,7 @@ function pepeInitChart() {
     lineWidth: 1.5,
     lineStyle: LightweightCharts.LineStyle.Solid,
     priceLineVisible: false,
-    lastValueVisible: true,
+    lastValueVisible: false,
     crosshairMarkerVisible: true,
     title: 'MA',
     priceFormat: {
@@ -2446,7 +2448,7 @@ function pepeSetPriceLines(gridLevels, anchor) {
       color,
       lineWidth,
       lineStyle,
-      axisLabelVisible: true,   // all levels show a label on the right axis
+      axisLabelVisible: isAnchor || isTop || isBottom,
       title: _PEPE_LEVEL_LABELS[i] ?? '',
     });
     _pepePriceLines.push(pl);
@@ -2457,9 +2459,14 @@ function pepeSetPriceLines(gridLevels, anchor) {
 
 function pepeRepositionOrderDots() {
   if (!_pepeSeries) return;
+  const cont   = document.getElementById('pepe-grid-chart');
+  const scaleW = (() => { try { return _pepeChart.priceScale('right').width() || 72; } catch (_) { return 72; } })();
+  const DOT    = 10;
+  const dotLeft = cont ? (cont.clientWidth - scaleW - DOT - 4) : 0;
   _pepeOrderDots.forEach(({ el, price }) => {
     const y = _pepeSeries.priceToCoordinate(price);
-    el.style.top = y == null ? '-999px' : (y - 5) + 'px';
+    el.style.top  = y == null ? '-999px' : (y - DOT / 2) + 'px';
+    el.style.left = dotLeft + 'px';
   });
 }
 
@@ -2487,9 +2494,10 @@ function pepeDrawOrderDots(orders) {
     const y = _pepeSeries.priceToCoordinate(price);
     if (y == null) return;
 
+    const dotLeft = cont ? (cont.clientWidth - scaleW - DOT - 4) : 0;
     const dot = document.createElement('div');
     dot.style.cssText = [
-      `position:absolute;right:${scaleW + 3}px;top:${y - DOT / 2}px;`,
+      `position:absolute;left:${dotLeft}px;top:${y - DOT / 2}px;`,
       `width:${DOT}px;height:${DOT}px;border-radius:50%;`,
       `background:${color};`,
       `box-shadow:0 0 7px ${color}90;`,
@@ -2505,8 +2513,8 @@ function pepeDrawOrderDots(orders) {
     const tipLines  = [
       `<span style="color:${color};font-weight:700">${isBought ? '▼ OBJETIVO VENTA' : '▲ COMPRA PENDIENTE'}</span>`,
       `Nivel <b>${o.level_index >= 0 ? '+' : ''}${o.level_index}</b> · Epoch ${o.grid_epoch ?? '—'}`,
-      `${isBought ? 'Vender @' : 'Comprar @'} <b>${fmtPepe(price)}</b>`,
-      isBought ? `Comprado @ <b>${fmtPepe(fillPrice)}</b>` : null,
+      `${isBought ? 'Vender' : 'Comprar'} <b>${fmtPepe(price)}</b>`,
+      isBought ? `Comprado <b>${fmtPepe(fillPrice)}</b>` : null,
       `Tamaño: <b>$${Number(o.order_size).toFixed(2)}</b>`,
       potPct != null ? `PnL pot: <b>${potPct}%</b>` : null,
     ].filter(Boolean).join('<br>');
