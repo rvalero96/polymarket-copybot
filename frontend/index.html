@@ -1002,7 +1002,7 @@
     <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
       <div class="cp-hd">
         <div class="cp-title">PEPE/USDT · Adaptive Grid</div>
-        <div class="cp-sub">Líneas de grid dinámicas · AP = Moving Average · ▲ compra · ▼ venta</div>
+        <div class="cp-sub">Líneas de grid dinámicas · AP = Moving Average · <span style="color:#f97316">●</span> compra · <span style="color:#22c55e">●</span> venta</div>
       </div>
       <div id="pepe-grid-chart" style="height:380px;width:100%"></div>
     </div>
@@ -2304,6 +2304,7 @@ let _pepeInputsFilled = false;
 let _pepeChartStart   = 0;      // unix-seconds of oldest loaded kline
 let _pepeMaHistoryLen = 0;      // last known ma_history length (to avoid full redraws)
 let _pepeOrderDots    = [];     // [{el, price}] — repositioned on scale change
+let _pepeTradeDots    = [];     // [{el, time, price}] — completed trade entry/exit dots
 
 function fmtPepe(n) {
   if (n == null) return '—';
@@ -2388,6 +2389,7 @@ function pepeInitChart() {
   const ro = new ResizeObserver(() => {
     if (_pepeChart) _pepeChart.applyOptions({ width: container.clientWidth });
     pepeRepositionOrderDots();
+    pepeRepositionTradeDots();
   });
   ro.observe(container);
 
@@ -2407,9 +2409,9 @@ function pepeInitChart() {
   ].join('');
   container.appendChild(orderTip);
 
-  // Reposition dots when the price scale zooms (time-range change also fires this)
+  // Reposition dots when the price scale zooms or scrolls
   _pepeChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-    requestAnimationFrame(pepeRepositionOrderDots);
+    requestAnimationFrame(() => { pepeRepositionOrderDots(); pepeRepositionTradeDots(); });
   });
 }
 
@@ -2545,55 +2547,91 @@ function pepeDrawOrderDots(orders) {
   });
 }
 
-// ── Trade markers ────────────────────────────────────────────────────────────
-function pepeSetMarkers(trades, boughtOrders = []) {
-  if (!_pepeSeries) return;
-  const seen    = new Set();
-  const markers = [];
-  // Only place markers within the loaded chart history — older markers
-  // get snapped to the first bar by LightweightCharts and cluster there.
-  const chartStart = _pepeChartStart;
-
-  [...(trades || [])].reverse().forEach(t => {
-    const buyTs  = t.opened_at ? Math.floor(t.opened_at / 1000) : 0;
-    const buyKey = `b_${t.opened_at}`;
-    if (buyTs && !seen.has(buyKey) && buyTs >= chartStart) {
-      seen.add(buyKey);
-      markers.push({
-        time: buyTs, position: 'belowBar',
-        color: '#f97316', shape: 'arrowUp', size: 1,
-        text: 'B ' + fmtPepe(t.buy_price),
-      });
+// ── Completed trade dots ─────────────────────────────────────────────────────
+function pepeRepositionTradeDots() {
+  if (!_pepeSeries || !_pepeChart) return;
+  const timeScale = _pepeChart.timeScale();
+  const cont      = document.getElementById('pepe-grid-chart');
+  const scaleW    = (() => { try { return _pepeChart.priceScale('right').width() || 72; } catch (_) { return 72; } })();
+  const maxX      = cont ? (cont.clientWidth - scaleW) : 9999;
+  const DOT       = 8;
+  _pepeTradeDots.forEach(({ el, time, price }) => {
+    const x = timeScale.timeToCoordinate(time);
+    const y = _pepeSeries.priceToCoordinate(price);
+    if (x == null || y == null || x < 0 || x > maxX) {
+      el.style.display = 'none';
+    } else {
+      el.style.display = 'block';
+      el.style.left    = (x - DOT / 2) + 'px';
+      el.style.top     = (y - DOT / 2) + 'px';
     }
-    const sellTs  = t.closed_at ? Math.floor(t.closed_at / 1000) : 0;
-    const sellKey = `s_${t.closed_at}`;
-    if (sellTs && !seen.has(sellKey) && sellTs >= chartStart) {
-      seen.add(sellKey);
-      markers.push({
-        time: sellTs, position: 'aboveBar',
-        color: '#FF4D4D', shape: 'arrowDown', size: 1,
-        text: 'S ' + fmtPepe(t.sell_price),
-      });
+  });
+}
+
+function pepeDrawTradeDots(trades, boughtOrders) {
+  const ov = document.getElementById('pepe-order-ov');
+  if (!ov || !_pepeSeries || !_pepeChart) return;
+
+  // Clear any leftover LightweightCharts markers
+  _pepeSeries.setMarkers([]);
+
+  // Tear down previous trade dots
+  _pepeTradeDots.forEach(d => d.el.remove());
+  _pepeTradeDots = [];
+
+  const DOT        = 8;
+  const chartStart = _pepeChartStart;
+  const seen       = new Set();
+
+  function makeDot(color) {
+    const d = document.createElement('div');
+    d.style.cssText = [
+      `position:absolute;width:${DOT}px;height:${DOT}px;border-radius:50%;`,
+      `background:${color};box-shadow:0 0 5px ${color}80;`,
+      `pointer-events:none;`,
+    ].join('');
+    return d;
+  }
+
+  // Completed round-trip trades — buy dot + sell dot
+  ;(trades || []).forEach(t => {
+    const buyTs = t.opened_at ? Math.floor(t.opened_at / 1000) : 0;
+    if (buyTs && buyTs >= chartStart && t.buy_price) {
+      const key = `b_${t.opened_at}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const dot = makeDot('#f97316');
+        ov.appendChild(dot);
+        _pepeTradeDots.push({ el: dot, time: buyTs, price: t.buy_price });
+      }
+    }
+    const sellTs = t.closed_at ? Math.floor(t.closed_at / 1000) : 0;
+    if (sellTs && sellTs >= chartStart && t.sell_price) {
+      const key = `s_${t.closed_at}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const dot = makeDot('#22c55e');
+        ov.appendChild(dot);
+        _pepeTradeDots.push({ el: dot, time: sellTs, price: t.sell_price });
+      }
     }
   });
 
-  boughtOrders.forEach(o => {
+  // Active bought orders — show historical entry point on chart
+  ;(boughtOrders || []).forEach(o => {
     if (!o.bought_at || !o.buy_fill_price) return;
     const ts  = Math.floor(o.bought_at / 1000);
     if (ts < chartStart) return;
     const key = `ab_${o.id}`;
     if (!seen.has(key)) {
       seen.add(key);
-      markers.push({
-        time: ts, position: 'belowBar',
-        color: '#f97316', shape: 'arrowUp', size: 1,
-        text: 'B ' + fmtPepe(o.buy_fill_price),
-      });
+      const dot = makeDot('#f97316');
+      ov.appendChild(dot);
+      _pepeTradeDots.push({ el: dot, time: ts, price: o.buy_fill_price });
     }
   });
 
-  markers.sort((a, b) => a.time - b.time);
-  _pepeSeries.setMarkers(markers);
+  pepeRepositionTradeDots();
 }
 
 // ── Binance WebSocket for real-time PEPE price ───────────────────────────────
@@ -2819,10 +2857,9 @@ function pepeApplyStatus(d) {
       document.getElementById('pepe-inp-ma-period').value  = d.ma_period;
       document.getElementById('pepe-inp-interval').value   = (d.interval_pct * 100).toFixed(1);
       document.getElementById('pepe-inp-laziness').value   = (d.laziness_pct * 100).toFixed(1);
-      // Restore % from stored order_size
-      const storedSize = (d.orders && d.orders[0]) ? d.orders[0].order_size : null;
-      if (storedSize && _portfolioTotal > 0) {
-        document.getElementById('pepe-inp-size-pct').value = (storedSize / _portfolioTotal * 100).toFixed(2);
+      // Restore % from config order_size (stable regardless of active orders)
+      if (d.order_size && _portfolioTotal > 0) {
+        document.getElementById('pepe-inp-size-pct').value = (d.order_size / _portfolioTotal * 100).toFixed(2);
         pepeUpdateOrderPreview();
       }
       _pepeInputsFilled = true;
@@ -2830,7 +2867,7 @@ function pepeApplyStatus(d) {
   }
 
   const boughtOrders = (d.orders || []).filter(o => o.status === 'bought');
-  pepeSetMarkers(d.recent_trades, boughtOrders);
+  pepeDrawTradeDots(d.recent_trades, boughtOrders);
   pepeRenderOrders(d.orders);
   pepeDrawOrderDots(d.orders);
   pepeRenderTrades(d.recent_trades);
