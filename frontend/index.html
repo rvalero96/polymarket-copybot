@@ -977,7 +977,7 @@
         </div>
         <div style="display:flex;gap:0.5rem;padding-bottom:1px">
           <button id="pepe-btn-start" onclick="pepeStart()"
-            style="background:#f97316;border:none;border-radius:0.35rem;color:#000;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            style="background:#22c55e;border:none;border-radius:0.35rem;color:#000;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
             START
           </button>
           <button id="pepe-btn-stop" onclick="pepeStop()"
@@ -2137,9 +2137,8 @@ function gridApplyStatus(d) {
       document.getElementById('grid-inp-min').value    = d.grid_min;
       document.getElementById('grid-inp-max').value    = d.grid_max;
       document.getElementById('grid-inp-levels').value = d.levels;
-      // Restore % from stored dollar size
-      if (d.order_size && _portfolioTotal > 0) {
-        document.getElementById('grid-inp-size-pct').value = (d.order_size / _portfolioTotal * 100).toFixed(2);
+      if (d.order_size_pct) {
+        document.getElementById('grid-inp-size-pct').value = (d.order_size_pct * 100).toFixed(2);
         gridUpdateOrderPreview();
       }
       _gridInputsFilled = true;
@@ -2215,7 +2214,6 @@ async function gridStart() {
   const max    = parseFloat(document.getElementById('grid-inp-max').value);
   const levels = parseInt(document.getElementById('grid-inp-levels').value);
   const pct    = parseFloat(document.getElementById('grid-inp-size-pct').value);
-  const size   = parseFloat((_portfolioTotal * pct / 100).toFixed(2));
   const msg    = document.getElementById('grid-ctrl-msg');
 
   if (isNaN(min) || isNaN(max) || min >= max) {
@@ -2230,7 +2228,7 @@ async function gridStart() {
     const res = await apiFetch('/api/grid/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ grid_min: min, grid_max: max, levels, order_size: size }),
+      body: JSON.stringify({ grid_min: min, grid_max: max, levels, order_size_pct: pct / 100 }),
     });
     if (res.ok) {
       if (msg) { msg.style.color = 'var(--primary)'; msg.textContent = `Grid iniciado · ${res.active_levels} niveles activos · ref $${Number(res.ref_price).toLocaleString('en-US', {maximumFractionDigits:0})}`; }
@@ -2296,6 +2294,7 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
 let _pepeChart        = null;
 let _pepeSeries       = null;
 let _pepeMaSeries     = null;   // MA line overlay
+let _pepeCandles      = new Map(); // minute-boundary ts → close price (for dot Y alignment)
 let _pepePriceLines   = [];
 let _pepeWs           = null;
 let _pepeSSE          = null;
@@ -2349,9 +2348,9 @@ function pepeInitChart() {
   });
 
   _pepeSeries = _pepeChart.addAreaSeries({
-    lineColor: '#f97316',
-    topColor: 'rgba(249,115,22,0.08)',
-    bottomColor: 'rgba(249,115,22,0)',
+    lineColor: '#22c55e',
+    topColor: 'rgba(34,197,94,0.08)',
+    bottomColor: 'rgba(34,197,94,0)',
     lineWidth: 1.5,
     priceLineVisible: false,
     lastValueVisible: true,
@@ -2364,7 +2363,7 @@ function pepeInitChart() {
 
   // MA line overlay (EMA/SMA/etc)
   _pepeMaSeries = _pepeChart.addLineSeries({
-    color: '#00ffa3',
+    color: '#4ade80',
     lineWidth: 1.5,
     lineStyle: LightweightCharts.LineStyle.Solid,
     priceLineVisible: false,
@@ -2556,8 +2555,10 @@ function pepeRepositionTradeDots() {
   const maxX      = cont ? (cont.clientWidth - scaleW) : 9999;
   const DOT       = 8;
   _pepeTradeDots.forEach(({ el, time, price }) => {
-    const x = timeScale.timeToCoordinate(time);
-    const y = _pepeSeries.priceToCoordinate(price);
+    const x          = timeScale.timeToCoordinate(time);
+    const candleMin  = Math.floor(time / 60) * 60;
+    const chartPrice = _pepeCandles.get(candleMin) ?? price;
+    const y          = _pepeSeries.priceToCoordinate(chartPrice);
     if (x == null || y == null || x < 0 || x > maxX) {
       el.style.display = 'none';
     } else {
@@ -2568,7 +2569,7 @@ function pepeRepositionTradeDots() {
   });
 }
 
-function pepeDrawTradeDots(trades, boughtOrders) {
+function pepeDrawTradeDots(trades) {
   const ov = document.getElementById('pepe-order-ov');
   if (!ov || !_pepeSeries || !_pepeChart) return;
 
@@ -2617,20 +2618,6 @@ function pepeDrawTradeDots(trades, boughtOrders) {
     }
   });
 
-  // Active bought orders — show historical entry point on chart
-  ;(boughtOrders || []).forEach(o => {
-    if (!o.bought_at || !o.buy_fill_price) return;
-    const ts  = Math.floor(o.bought_at / 1000);
-    if (ts < chartStart) return;
-    const key = `ab_${o.id}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      const dot = makeDot('#f97316');
-      ov.appendChild(dot);
-      _pepeTradeDots.push({ el: dot, time: ts, price: o.buy_fill_price });
-    }
-  });
-
   pepeRepositionTradeDots();
 }
 
@@ -2644,6 +2631,8 @@ function pepeStartWs() {
       const msg   = JSON.parse(e.data);
       const price = parseFloat(msg.p);
       const ts    = Math.floor(parseInt(msg.T) / 1000);
+      const candleMin = ts - (ts % 60);
+      _pepeCandles.set(candleMin, price);
       document.getElementById('pepe-price-val').textContent = fmtPepe(price);
       if (_pepeSeries) {
         _pepeSeries.update({ time: ts, value: price });
@@ -2673,6 +2662,8 @@ async function pepeLoadHistory() {
     if (!Array.isArray(data) || !_pepeSeries) return;
     const pts = data.map(k => ({ time: Math.floor(k[0] / 1000), value: parseFloat(k[4]) }));
     if (pts.length > 0) _pepeChartStart = pts[0].time;
+    _pepeCandles.clear();
+    pts.forEach(p => _pepeCandles.set(p.time, p.value));
     _pepeSeries.setData(pts);
     _pepeChart.timeScale().scrollToRealTime();
   } catch (_) {}
@@ -2857,17 +2848,15 @@ function pepeApplyStatus(d) {
       document.getElementById('pepe-inp-ma-period').value  = d.ma_period;
       document.getElementById('pepe-inp-interval').value   = (d.interval_pct * 100).toFixed(1);
       document.getElementById('pepe-inp-laziness').value   = (d.laziness_pct * 100).toFixed(1);
-      // Restore % from config order_size (stable regardless of active orders)
-      if (d.order_size && _portfolioTotal > 0) {
-        document.getElementById('pepe-inp-size-pct').value = (d.order_size / _portfolioTotal * 100).toFixed(2);
+      if (d.order_size_pct) {
+        document.getElementById('pepe-inp-size-pct').value = (d.order_size_pct * 100).toFixed(2);
         pepeUpdateOrderPreview();
       }
       _pepeInputsFilled = true;
     }
   }
 
-  const boughtOrders = (d.orders || []).filter(o => o.status === 'bought');
-  pepeDrawTradeDots(d.recent_trades, boughtOrders);
+  pepeDrawTradeDots(d.recent_trades);
   pepeRenderOrders(d.orders);
   pepeDrawOrderDots(d.orders);
   pepeRenderTrades(d.recent_trades);
@@ -2921,7 +2910,6 @@ function pepeStopSSE() {
 // ── Start / Stop actions ─────────────────────────────────────────────────────
 async function pepeStart() {
   const pct       = parseFloat(document.getElementById('pepe-inp-size-pct').value);
-  const size      = parseFloat((_portfolioTotal * pct / 100).toFixed(4));
   const maType    = document.getElementById('pepe-inp-ma-type').value;
   const maPeriod  = parseInt(document.getElementById('pepe-inp-ma-period').value);
   const intervalP = parseFloat(document.getElementById('pepe-inp-interval').value) / 100;
@@ -2933,7 +2921,7 @@ async function pepeStart() {
     return;
   }
   const payload = JSON.stringify({
-    order_size: size, ma_type: maType, ma_period: maPeriod,
+    order_size_pct: pct / 100, ma_type: maType, ma_period: maPeriod,
     interval_pct: intervalP, laziness_pct: lazinessP,
   });
   try {
@@ -2949,7 +2937,7 @@ async function pepeStart() {
       });
     }
     if (res.ok) {
-      if (msg) { msg.style.color = '#f97316'; msg.textContent = `Grid PEPE iniciado · AP=${fmtPepe(res.anchor)} · 8 niveles`; }
+      if (msg) { msg.style.color = '#22c55e'; msg.textContent = `Grid PEPE iniciado · AP=${fmtPepe(res.anchor)} · 8 niveles`; }
     } else {
       if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = res.error || 'Error'; }
     }

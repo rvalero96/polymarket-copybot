@@ -13,11 +13,11 @@ router = APIRouter(prefix="/api/grid-pepe", tags=["grid-pepe"])
 
 
 class PepeGridStartRequest(BaseModel):
-    order_size:   float = Field(default=10.0,  gt=0)
-    ma_type:      str   = Field(default="EMA")          # SMA | EMA | VWMA | TEMA | LREG
-    ma_period:    int   = Field(default=20,    ge=5, le=200)
-    interval_pct: float = Field(default=0.02,  gt=0, lt=0.5)
-    laziness_pct: float = Field(default=0.015, gt=0, lt=0.5)
+    order_size_pct: float = Field(default=0.05,  gt=0, lt=1.0)
+    ma_type:        str   = Field(default="EMA")          # SMA | EMA | VWMA | TEMA | LREG
+    ma_period:      int   = Field(default=20,    ge=5, le=200)
+    interval_pct:   float = Field(default=0.02,  gt=0, lt=0.5)
+    laziness_pct:   float = Field(default=0.015, gt=0, lt=0.5)
 
 
 def _query_token(token: str = Query(...)) -> str:
@@ -65,7 +65,7 @@ async def get_pepe_grid_status(_: str = Depends(require_token)):
 @router.post("/start")
 async def start_pepe_grid(req: PepeGridStartRequest, _: str = Depends(require_token)):
     return await pepe_grid_engine.start(
-        req.order_size, req.ma_type, req.ma_period, req.interval_pct, req.laziness_pct
+        req.order_size_pct, req.ma_type, req.ma_period, req.interval_pct, req.laziness_pct
     )
 
 
