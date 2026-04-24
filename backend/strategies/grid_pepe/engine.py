@@ -443,7 +443,7 @@ class AdaptiveGridPepeEngine:
             try:
                 period = self._ma_period
                 candles = await fetch_candles(
-                    "PEPEUSDT", CONFIG.pepe_grid_candle_tf, max(period * 5, 200)
+                    "PEPEUSDT", CONFIG.pepe_grid_candle_tf, max(period * 5, 500)
                 )
                 if candles and len(candles) >= period:
                     self._candles = candles
@@ -488,9 +488,9 @@ class AdaptiveGridPepeEngine:
             await self.stop()
 
         # Fetch initial candles and compute first MA.
-        # Use at least 200 so the MA history line spans the full chart
-        # (the price chart always loads 200 candles from the frontend).
-        candle_limit = max(ma_period * 5, 200)
+        # Use at least 500 so the MA history line spans the full chart
+        # (the price chart loads 500 candles from the frontend).
+        candle_limit = max(ma_period * 5, 500)
         try:
             candles = await fetch_candles("PEPEUSDT", CONFIG.pepe_grid_candle_tf, max(ma_period * 5, 200))
         except Exception as exc:

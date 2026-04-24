@@ -891,8 +891,8 @@
           <thead><tr>
             <th>Fecha cierre</th>
             <th>Nivel</th>
-            <th>Compra @</th>
-            <th>Venta @</th>
+            <th>Compra</th>
+            <th>Venta</th>
             <th>Tamaño</th>
             <th>Fee</th>
             <th>PnL</th>
@@ -1017,8 +1017,8 @@
         <table>
           <thead><tr>
             <th>Level idx</th>
-            <th>Compra @</th>
-            <th>Venta @</th>
+            <th>Compra</th>
+            <th>Venta</th>
             <th>Estado</th>
             <th>Tamaño</th>
             <th>PnL potencial</th>
@@ -1041,12 +1041,12 @@
             <th>Fecha cierre</th>
             <th>Level</th>
             <th>Epoch</th>
-            <th>Compra @</th>
-            <th>Venta @</th>
+            <th>Compra</th>
+            <th>Venta</th>
             <th>Tamaño</th>
             <th>Fee</th>
             <th>PnL</th>
-            <th>Anchor @</th>
+            <th>Anchor</th>
           </tr></thead>
           <tbody id="tbl-pepe-trades"><tr><td colspan="9" class="empty">Sin trades todavía</td></tr></tbody>
         </table>
@@ -2293,14 +2293,17 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
 // GRID PEPE (Adaptive)
 // ═══════════════════════════════════════════════════════════════════════════
 
-let _pepeChart      = null;
-let _pepeSeries     = null;
-let _pepeMaSeries   = null;   // MA line overlay
-let _pepePriceLines = [];
-let _pepeWs         = null;
-let _pepeSSE        = null;
-let _pepeTabActive  = false;
+let _pepeChart        = null;
+let _pepeSeries       = null;
+let _pepeMaSeries     = null;   // MA line overlay
+let _pepePriceLines   = [];
+let _pepeWs           = null;
+let _pepeSSE          = null;
+let _pepeTabActive    = false;
 let _pepeInputsFilled = false;
+let _pepeChartStart   = 0;      // unix-seconds of oldest loaded kline
+let _pepeMaHistoryLen = 0;      // last known ma_history length (to avoid full redraws)
+let _pepeOrderDots    = [];     // [{el, price}] — repositioned on scale change
 
 function fmtPepe(n) {
   if (n == null) return '—';
@@ -2382,11 +2385,36 @@ function pepeInitChart() {
   // Resize observer
   const ro = new ResizeObserver(() => {
     if (_pepeChart) _pepeChart.applyOptions({ width: container.clientWidth });
+    pepeRepositionOrderDots();
   });
   ro.observe(container);
+
+  // Order-level dot overlay — sits above the chart canvas, below the price scale
+  const orderOv = document.createElement('div');
+  orderOv.id = 'pepe-order-ov';
+  orderOv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;';
+  container.appendChild(orderOv);
+
+  const orderTip = document.createElement('div');
+  orderTip.id = 'pepe-order-tip';
+  orderTip.style.cssText = [
+    'display:none;position:absolute;z-index:20;',
+    'background:rgba(6,6,10,0.96);border:1px solid rgba(255,255,255,0.12);',
+    'border-radius:6px;padding:8px 12px;font-size:11px;color:#ccc;',
+    'line-height:1.75;pointer-events:none;white-space:nowrap;',
+  ].join('');
+  container.appendChild(orderTip);
+
+  // Reposition dots when the price scale zooms (time-range change also fires this)
+  _pepeChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+    requestAnimationFrame(pepeRepositionOrderDots);
+  });
 }
 
 // ── Price lines for adaptive grid levels ────────────────────────────────────
+// Level indices from top: +4, +3, +2, +1, AP(0), -1, -2, -3, -4
+const _PEPE_LEVEL_LABELS = ['+4', '+3', '+2', '+1', 'AP', '-1', '-2', '-3', '-4'];
+
 function pepeSetPriceLines(gridLevels, anchor) {
   if (!_pepeSeries) return;
   _pepePriceLines.forEach(pl => _pepeSeries.removePriceLine(pl));
@@ -2394,46 +2422,147 @@ function pepeSetPriceLines(gridLevels, anchor) {
   if (!gridLevels || !gridLevels.length) return;
 
   gridLevels.forEach((price, i) => {
-    const isAnchor = (i === 4);  // G4 is the anchor level
+    const isAnchor = (i === 4);
     const isTop    = (i === 0);
     const isBottom = (i === gridLevels.length - 1);
-    let color;
-    if (isAnchor)      color = 'rgba(0,255,163,0.6)';   // anchor = green
-    else if (i < 4)    color = 'rgba(249,115,22,0.35)'; // above anchor = amber
-    else               color = 'rgba(255,77,77,0.35)';  // below anchor = red
+
+    let color, lineWidth, lineStyle;
+    if (isAnchor) {
+      color     = 'rgba(0,255,163,0.9)';
+      lineWidth = 2;
+      lineStyle = LightweightCharts.LineStyle.Solid;
+    } else if (isTop || isBottom) {
+      color     = isTop ? 'rgba(249,115,22,0.8)' : 'rgba(255,77,77,0.8)';
+      lineWidth = 1.5;
+      lineStyle = LightweightCharts.LineStyle.LargeDashed;
+    } else {
+      color     = i < 4 ? 'rgba(249,115,22,0.55)' : 'rgba(255,77,77,0.55)';
+      lineWidth = 1;
+      lineStyle = LightweightCharts.LineStyle.Dashed;
+    }
+
     const pl = _pepeSeries.createPriceLine({
       price,
       color,
-      lineWidth:        isAnchor ? 1.5 : 1,
-      lineStyle:        LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: isAnchor || isTop || isBottom,
-      title:            isAnchor ? 'AP' : (isTop ? 'TOP' : (isBottom ? 'BOT' : '')),
+      lineWidth,
+      lineStyle,
+      axisLabelVisible: true,   // all levels show a label on the right axis
+      title: _PEPE_LEVEL_LABELS[i] ?? '',
     });
     _pepePriceLines.push(pl);
+  });
+}
+
+// ── Order-level dot overlay ──────────────────────────────────────────────────
+
+function pepeRepositionOrderDots() {
+  if (!_pepeSeries) return;
+  _pepeOrderDots.forEach(({ el, price }) => {
+    const y = _pepeSeries.priceToCoordinate(price);
+    el.style.top = y == null ? '-999px' : (y - 5) + 'px';
+  });
+}
+
+function pepeDrawOrderDots(orders) {
+  const ov = document.getElementById('pepe-order-ov');
+  if (!ov || !_pepeSeries) return;
+
+  // Tear down previous dots
+  _pepeOrderDots.forEach(d => d.el.remove());
+  _pepeOrderDots = [];
+
+  const cont  = document.getElementById('pepe-grid-chart');
+  // Approximate right price-scale width — dots sit just to its left
+  const scaleW = (() => {
+    try { return _pepeChart.priceScale('right').width() || 72; } catch (_) { return 72; }
+  })();
+  const DOT   = 10; // diameter px
+
+  (orders || []).forEach(o => {
+    const isBought  = o.status === 'bought';
+    // Pending → show where the buy will execute (green)
+    // Bought  → show where the sell will trigger (red)
+    const price     = isBought ? o.sell_price : o.buy_price;
+    const color     = isBought ? '#FF4D4D' : '#00ffa3';
+    const y = _pepeSeries.priceToCoordinate(price);
+    if (y == null) return;
+
+    const dot = document.createElement('div');
+    dot.style.cssText = [
+      `position:absolute;right:${scaleW + 3}px;top:${y - DOT / 2}px;`,
+      `width:${DOT}px;height:${DOT}px;border-radius:50%;`,
+      `background:${color};`,
+      `box-shadow:0 0 7px ${color}90;`,
+      `pointer-events:all;cursor:default;`,
+      `transition:transform 0.1s,opacity 0.1s;opacity:0.82;`,
+    ].join('');
+
+    // Tooltip content
+    const fillPrice = o.buy_fill_price ?? o.buy_price;
+    const potPct    = isBought
+      ? (((o.sell_price - fillPrice) / fillPrice) * 100 - 0.2).toFixed(3)
+      : null;
+    const tipLines  = [
+      `<span style="color:${color};font-weight:700">${isBought ? '▼ OBJETIVO VENTA' : '▲ COMPRA PENDIENTE'}</span>`,
+      `Nivel <b>${o.level_index >= 0 ? '+' : ''}${o.level_index}</b> · Epoch ${o.grid_epoch ?? '—'}`,
+      `${isBought ? 'Vender @' : 'Comprar @'} <b>${fmtPepe(price)}</b>`,
+      isBought ? `Comprado @ <b>${fmtPepe(fillPrice)}</b>` : null,
+      `Tamaño: <b>$${Number(o.order_size).toFixed(2)}</b>`,
+      potPct != null ? `PnL pot: <b>${potPct}%</b>` : null,
+    ].filter(Boolean).join('<br>');
+
+    dot.addEventListener('mouseenter', () => {
+      dot.style.transform = 'scale(1.35)';
+      dot.style.opacity   = '1';
+      const tip  = document.getElementById('pepe-order-tip');
+      if (!tip || !cont) return;
+      tip.innerHTML     = tipLines;
+      tip.style.display = 'block';
+      const cr   = cont.getBoundingClientRect();
+      const dr   = dot.getBoundingClientRect();
+      const tx   = dr.left - cr.left - tip.offsetWidth - 10;
+      const ty   = Math.max(4, dr.top - cr.top - 8);
+      tip.style.left = Math.max(4, tx) + 'px';
+      tip.style.top  = ty + 'px';
+    });
+    dot.addEventListener('mouseleave', () => {
+      dot.style.transform = '';
+      dot.style.opacity   = '0.82';
+      const tip = document.getElementById('pepe-order-tip');
+      if (tip) tip.style.display = 'none';
+    });
+
+    ov.appendChild(dot);
+    _pepeOrderDots.push({ el: dot, price });
   });
 }
 
 // ── Trade markers ────────────────────────────────────────────────────────────
 function pepeSetMarkers(trades, boughtOrders = []) {
   if (!_pepeSeries) return;
-  const seen = new Set();
+  const seen    = new Set();
   const markers = [];
+  // Only place markers within the loaded chart history — older markers
+  // get snapped to the first bar by LightweightCharts and cluster there.
+  const chartStart = _pepeChartStart;
 
   [...(trades || [])].reverse().forEach(t => {
+    const buyTs  = t.opened_at ? Math.floor(t.opened_at / 1000) : 0;
     const buyKey = `b_${t.opened_at}`;
-    if (t.opened_at && !seen.has(buyKey)) {
+    if (buyTs && !seen.has(buyKey) && buyTs >= chartStart) {
       seen.add(buyKey);
       markers.push({
-        time: Math.floor(t.opened_at / 1000), position: 'belowBar',
+        time: buyTs, position: 'belowBar',
         color: '#f97316', shape: 'arrowUp', size: 1,
         text: 'B ' + fmtPepe(t.buy_price),
       });
     }
+    const sellTs  = t.closed_at ? Math.floor(t.closed_at / 1000) : 0;
     const sellKey = `s_${t.closed_at}`;
-    if (t.closed_at && !seen.has(sellKey)) {
+    if (sellTs && !seen.has(sellKey) && sellTs >= chartStart) {
       seen.add(sellKey);
       markers.push({
-        time: Math.floor(t.closed_at / 1000), position: 'aboveBar',
+        time: sellTs, position: 'aboveBar',
         color: '#FF4D4D', shape: 'arrowDown', size: 1,
         text: 'S ' + fmtPepe(t.sell_price),
       });
@@ -2442,11 +2571,13 @@ function pepeSetMarkers(trades, boughtOrders = []) {
 
   boughtOrders.forEach(o => {
     if (!o.bought_at || !o.buy_fill_price) return;
+    const ts  = Math.floor(o.bought_at / 1000);
+    if (ts < chartStart) return;
     const key = `ab_${o.id}`;
     if (!seen.has(key)) {
       seen.add(key);
       markers.push({
-        time: Math.floor(o.bought_at / 1000), position: 'belowBar',
+        time: ts, position: 'belowBar',
         color: '#f97316', shape: 'arrowUp', size: 1,
         text: 'B ' + fmtPepe(o.buy_fill_price),
       });
@@ -2490,11 +2621,12 @@ function pepeStopWs() {
 // ── Load historical klines ──────────────────────────────────────────────────
 async function pepeLoadHistory() {
   try {
-    const url  = 'https://api.binance.com/api/v3/klines?symbol=PEPEUSDT&interval=1m&limit=200';
+    const url  = 'https://api.binance.com/api/v3/klines?symbol=PEPEUSDT&interval=1m&limit=500';
     const resp = await fetch(url);
     const data = await resp.json();
     if (!Array.isArray(data) || !_pepeSeries) return;
     const pts = data.map(k => ({ time: Math.floor(k[0] / 1000), value: parseFloat(k[4]) }));
+    if (pts.length > 0) _pepeChartStart = pts[0].time;
     _pepeSeries.setData(pts);
     _pepeChart.timeScale().scrollToRealTime();
   } catch (_) {}
@@ -2511,14 +2643,16 @@ function pepeRenderOrders(orders) {
   }
   badge.textContent = orders.length + ' niveles';
   tbody.innerHTML = orders.map(o => {
-    const isBought = o.status === 'bought';
-    const gi = o.sell_price - o.buy_price;
+    const isBought  = o.status === 'bought';
+    // For bought orders show the actual fill price; for pending orders show the target.
+    const buyPriceDisplay = isBought ? (o.buy_fill_price ?? o.buy_price) : o.buy_price;
+    const gi = o.sell_price - buyPriceDisplay;
     const potPnl = gi > 0
-      ? ((gi / o.buy_price) * o.order_size - o.order_size * 0.002).toFixed(6)
+      ? ((gi / buyPriceDisplay) * o.order_size - o.order_size * 0.002).toFixed(6)
       : '—';
     return `<tr>
       <td class="num">${o.level_index >= 0 ? '+' : ''}${o.level_index}</td>
-      <td class="num">${fmtPepe(o.buy_price)}</td>
+      <td class="num">${fmtPepe(buyPriceDisplay)}</td>
       <td class="num">${fmtPepe(o.sell_price)}</td>
       <td>${isBought
         ? '<span class="tl-badge tl-open" style="background:rgba(249,115,22,0.12);color:#f97316">COMPRADO</span>'
@@ -2598,11 +2732,18 @@ function pepeApplyStatus(d) {
     if (ctrlMsg && ctrlMsg.style.color !== 'var(--muted)') ctrlMsg.textContent = '';
   }
 
-  // MA history line
+  // MA history line — full setData() only when a new candle arrives (length changes);
+  // otherwise update() just the live right-edge point to avoid chart flicker.
   if (_pepeMaSeries && Array.isArray(d.ma_history) && d.ma_history.length > 0) {
-    _pepeMaSeries.setData(d.ma_history);
+    if (d.ma_history.length !== _pepeMaHistoryLen) {
+      _pepeMaSeries.setData(d.ma_history);
+      _pepeMaHistoryLen = d.ma_history.length;
+    } else {
+      _pepeMaSeries.update(d.ma_history[d.ma_history.length - 1]);
+    }
   } else if (_pepeMaSeries && !running) {
     _pepeMaSeries.setData([]);
+    _pepeMaHistoryLen = 0;
   }
 
   // Metrics
@@ -2683,6 +2824,7 @@ function pepeApplyStatus(d) {
   const boughtOrders = (d.orders || []).filter(o => o.status === 'bought');
   pepeSetMarkers(d.recent_trades, boughtOrders);
   pepeRenderOrders(d.orders);
+  pepeDrawOrderDots(d.orders);
   pepeRenderTrades(d.recent_trades);
 
   // Live-update alloc legend row for Grid PEPE (capital = bought_orders × order_size)
