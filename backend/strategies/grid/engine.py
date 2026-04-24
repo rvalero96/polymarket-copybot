@@ -19,6 +19,7 @@ class GridEngine:
         self._max_history = 600
         self.running = False
         self._config_id: int | None = None
+        self._order_size_pct: float = 0.0
         self._pending: dict[int, dict] = {}
         self._bought: dict[int, dict] = {}
         self._last_check = 0.0
@@ -76,13 +77,13 @@ class GridEngine:
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
-    async def start(self, grid_min: float, grid_max: float, levels: int, order_size: float) -> dict:
+    async def start(self, grid_min: float, grid_max: float, levels: int, order_size_pct: float) -> dict:
         if self._start_lock.locked():
             return {"ok": False, "error": "Grid start already in progress"}
         async with self._start_lock:
-            return await self._start_inner(grid_min, grid_max, levels, order_size)
+            return await self._start_inner(grid_min, grid_max, levels, order_size_pct)
 
-    async def _start_inner(self, grid_min: float, grid_max: float, levels: int, order_size: float) -> dict:
+    async def _start_inner(self, grid_min: float, grid_max: float, levels: int, order_size_pct: float) -> dict:
         task_alive = self._task and not self._task.done()
         if self.running and task_alive:
             return {"ok": False, "error": "Grid already running"}
@@ -112,18 +113,21 @@ class GridEngine:
             "UPDATE grid_orders SET status='cancelled' WHERE status IN ('pending','bought')"
         )
 
+        bankroll       = await self._get_bankroll(db)
+        order_size     = round(bankroll * order_size_pct, 2)
+
         async with db.execute(
-            "INSERT INTO grid_config (grid_min, grid_max, levels, order_size, status, created_at, updated_at) VALUES (?,?,?,?,'running',?,?)",
-            (grid_min, grid_max, levels, order_size, now_ms, now_ms)
+            "INSERT INTO grid_config (grid_min, grid_max, levels, order_size, order_size_pct, status, created_at, updated_at) VALUES (?,?,?,?,?,'running',?,?)",
+            (grid_min, grid_max, levels, order_size, order_size_pct, now_ms, now_ms)
         ) as cur:
             config_id = cur.lastrowid
         await db.commit()
 
-        self._config_id = config_id
+        self._config_id      = config_id
+        self._order_size_pct = order_size_pct
         self._pending.clear()
         self._bought.clear()
 
-        bankroll       = await self._get_bankroll(db)
         bankroll_spent = 0.0
         spacing        = (grid_max - grid_min) / levels
         active         = 0
@@ -286,12 +290,13 @@ class GridEngine:
         spacing = round((config["grid_max"] - config["grid_min"]) / config["levels"], 2) if config["levels"] else 0
 
         return {
-            "status":        "running" if self.running else "stopped",
-            "current_price": self._price,
-            "grid_min":      config["grid_min"],
-            "grid_max":      config["grid_max"],
-            "levels":        config["levels"],
-            "order_size":    config["order_size"],
+            "status":         "running" if self.running else "stopped",
+            "current_price":  self._price,
+            "grid_min":       config["grid_min"],
+            "grid_max":       config["grid_max"],
+            "levels":         config["levels"],
+            "order_size":     config["order_size"],
+            "order_size_pct": config["order_size_pct"],
             "spacing":       spacing,
             "out_of_range":  (
                 self._price is not None and
@@ -392,9 +397,10 @@ class GridEngine:
                    VALUES (?,?,?,?,?,?,?,?)""",
                 (oid, order["buy_fill_price"], price, order["order_size"], pnl, round(fee, 4), order["bought_at"], ts_ms)
             )
+            new_order_size = round(bankroll * self._order_size_pct, 2) if self._order_size_pct else order["order_size"]
             async with db.execute(
                 "INSERT INTO grid_orders (config_id, level, buy_price, sell_price, order_size, status) VALUES (?,?,?,?,?,'pending')",
-                (order["config_id"], order["level"], order["buy_price"], order["sell_price"], order["order_size"])
+                (order["config_id"], order["level"], order["buy_price"], order["sell_price"], new_order_size)
             ) as cur:
                 new_id = cur.lastrowid
 
@@ -402,7 +408,7 @@ class GridEngine:
             self._pending[new_id] = {
                 "id": new_id, "config_id": order["config_id"], "level": order["level"],
                 "buy_price": order["buy_price"], "sell_price": order["sell_price"],
-                "order_size": order["order_size"],
+                "order_size": new_order_size,
             }
             logger.info("grid:sell:filled", {"level": order["level"], "price": price, "pnl": pnl, "bankroll": round(bankroll, 2)})
 

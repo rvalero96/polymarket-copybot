@@ -169,14 +169,15 @@ CREATE TABLE IF NOT EXISTS arb_trades (
 );
 
 CREATE TABLE IF NOT EXISTS grid_config (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    grid_min    REAL    NOT NULL,
-    grid_max    REAL    NOT NULL,
-    levels      INTEGER NOT NULL,
-    order_size  REAL    NOT NULL,
-    status      TEXT    NOT NULL DEFAULT 'stopped',
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    grid_min        REAL    NOT NULL,
+    grid_max        REAL    NOT NULL,
+    levels          INTEGER NOT NULL,
+    order_size      REAL    NOT NULL,
+    order_size_pct  REAL,
+    status          TEXT    NOT NULL DEFAULT 'stopped',
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS grid_orders (
@@ -206,18 +207,19 @@ CREATE TABLE IF NOT EXISTS grid_trades (
 );
 
 CREATE TABLE IF NOT EXISTS pepe_grid_config (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_size   REAL    NOT NULL,
-    ma_type      TEXT    NOT NULL DEFAULT 'EMA',
-    ma_period    INTEGER NOT NULL DEFAULT 20,
-    interval_pct REAL    NOT NULL DEFAULT 0.02,
-    laziness_pct REAL    NOT NULL DEFAULT 0.015,
-    candle_tf    TEXT    NOT NULL DEFAULT '1m',
-    anchor_price REAL,
-    grid_interval REAL,
-    status       TEXT    NOT NULL DEFAULT 'stopped',
-    created_at   INTEGER NOT NULL,
-    updated_at   INTEGER NOT NULL
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_size      REAL    NOT NULL,
+    order_size_pct  REAL,
+    ma_type         TEXT    NOT NULL DEFAULT 'EMA',
+    ma_period       INTEGER NOT NULL DEFAULT 20,
+    interval_pct    REAL    NOT NULL DEFAULT 0.02,
+    laziness_pct    REAL    NOT NULL DEFAULT 0.015,
+    candle_tf       TEXT    NOT NULL DEFAULT '1m',
+    anchor_price    REAL,
+    grid_interval   REAL,
+    status          TEXT    NOT NULL DEFAULT 'stopped',
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS pepe_grid_orders (
@@ -272,4 +274,6 @@ MIGRATIONS = [
     "ALTER TABLE arb_trades ADD COLUMN title TEXT",
     "ALTER TABLE arb_trades ADD COLUMN market_slug TEXT",
     "ALTER TABLE pepe_grid_trades ADD COLUMN close_reason TEXT NOT NULL DEFAULT 'grid'",
+    "ALTER TABLE grid_config ADD COLUMN order_size_pct REAL",
+    "ALTER TABLE pepe_grid_config ADD COLUMN order_size_pct REAL",
 ]

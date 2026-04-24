@@ -13,10 +13,10 @@ router = APIRouter(prefix="/api/grid", tags=["grid"])
 
 
 class GridStartRequest(BaseModel):
-    grid_min:   float = Field(default=80000.0, gt=0)
-    grid_max:   float = Field(default=90000.0, gt=0)
-    levels:     int   = Field(default=10, ge=2, le=200)
-    order_size: float = Field(default=50.0, gt=0)
+    grid_min:       float = Field(default=80000.0, gt=0)
+    grid_max:       float = Field(default=90000.0, gt=0)
+    levels:         int   = Field(default=10, ge=2, le=200)
+    order_size_pct: float = Field(default=0.05, gt=0, lt=1.0)
 
 
 def _query_token(token: str = Query(...)) -> str:
@@ -65,7 +65,7 @@ async def get_grid_status(_: str = Depends(require_token)):
 
 @router.post("/start")
 async def start_grid(req: GridStartRequest, _: str = Depends(require_token)):
-    return await grid_engine.start(req.grid_min, req.grid_max, req.levels, req.order_size)
+    return await grid_engine.start(req.grid_min, req.grid_max, req.levels, req.order_size_pct)
 
 
 @router.post("/stop")

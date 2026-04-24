@@ -104,11 +104,12 @@ class AdaptiveGridPepeEngine:
         # Candle / MA state
         self._candles: list[dict] = []
         self._ma_value: float | None = None
-        self._ma_type:      str   = CONFIG.pepe_grid_ma_type
-        self._ma_period:    int   = CONFIG.pepe_grid_ma_period
-        self._order_size:   float = CONFIG.pepe_grid_order_size
-        self._interval_pct: float = CONFIG.pepe_grid_interval_pct
-        self._laziness_pct: float = CONFIG.pepe_grid_laziness_pct
+        self._ma_type:        str   = CONFIG.pepe_grid_ma_type
+        self._ma_period:      int   = CONFIG.pepe_grid_ma_period
+        self._order_size:     float = CONFIG.pepe_grid_order_size
+        self._order_size_pct: float = 0.0
+        self._interval_pct:   float = CONFIG.pepe_grid_interval_pct
+        self._laziness_pct:   float = CONFIG.pepe_grid_laziness_pct
 
         # SSE pub/sub
         self._subscribers: list[asyncio.Queue] = []
@@ -246,8 +247,9 @@ class AdaptiveGridPepeEngine:
             {o["level_index"] for o in self._bought.values()}
         )
 
-        levels = self._grid_levels
-        order_size = self._order_size
+        levels     = self._grid_levels
+        bankroll   = await self._get_bankroll(db)
+        order_size = round(bankroll * self._order_size_pct, 8) if self._order_size_pct else self._order_size
         for i in range(1, 9):
             buy_price  = levels[i]
             sell_price = levels[i - 1]
@@ -374,12 +376,13 @@ class AdaptiveGridPepeEngine:
             del self._bought[oid]
 
             if grid_min <= order["buy_price"] <= grid_max:
+                new_order_size = round(bankroll * self._order_size_pct, 8) if self._order_size_pct else order["order_size"]
                 async with db.execute(
                     """INSERT INTO pepe_grid_orders
                        (config_id, grid_epoch, level_index, buy_price, sell_price, order_size, status)
                        VALUES (?,?,?,?,?,?,'pending')""",
                     (self._config_id, self._grid_epoch, order["level_index"],
-                     order["buy_price"], order["sell_price"], order["order_size"])
+                     order["buy_price"], order["sell_price"], new_order_size)
                 ) as cur:
                     new_id = cur.lastrowid
                 self._pending[new_id] = {
@@ -388,7 +391,7 @@ class AdaptiveGridPepeEngine:
                     "level_index": order["level_index"],
                     "buy_price": order["buy_price"],
                     "sell_price": order["sell_price"],
-                    "order_size": order["order_size"],
+                    "order_size": new_order_size,
                 }
 
             logger.info("pepe_grid:sell:filled", {
@@ -456,7 +459,7 @@ class AdaptiveGridPepeEngine:
 
     async def start(
         self,
-        order_size: float,
+        order_size_pct: float,
         ma_type: str,
         ma_period: int,
         interval_pct: float,
@@ -466,11 +469,11 @@ class AdaptiveGridPepeEngine:
             return {"ok": False, "error": "PEPE grid start already in progress"}
 
         async with self._start_lock:
-            return await self._start_inner(order_size, ma_type, ma_period, interval_pct, laziness_pct)
+            return await self._start_inner(order_size_pct, ma_type, ma_period, interval_pct, laziness_pct)
 
     async def _start_inner(
         self,
-        order_size: float,
+        order_size_pct: float,
         ma_type: str,
         ma_period: int,
         interval_pct: float,
@@ -512,6 +515,9 @@ class AdaptiveGridPepeEngine:
 
         db = await get_db()
         now_ms = int(time.time() * 1000)
+        bankroll = await self._get_bankroll(db)
+        order_size = round(bankroll * order_size_pct, 8)
+
         await db.execute(
             "UPDATE pepe_grid_config SET status='stopped', updated_at=? WHERE status='running'",
             (now_ms,)
@@ -525,10 +531,10 @@ class AdaptiveGridPepeEngine:
         gi = ma * interval_pct
         async with db.execute(
             """INSERT INTO pepe_grid_config
-               (order_size, ma_type, ma_period, interval_pct, laziness_pct, candle_tf,
+               (order_size, order_size_pct, ma_type, ma_period, interval_pct, laziness_pct, candle_tf,
                 anchor_price, grid_interval, status, created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,'running',?,?)""",
-            (order_size, ma_type, ma_period, interval_pct, laziness_pct,
+               VALUES (?,?,?,?,?,?,?,?,?,'running',?,?)""",
+            (order_size, order_size_pct, ma_type, ma_period, interval_pct, laziness_pct,
              CONFIG.pepe_grid_candle_tf, ma, gi, now_ms, now_ms)
         ) as cur:
             self._config_id = cur.lastrowid
@@ -537,11 +543,12 @@ class AdaptiveGridPepeEngine:
         self._anchor = ma
         self._gi = gi
         self._ma_value = ma
-        self._ma_type      = ma_type
-        self._ma_period    = ma_period
-        self._order_size   = order_size
-        self._interval_pct = interval_pct
-        self._laziness_pct = laziness_pct
+        self._ma_type        = ma_type
+        self._ma_period      = ma_period
+        self._order_size     = order_size
+        self._order_size_pct = order_size_pct
+        self._interval_pct   = interval_pct
+        self._laziness_pct   = laziness_pct
         self._grid_epoch   = 1
         self._last_reset_at = int(time.time() * 1000)
         self._grid_levels = self._build_grid_levels(ma)
@@ -769,8 +776,9 @@ class AdaptiveGridPepeEngine:
             "grid_interval": self._gi,
             "grid_levels":   self._grid_levels,
             "grid_epoch":    self._grid_epoch,
-            "order_size":    config["order_size"],
-            "ma_type":       config["ma_type"],
+            "order_size":     config["order_size"],
+            "order_size_pct": config["order_size_pct"],
+            "ma_type":        config["ma_type"],
             "ma_period":     config["ma_period"],
             "interval_pct":  config["interval_pct"],
             "laziness_pct":  config["laziness_pct"],
