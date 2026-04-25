@@ -219,6 +219,12 @@ class AdaptiveGridPepeEngine:
             "UPDATE pepe_grid_config SET anchor_price=?, grid_interval=?, updated_at=? WHERE id=?",
             (ap, gi, now_ms, self._config_id)
         )
+        await db.execute(
+            """INSERT INTO pepe_grid_epoch_history
+               (config_id, grid_epoch, anchor_price, grid_interval, interval_pct, started_at)
+               VALUES (?,?,?,?,?,?)""",
+            (self._config_id, self._grid_epoch, ap, gi, self._interval_pct, now_ms)
+        )
         await db.commit()
 
     # ── Grid reset ──────────────────────────────────────────────────────────────
@@ -539,6 +545,13 @@ class AdaptiveGridPepeEngine:
         ) as cur:
             self._config_id = cur.lastrowid
 
+        await db.execute(
+            """INSERT INTO pepe_grid_epoch_history
+               (config_id, grid_epoch, anchor_price, grid_interval, interval_pct, started_at)
+               VALUES (?,?,?,?,?,?)""",
+            (self._config_id, 1, ma, gi, interval_pct, now_ms)
+        )
+
         # Set engine state
         self._anchor = ma
         self._gi = gi
@@ -688,6 +701,13 @@ class AdaptiveGridPepeEngine:
             LIMIT 100
         """, (config["id"],))
 
+        epoch_history = await fetchall(db, """
+            SELECT grid_epoch, anchor_price, grid_interval, interval_pct, started_at
+            FROM pepe_grid_epoch_history
+            WHERE config_id = ?
+            ORDER BY grid_epoch
+        """, (config["id"],))
+
         total_pnl   = sum(t["pnl"] for t in trades)
         grid_trades = [t for t in trades if (t.get("close_reason") or "grid") != "stop"]
         wins        = sum(1 for t in grid_trades if t["pnl"] > 0)
@@ -784,6 +804,7 @@ class AdaptiveGridPepeEngine:
             "laziness_pct":  config["laziness_pct"],
             "ma_value":      self._ma_value,
             "ma_history":    ma_history,
+            "grid_history":  epoch_history,
             "last_reset_at": self._last_reset_at,
             "metrics": {
                 "total_pnl":      round(total_pnl, 10),

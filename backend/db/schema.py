@@ -253,6 +253,16 @@ CREATE TABLE IF NOT EXISTS pepe_grid_trades (
     opened_at       INTEGER NOT NULL,
     closed_at       INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS pepe_grid_epoch_history (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_id     INTEGER NOT NULL REFERENCES pepe_grid_config(id),
+    grid_epoch    INTEGER NOT NULL,
+    anchor_price  REAL    NOT NULL,
+    grid_interval REAL    NOT NULL,
+    interval_pct  REAL    NOT NULL,
+    started_at    INTEGER NOT NULL
+);
 """
 
 MIGRATIONS = [
@@ -276,4 +286,13 @@ MIGRATIONS = [
     "ALTER TABLE pepe_grid_trades ADD COLUMN close_reason TEXT NOT NULL DEFAULT 'grid'",
     "ALTER TABLE grid_config ADD COLUMN order_size_pct REAL",
     "ALTER TABLE pepe_grid_config ADD COLUMN order_size_pct REAL",
+    """CREATE TABLE IF NOT EXISTS pepe_grid_epoch_history (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_id     INTEGER NOT NULL REFERENCES pepe_grid_config(id),
+    grid_epoch    INTEGER NOT NULL,
+    anchor_price  REAL    NOT NULL,
+    grid_interval REAL    NOT NULL,
+    interval_pct  REAL    NOT NULL,
+    started_at    INTEGER NOT NULL
+)""",
 ]

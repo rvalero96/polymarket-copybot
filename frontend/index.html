@@ -2291,19 +2291,20 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
 // GRID PEPE (Adaptive)
 // ═══════════════════════════════════════════════════════════════════════════
 
-let _pepeChart        = null;
-let _pepeSeries       = null;
-let _pepeMaSeries     = null;   // MA line overlay
-let _pepeCandles      = new Map(); // minute-boundary ts → close price (for dot Y alignment)
-let _pepePriceLines   = [];
-let _pepeWs           = null;
-let _pepeSSE          = null;
-let _pepeTabActive    = false;
-let _pepeInputsFilled = false;
-let _pepeChartStart   = 0;      // unix-seconds of oldest loaded kline
-let _pepeMaHistoryLen = 0;      // last known ma_history length (to avoid full redraws)
-let _pepeOrderDots    = [];     // [{el, price}] — repositioned on scale change
-let _pepeTradeDots    = [];     // [{el, time, price}] — completed trade entry/exit dots
+let _pepeChart           = null;
+let _pepeSeries          = null;
+let _pepeMaSeries        = null;   // MA line overlay
+let _pepeHistorySeries   = [];     // 9 LineSeries for historical grid epochs
+let _pepeCandles         = new Map(); // minute-boundary ts → close price
+let _pepePriceLines      = [];
+let _pepeWs              = null;
+let _pepeSSE             = null;
+let _pepeTabActive       = false;
+let _pepeInputsFilled    = false;
+let _pepeChartStart      = 0;      // unix-seconds of oldest loaded kline
+let _pepeMaHistoryLen    = 0;      // last known ma_history length (to avoid full redraws)
+let _pepeGridHistoryKey  = '';     // cache key to skip redundant redraws
+let _pepeOrderDots       = [];     // [{el, price}] — repositioned on scale change
 
 function fmtPepe(n) {
   if (n == null) return '—';
@@ -2347,6 +2348,25 @@ function pepeInitChart() {
     handleScale: true,
   });
 
+  // Historical grid epoch lines — drawn first so they sit behind the price area
+  const _HIST_COLORS = [
+    'rgba(249,115,22,0.22)', 'rgba(249,115,22,0.18)', 'rgba(249,115,22,0.15)', 'rgba(249,115,22,0.12)',
+    'rgba(0,255,163,0.22)',  // AP level
+    'rgba(255,77,77,0.12)',  'rgba(255,77,77,0.15)',  'rgba(255,77,77,0.18)',  'rgba(255,77,77,0.22)',
+  ];
+  _pepeHistorySeries = [];
+  for (let _hi = 0; _hi < 9; _hi++) {
+    _pepeHistorySeries.push(_pepeChart.addLineSeries({
+      color: _HIST_COLORS[_hi],
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceFormat: { type: 'custom', formatter: p => p.toFixed(9), minMove: 0.000000001 },
+    }));
+  }
+
   _pepeSeries = _pepeChart.addAreaSeries({
     lineColor: '#22c55e',
     topColor: 'rgba(34,197,94,0.08)',
@@ -2387,7 +2407,6 @@ function pepeInitChart() {
   // Resize observer
   const ro = new ResizeObserver(() => {
     if (_pepeChart) _pepeChart.applyOptions({ width: container.clientWidth });
-    pepeRepositionTradeDots();
   });
   ro.observe(container);
 
@@ -2407,10 +2426,6 @@ function pepeInitChart() {
   ].join('');
   container.appendChild(orderTip);
 
-  // Reposition dots when the price scale zooms or scrolls
-  _pepeChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-    requestAnimationFrame(pepeRepositionTradeDots);
-  });
 }
 
 // ── Price lines for adaptive grid levels ────────────────────────────────────
@@ -2545,82 +2560,80 @@ function pepeDrawOrderDots(orders) {
   });
 }
 
-// ── Completed trade dots ─────────────────────────────────────────────────────
-function pepeRepositionTradeDots() {
-  if (!_pepeSeries || !_pepeChart) return;
-  const timeScale = _pepeChart.timeScale();
-  const cont      = document.getElementById('pepe-grid-chart');
-  const scaleW    = (() => { try { return _pepeChart.priceScale('right').width() || 72; } catch (_) { return 72; } })();
-  const maxX      = cont ? (cont.clientWidth - scaleW) : 9999;
-  const DOT       = 8;
-  _pepeTradeDots.forEach(({ el, time }) => {
-    // Snap to the candle boundary so the dot sits exactly on the price-line data point
-    const candleMin  = Math.floor(time / 60) * 60;
-    const chartPrice = _pepeCandles.get(candleMin);
-    // Hide if candle data is missing (trade pre-dates loaded history or WS hasn't updated yet)
-    if (chartPrice == null) { el.style.display = 'none'; return; }
-    const x = timeScale.timeToCoordinate(candleMin);
-    const y = _pepeSeries.priceToCoordinate(chartPrice);
-    if (x == null || y == null || x < 0 || x > maxX) {
-      el.style.display = 'none';
-    } else {
-      el.style.display = 'block';
-      el.style.left    = (x - DOT / 2) + 'px';
-      el.style.top     = (y - DOT / 2) + 'px';
-    }
-  });
-}
-
+// ── Completed trade markers (native LightweightCharts markers with price labels) ──
 function pepeDrawTradeDots(trades) {
-  const ov = document.getElementById('pepe-order-ov');
-  if (!ov || !_pepeSeries || !_pepeChart) return;
+  if (!_pepeSeries) return;
 
-  // Clear any leftover LightweightCharts markers
-  _pepeSeries.setMarkers([]);
-
-  // Tear down previous trade dots
-  _pepeTradeDots.forEach(d => d.el.remove());
-  _pepeTradeDots = [];
-
-  const DOT        = 8;
   const chartStart = _pepeChartStart;
+  const markers    = [];
   const seen       = new Set();
 
-  function makeDot(color) {
-    const d = document.createElement('div');
-    d.style.cssText = [
-      `position:absolute;width:${DOT}px;height:${DOT}px;border-radius:50%;`,
-      `background:${color};box-shadow:0 0 5px ${color}80;`,
-      `pointer-events:none;`,
-    ].join('');
-    return d;
-  }
-
-  // Completed round-trip trades — buy dot + sell dot
   ;(trades || []).forEach(t => {
+    // Buy marker — arrowUp below the bar, orange
     const buyTs = t.opened_at ? Math.floor(t.opened_at / 1000) : 0;
+    const buyCandle = Math.floor(buyTs / 60) * 60;
     if (buyTs && buyTs >= chartStart && t.buy_price) {
       const key = `b_${t.opened_at}`;
       if (!seen.has(key)) {
         seen.add(key);
-        const dot = makeDot('#f97316');
-        ov.appendChild(dot);
-        _pepeTradeDots.push({ el: dot, time: buyTs, price: t.buy_price });
+        markers.push({ time: buyCandle, position: 'belowBar', color: '#f97316', shape: 'arrowUp',   text: fmtPepe(t.buy_price),  size: 1 });
       }
     }
+    // Sell marker — arrowDown above the bar, green
     const sellTs = t.closed_at ? Math.floor(t.closed_at / 1000) : 0;
+    const sellCandle = Math.floor(sellTs / 60) * 60;
     if (sellTs && sellTs >= chartStart && t.sell_price) {
       const key = `s_${t.closed_at}`;
       if (!seen.has(key)) {
         seen.add(key);
-        const dot = makeDot('#22c55e');
-        ov.appendChild(dot);
-        _pepeTradeDots.push({ el: dot, time: sellTs, price: t.sell_price });
+        markers.push({ time: sellCandle, position: 'aboveBar', color: '#22c55e', shape: 'arrowDown', text: fmtPepe(t.sell_price), size: 1 });
       }
     }
   });
 
-  pepeRepositionTradeDots();
+  markers.sort((a, b) => a.time - b.time);
+  _pepeSeries.setMarkers(markers);
+}
+
+// ── Historical grid epoch lines ──────────────────────────────────────────────
+function pepeUpdateHistoricalGrid(gridHistory, currentEpoch) {
+  if (!_pepeHistorySeries.length) return;
+
+  const key = `${(gridHistory || []).length}_${currentEpoch}`;
+  if (key === _pepeGridHistoryKey) return;
+  _pepeGridHistoryKey = key;
+
+  // Show past epochs only — current epoch is drawn by pepeSetPriceLines
+  const historical = (gridHistory || []).filter(e =>
+    e.grid_epoch < (currentEpoch != null ? currentEpoch : Infinity)
+  );
+
+  if (!historical.length) {
+    _pepeHistorySeries.forEach(s => s.setData([]));
+    return;
+  }
+
+  const nowSec   = Math.floor(Date.now() / 1000);
+  const levelData = Array.from({length: 9}, () => []);
+
+  historical.forEach(epoch => {
+    const startT = Math.floor(epoch.started_at / 1000);
+    const next   = (gridHistory || []).find(e => e.grid_epoch === epoch.grid_epoch + 1);
+    const endT   = next ? Math.floor(next.started_at / 1000) - 1 : nowSec;
+    if (endT <= startT) return;
+
+    const ap = epoch.anchor_price;
+    const gi = epoch.grid_interval;
+    for (let i = 0; i < 9; i++) {
+      levelData[i].push({ time: startT, value: ap + (4 - i) * gi });
+      levelData[i].push({ time: endT,   value: ap + (4 - i) * gi });
+    }
+  });
+
+  _pepeHistorySeries.forEach((series, i) => {
+    const data = levelData[i].sort((a, b) => a.time - b.time);
+    series.setData(data.length ? data : []);
+  });
 }
 
 // ── Binance WebSocket for real-time PEPE price ───────────────────────────────
@@ -2859,6 +2872,7 @@ function pepeApplyStatus(d) {
   }
 
   pepeDrawTradeDots(d.recent_trades);
+  pepeUpdateHistoricalGrid(d.grid_history, d.status === 'running' ? d.grid_epoch : null);
   // Clear order-level circles — grid price lines already show active order positions
   _pepeOrderDots.forEach(d => d.el.remove());
   _pepeOrderDots = [];
