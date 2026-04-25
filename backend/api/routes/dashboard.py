@@ -23,7 +23,8 @@ async def get_dashboard(_: str = Depends(require_token)):
     btc5m_active  = (await fetchone(db, "SELECT COALESCE(SUM(size_usdc), 0) AS s FROM btc5m_positions"))["s"] or 0
     grid_capital  = (await fetchone(db, "SELECT COALESCE(SUM(order_size), 0) AS s FROM grid_orders WHERE status='bought'"))["s"] or 0
     pepe_capital  = (await fetchone(db, "SELECT COALESCE(SUM(order_size), 0) AS s FROM pepe_grid_orders WHERE status='bought'"))["s"] or 0
-    capital_active = copy_active + btc5m_active + grid_capital + pepe_capital
+    stoch_capital = (await fetchone(db, "SELECT COALESCE(SUM(order_size), 0) AS s FROM stoch_btc_trades WHERE status='open'"))["s"] or 0
+    capital_active = copy_active + btc5m_active + grid_capital + pepe_capital + stoch_capital
     portfolio_total = bankroll + capital_active
 
     # Snapshot history for charts
@@ -75,6 +76,14 @@ async def get_dashboard(_: str = Depends(require_token)):
     pepe_active   = (await fetchone(db, "SELECT COUNT(*) AS n FROM pepe_grid_orders WHERE status IN ('pending','bought')"))["n"]
     pepe_bought   = (await fetchone(db, "SELECT COUNT(*) AS n FROM pepe_grid_orders WHERE status='bought'"))["n"]
 
+    # Stoch BTC stats
+    stoch_trades   = (await fetchone(db, "SELECT COUNT(*) AS n FROM stoch_btc_trades WHERE status='closed'"))["n"]
+    stoch_pnl      = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM stoch_btc_trades WHERE status='closed'"))["s"] or 0
+    stoch_wins     = (await fetchone(db, "SELECT COUNT(*) AS n FROM stoch_btc_trades WHERE status='closed' AND pnl > 0"))["n"]
+    stoch_win_rate = round(stoch_wins / stoch_trades * 100, 1) if stoch_trades > 0 else 0
+    stoch_signals  = (await fetchone(db, "SELECT COUNT(*) AS n FROM stoch_btc_signals"))["n"]
+    stoch_open     = (await fetchone(db, "SELECT COUNT(*) AS n FROM stoch_btc_trades WHERE status='open'"))["n"]
+
     # Active wallets
     active_wallets = await fetchall(
         db, "SELECT address, win_rate, roi, score, name FROM wallets WHERE active = 1 ORDER BY score DESC"
@@ -122,6 +131,7 @@ async def get_dashboard(_: str = Depends(require_token)):
             "arbitrage":    arb_trades,
             "grid":         grid_trades,
             "grid_pepe":    pepe_trades,
+            "stoch_btc":    stoch_trades,
         },
         "copy_stats": {
             "win_rate":   (copy_wins / copy_trades * 100) if copy_trades > 0 else 0,
@@ -158,6 +168,13 @@ async def get_dashboard(_: str = Depends(require_token)):
             "active_orders": pepe_active,
             "bought_orders": pepe_bought,
             "capital":       round(pepe_capital, 6),
+        },
+        "stoch_btc_stats": {
+            "win_rate":      stoch_win_rate,
+            "pnl":           round(stoch_pnl, 4),
+            "trade_count":   stoch_trades,
+            "signal_count":  stoch_signals,
+            "open_trades":   stoch_open,
         },
         "active_wallets": active_wallets,
         "last_updated":   (snap or {}).get("created_at"),

@@ -88,6 +88,13 @@ class Settings(BaseSettings):
     grid_fee_pct: float = 0.001
     grid_ws_url: str = "wss://stream.binance.com/ws/btcusdt@aggTrade"
 
+    # Stochastic BTC
+    stoch_btc_ws_url:       str   = "wss://stream.binance.com/ws/btcusdt@aggTrade"
+    stoch_btc_fee_pct:      float = 0.001
+    stoch_btc_k_period:     int   = 14
+    stoch_btc_d_period:     int   = 3
+    stoch_btc_candle_tf:    str   = "5m"
+
     # PEPE Adaptive Grid
     pepe_grid_ws_url:       str   = "wss://stream.binance.com/ws/pepeusdt@aggTrade"
     pepe_grid_fee_pct:      float = 0.001
