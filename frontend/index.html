@@ -2387,7 +2387,6 @@ function pepeInitChart() {
   // Resize observer
   const ro = new ResizeObserver(() => {
     if (_pepeChart) _pepeChart.applyOptions({ width: container.clientWidth });
-    pepeRepositionOrderDots();
     pepeRepositionTradeDots();
   });
   ro.observe(container);
@@ -2410,7 +2409,7 @@ function pepeInitChart() {
 
   // Reposition dots when the price scale zooms or scrolls
   _pepeChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-    requestAnimationFrame(() => { pepeRepositionOrderDots(); pepeRepositionTradeDots(); });
+    requestAnimationFrame(pepeRepositionTradeDots);
   });
 }
 
@@ -2554,11 +2553,14 @@ function pepeRepositionTradeDots() {
   const scaleW    = (() => { try { return _pepeChart.priceScale('right').width() || 72; } catch (_) { return 72; } })();
   const maxX      = cont ? (cont.clientWidth - scaleW) : 9999;
   const DOT       = 8;
-  _pepeTradeDots.forEach(({ el, time, price }) => {
-    const x          = timeScale.timeToCoordinate(time);
+  _pepeTradeDots.forEach(({ el, time }) => {
+    // Snap to the candle boundary so the dot sits exactly on the price-line data point
     const candleMin  = Math.floor(time / 60) * 60;
-    const chartPrice = _pepeCandles.get(candleMin) ?? price;
-    const y          = _pepeSeries.priceToCoordinate(chartPrice);
+    const chartPrice = _pepeCandles.get(candleMin);
+    // Hide if candle data is missing (trade pre-dates loaded history or WS hasn't updated yet)
+    if (chartPrice == null) { el.style.display = 'none'; return; }
+    const x = timeScale.timeToCoordinate(candleMin);
+    const y = _pepeSeries.priceToCoordinate(chartPrice);
     if (x == null || y == null || x < 0 || x > maxX) {
       el.style.display = 'none';
     } else {
@@ -2857,8 +2859,10 @@ function pepeApplyStatus(d) {
   }
 
   pepeDrawTradeDots(d.recent_trades);
+  // Clear order-level circles — grid price lines already show active order positions
+  _pepeOrderDots.forEach(d => d.el.remove());
+  _pepeOrderDots = [];
   pepeRenderOrders(d.orders);
-  pepeDrawOrderDots(d.orders);
   pepeRenderTrades(d.recent_trades);
 
   // Live-update alloc legend row for Grid PEPE (capital = bought_orders × order_size)
