@@ -387,6 +387,28 @@
       </div>
     </div>
 
+    <div class="sec-div" style="--accent:#eab308">
+      <div class="sec-dot" style="background:#eab308"></div><div class="sec-label">Estocástico BTC (paper)</div><div class="sec-line"></div>
+    </div>
+    <div class="stats-grid" style="--accent:#eab308">
+      <div class="stat-card" id="stoch-dash-pnl-card">
+        <div class="stat-label">P&amp;L realizado</div>
+        <div class="stat-value" id="stoch-dash-pnl">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trades cerrados</div>
+        <div class="stat-value" id="stoch-dash-closed">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Win rate</div>
+        <div class="stat-value" id="stoch-dash-wr">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Señales</div>
+        <div class="stat-value" id="stoch-dash-signals">—</div>
+      </div>
+    </div>
+
     <div class="sec-div" style="--accent:#6366f1">
       <div class="sec-dot"></div><div class="sec-label">Estrategias</div><div class="sec-line"></div>
     </div>
@@ -564,6 +586,15 @@
             <div class="alloc-item-pct" id="alloc-pepe-pct">—</div>
           </div>
           <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-pepe-bar" style="background:#fb923c"></div></div>
+        </div>
+        <div class="alloc-item">
+          <div class="alloc-item-hd">
+            <div class="alloc-dot" style="background:#eab308"></div>
+            <div class="alloc-item-label">Estocástico BTC</div>
+            <div class="alloc-item-value" id="alloc-stoch">—</div>
+            <div class="alloc-item-pct" id="alloc-stoch-pct">—</div>
+          </div>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-stoch-bar" style="background:#eab308"></div></div>
         </div>
         <div class="alloc-item" style="margin-top:0.2rem;padding-top:0.6rem;border-top:1px solid var(--border)">
           <div class="alloc-item-hd">
@@ -1397,7 +1428,7 @@ async function loadDashboard() {
 
   // Stats grid
   setText('d-capital-active', fmtU(d.capital_active));
-  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0) + (d.trade_counts?.grid || 0) + (d.trade_counts?.grid_pepe || 0);
+  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0) + (d.trade_counts?.grid || 0) + (d.trade_counts?.grid_pepe || 0) + (d.trade_counts?.stoch_btc || 0);
   setText('d-stat-open', d.open_positions || 0);
   setText('d-stat-closed', totalClosed);
 
@@ -1464,6 +1495,17 @@ async function loadDashboard() {
   const pepeWrEl = document.getElementById('pepe-dash-wr');
   if (pepeWrEl) { pepeWrEl.textContent = ps.trade_count > 0 ? fmtPct(ps.win_rate) : '—'; }
 
+  // Stochastic BTC stats
+  const ss = d.stoch_btc_stats || {};
+  const stochDashPnlEl = document.getElementById('stoch-dash-pnl');
+  if (stochDashPnlEl) { stochDashPnlEl.textContent = ss.pnl != null ? pnlSign(ss.pnl) : '—'; stochDashPnlEl.className = 'stat-value ' + pnlClass(ss.pnl); }
+  document.getElementById('stoch-dash-pnl-card')?.classList.toggle('border-pos', (ss.pnl || 0) > 0);
+  document.getElementById('stoch-dash-pnl-card')?.classList.toggle('border-neg', (ss.pnl || 0) < 0);
+  setText('stoch-dash-closed', ss.trade_count || 0);
+  setText('stoch-dash-signals', ss.signal_count || 0);
+  const stochWrEl = document.getElementById('stoch-dash-wr');
+  if (stochWrEl) { stochWrEl.textContent = ss.trade_count > 0 ? fmtPct(ss.win_rate) : '—'; }
+
   // AAVE
   const av = d.aave || {};
   setText('aave-today', '+' + fmtU(av.today_yield));
@@ -1520,19 +1562,19 @@ async function loadDashboard() {
   `).join('') : '<tr><td colspan="8" class="empty">Sin snapshots Kelly</td></tr>';
 
   // Historial stats
-  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0, gridPnl = gs.pnl || 0, pepePnl = ps.pnl || 0;
-  const netPnl = copyPnl + btcPnl + arbPnl + gridPnl + pepePnl;
+  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0, gridPnl = gs.pnl || 0, pepePnl = ps.pnl || 0, stochPnl = ss.pnl || 0;
+  const netPnl = copyPnl + btcPnl + arbPnl + gridPnl + pepePnl + stochPnl;
   const histPnlEl = document.getElementById('hist-pnl');
   if (histPnlEl) { histPnlEl.textContent = pnlSign(netPnl); histPnlEl.className = 'stat-value ' + pnlClass(netPnl); }
   document.getElementById('hist-pnl-card')?.classList.toggle('border-pos', netPnl >= 0);
   document.getElementById('hist-pnl-card')?.classList.toggle('border-neg', netPnl < 0);
-  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0) + (gs.active_orders || 0) + (ps.active_orders || 0);
+  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0) + (gs.active_orders || 0) + (ps.active_orders || 0) + (ss.open_trades || 0);
   setText('hist-open', openCount);
   setText('hist-closed', totalClosed);
 
   // Alloc chart/legend
   const pt = d.portfolio_total || 1;
-  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0, gridAc = d.capital_grid || 0, pepeAc = d.capital_pepe || 0;
+  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0, gridAc = d.capital_grid || 0, pepeAc = d.capital_pepe || 0, stochAc = d.capital_stoch || 0;
   setText('alloc-total', fmtU(pt));
   setText('alloc-cash', fmtU(cash));
   setText('alloc-cash-pct', fmt(cash / pt * 100, 0) + '%');
@@ -1549,6 +1591,9 @@ async function loadDashboard() {
   setText('alloc-pepe', fmtU(pepeAc));
   setText('alloc-pepe-pct', fmt(pepeAc / pt * 100, 0) + '%');
   const pepeBar = document.getElementById('alloc-pepe-bar'); if (pepeBar) pepeBar.style.width = (pepeAc/pt*100).toFixed(1) + '%';
+  setText('alloc-stoch', fmtU(stochAc));
+  setText('alloc-stoch-pct', fmt(stochAc / pt * 100, 0) + '%');
+  const stochBar = document.getElementById('alloc-stoch-bar'); if (stochBar) stochBar.style.width = (stochAc/pt*100).toFixed(1) + '%';
   const pnlTot = d.pnl_total || 0;
   const allocPnlEl = document.getElementById('alloc-pnl');
   if (allocPnlEl) { allocPnlEl.textContent = pnlSign(pnlTot); allocPnlEl.className = 'alloc-item-value ' + pnlClass(pnlTot); }
@@ -1559,8 +1604,8 @@ async function loadDashboard() {
   allocChart = new Chart(document.getElementById('allocChart'), {
     type: 'doughnut',
     data: {
-      labels: ['Cash libre', 'Copy activo', '5m activo', 'Grid BTC', 'Grid PEPE'],
-      datasets: [{ data: [cash, copyAc, btcAc, gridAc, pepeAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)', 'rgba(249,115,22,0.8)', 'rgba(251,146,60,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b', '#f97316', '#fb923c'], borderWidth: 1.5, hoverOffset: 8 }],
+      labels: ['Cash libre', 'Copy activo', '5m activo', 'Grid BTC', 'Grid PEPE', 'Estocástico BTC'],
+      datasets: [{ data: [cash, copyAc, btcAc, gridAc, pepeAc, stochAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)', 'rgba(249,115,22,0.8)', 'rgba(251,146,60,0.8)', 'rgba(234,179,8,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b', '#f97316', '#fb923c', '#eab308'], borderWidth: 1.5, hoverOffset: 8 }],
     },
     options: { responsive: true, maintainAspectRatio: false, cutout: '68%', layout: { padding: 8 }, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a1919', titleColor: '#ADAAAA', bodyColor: '#fff', borderColor: 'rgba(72,72,71,0.3)', borderWidth: 1, padding: 10, callbacks: { label: ctx => ' $' + ctx.parsed.toFixed(2) } } } },
   });
@@ -3301,13 +3346,24 @@ function stochInitCharts() {
   });
 
   // Sync crosshair — vertical line appears on both charts simultaneously
+  let _crosshairSyncing = false;
   _stochPriceChart.subscribeCrosshairMove(param => {
-    if (!param.time || !_stochKSeries) { _stochOscChart.clearCrosshairPosition(); return; }
-    _stochOscChart.setCrosshairPosition(50, param.time, _stochKSeries);
+    if (_crosshairSyncing) return;
+    _crosshairSyncing = true;
+    if (!param.time || !_stochKSeries) { _stochOscChart.clearCrosshairPosition(); }
+    else { _stochOscChart.setCrosshairPosition(50, param.time, _stochKSeries); }
+    _crosshairSyncing = false;
   });
   _stochOscChart.subscribeCrosshairMove(param => {
-    if (!param.time || !_stochPriceSeries) { _stochPriceChart.clearCrosshairPosition(); return; }
-    _stochPriceChart.setCrosshairPosition(param.point ? _stochPriceChart.priceScale('right').coordinateToPrice(param.point.y) : 0, param.time, _stochPriceSeries);
+    if (_crosshairSyncing) return;
+    _crosshairSyncing = true;
+    if (!param.time || !_stochPriceSeries) { _stochPriceChart.clearCrosshairPosition(); }
+    else {
+      const candle = _stochCandles.find(c => c.time === param.time) || _stochCurrentCandle;
+      const price = candle ? candle.close : 0;
+      _stochPriceChart.setCrosshairPosition(price, param.time, _stochPriceSeries);
+    }
+    _crosshairSyncing = false;
   });
 }
 
