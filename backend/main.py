@@ -18,9 +18,11 @@ from api.routes import dashboard, positions, trades, strategies as strategies_ro
 from api.routes.strategies import set_strategies
 from api.routes.grid import router as grid_router
 from api.routes.grid_pepe import router as grid_pepe_router
+from api.routes.stoch_btc import router as stoch_btc_router
 from api.routes.reset import router as reset_router
 from strategies.grid import grid_engine
 from strategies.grid_pepe import pepe_grid_engine
+from strategies.stoch_btc import stoch_btc_engine
 from logger import logger
 
 # ── Instancias de estrategias ─────────────────────────────────────────────────
@@ -80,6 +82,10 @@ async def lifespan(app: FastAPI):
         "UPDATE grid_config SET status='stopped', updated_at=? WHERE status='running'",
         (_now_ms,)
     )
+    await db.execute(
+        "UPDATE stoch_btc_config SET status='stopped', updated_at=? WHERE status='running'",
+        (_now_ms,)
+    )
     await db.commit()
     logger.info("app:startup:stale_configs_cleared")
 
@@ -102,6 +108,7 @@ async def lifespan(app: FastAPI):
 
     await grid_engine.stop()
     await pepe_grid_engine.stop()
+    await stoch_btc_engine.stop()
     scheduler.shutdown()
     logger.info("app:shutdown")
 
@@ -121,6 +128,7 @@ app.include_router(trades.router)
 app.include_router(strategies_router.router)
 app.include_router(grid_router)
 app.include_router(grid_pepe_router)
+app.include_router(stoch_btc_router)
 app.include_router(reset_router)
 
 # Inyectar instancias de estrategias en el router de strategies

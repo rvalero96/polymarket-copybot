@@ -251,6 +251,7 @@
         <div class="nav-sub-label">Crypto Trading</div>
         <div class="nav-item nav-sub nav-sub2" data-tab="tab-grid"><span class="ms">grid_on</span> Grid BTC</div>
         <div class="nav-item nav-sub nav-sub2" data-tab="tab-grid-pepe"><span class="ms">blur_on</span> Grid PEPE</div>
+        <div class="nav-item nav-sub nav-sub2" data-tab="tab-stoch-btc"><span class="ms">ssid_chart</span> Estocástico BTC</div>
       </div>
     </div>
     <div class="nav-item" data-tab="tab-historial"><span class="ms">receipt_long</span> Historial</div>
@@ -383,6 +384,28 @@
       <div class="stat-card">
         <div class="stat-label">Órdenes activas</div>
         <div class="stat-value" id="pepe-dash-active">—</div>
+      </div>
+    </div>
+
+    <div class="sec-div" style="--accent:#eab308">
+      <div class="sec-dot" style="background:#eab308"></div><div class="sec-label">Estocástico BTC (paper)</div><div class="sec-line"></div>
+    </div>
+    <div class="stats-grid" style="--accent:#eab308">
+      <div class="stat-card" id="stoch-dash-pnl-card">
+        <div class="stat-label">P&amp;L realizado</div>
+        <div class="stat-value" id="stoch-dash-pnl">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trades cerrados</div>
+        <div class="stat-value" id="stoch-dash-closed">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Win rate</div>
+        <div class="stat-value" id="stoch-dash-wr">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Señales</div>
+        <div class="stat-value" id="stoch-dash-signals">—</div>
       </div>
     </div>
 
@@ -564,6 +587,15 @@
           </div>
           <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-pepe-bar" style="background:#fb923c"></div></div>
         </div>
+        <div class="alloc-item">
+          <div class="alloc-item-hd">
+            <div class="alloc-dot" style="background:#eab308"></div>
+            <div class="alloc-item-label">Estocástico BTC</div>
+            <div class="alloc-item-value" id="alloc-stoch">—</div>
+            <div class="alloc-item-pct" id="alloc-stoch-pct">—</div>
+          </div>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" id="alloc-stoch-bar" style="background:#eab308"></div></div>
+        </div>
         <div class="alloc-item" style="margin-top:0.2rem;padding-top:0.6rem;border-top:1px solid var(--border)">
           <div class="alloc-item-hd">
             <div class="alloc-dot" style="background:transparent;border:1px solid rgba(173,170,170,0.3)"></div>
@@ -598,7 +630,7 @@
       <div class="table-scroll"><table>
         <thead><tr>
           <th class="sortable" data-col="0"><div class="th-inner"><span>Fecha</span><span class="sort-icon">⇅</span></div></th>
-          <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m|Grid BTC:grid|Grid PEPE:grid_pepe" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
+          <th class="sortable" data-col="1"><div class="th-inner"><span>Estrategia</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="1" data-filter-type="select" data-filter-opts="Todas:|Copy:copy|5m:5m|Grid BTC:grid|Grid PEPE:grid_pepe|Estocástico:stoch" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="2"><div class="th-inner"><span>Mercado</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="2" data-filter-type="text" data-filter-ph="Buscar…" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="3"><div class="th-inner"><span>Asset</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="3" data-filter-type="select" data-filter-opts="Todos:|BTC:btc|ETH:eth|SOL:sol|XRP:xrp" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
           <th class="sortable" data-col="4"><div class="th-inner"><span>Outcome</span><span class="sort-icon">⇅</span><button class="th-filter-btn" data-filter-col="4" data-filter-type="select" data-filter-opts="Todos:|Yes:yes|No:no|UP:up|DOWN:down" title="Filtrar"><span class="ms" style="font-size:0.7rem">filter_list</span></button></div></th>
@@ -1055,6 +1087,184 @@
 
   </div><!-- /tab-grid-pepe -->
 
+  <!-- ESTOCÁSTICO BTC                                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-stoch-btc">
+
+    <!-- Metrics -->
+    <div class="metrics-hd" style="margin-bottom:0.75rem">
+      <div class="metric-hero" id="stoch-price-hero">
+        <div class="hero-icon-clip"><span class="ms hero-icon">ssid_chart</span></div>
+        <div class="hero-label" style="display:flex;align-items:center;gap:0.4rem">
+          BTC / USDT · Oscilador Estocástico
+          <div style="position:relative;display:inline-flex">
+            <span class="ms" style="font-size:0.95rem;color:rgba(173,170,170,0.45);cursor:default;line-height:1;user-select:none" id="stoch-info-icon">info</span>
+            <div id="stoch-info-tooltip" style="
+              display:none;position:absolute;left:50%;transform:translateX(-50%);top:calc(100% + 10px);
+              width:380px;background:#141414;border:1px solid rgba(99,102,241,0.35);border-radius:0.6rem;
+              padding:1rem 1.1rem;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,0.6);
+              font-size:0.73rem;color:var(--muted);line-height:1.7;pointer-events:none;
+              text-transform:none;letter-spacing:normal;font-weight:400;
+            ">
+              <div style="font-size:0.7rem;font-weight:600;color:#818cf8;margin-bottom:0.7rem">Oscilador Estocástico · Guía rápida</div>
+
+              <div style="font-size:0.65rem;font-weight:600;color:rgba(173,170,170,0.6);margin-bottom:0.3rem">Velas y temporalidad</div>
+              <div style="display:flex;flex-direction:column;gap:0.2rem;margin-bottom:0.65rem;font-size:0.63rem">
+                <span>· Una <b style="color:var(--text)">vela</b> = un periodo de tiempo con su precio de apertura, máximo, mínimo y cierre</span>
+                <span>· La <b style="color:var(--text)">temporalidad</b> = duración de cada vela. Con 5m cada vela dura 5 minutos; con 15m, 15 minutos</span>
+                <span>· El bot solo evalúa señales al <b style="color:var(--text)">cierre</b> de cada vela — no dentro de ella</span>
+              </div>
+
+              <div style="font-size:0.65rem;font-weight:600;color:rgba(173,170,170,0.6);margin-bottom:0.3rem">Parámetros</div>
+              <div style="display:flex;flex-direction:column;gap:0.2rem;margin-bottom:0.65rem;font-size:0.63rem">
+                <span>· <b style="color:var(--text)">Periodo %K</b> — cuántas velas mira atrás para calcular el rango máx/mín. Más alto = más lento y fiable, menos señales</span>
+                <span>· <b style="color:var(--text)">Suavizado %D</b> — cuántos valores de %K promedia para la línea de señal. Más alto = %D más suave, cruces más tardíos</span>
+                <span>· <b style="color:var(--text)">Temporalidad</b> — duración de cada vela. Más corta = más señales pero más ruido. Más larga = menos señales pero más fiables</span>
+              </div>
+
+              <div style="font-size:0.65rem;font-weight:600;color:rgba(173,170,170,0.6);margin-bottom:0.3rem">Señales</div>
+              <div style="display:flex;flex-direction:column;gap:0.2rem;margin-bottom:0.65rem;font-size:0.63rem">
+                <span><b style="color:rgba(34,197,94,0.85)">▲ Compra</b> — las 3 a la vez al cierre de vela:</span>
+                <span style="padding-left:0.7rem">· %K &lt; 20 (precio en la parte baja del rango → sobreventa)</span>
+                <span style="padding-left:0.7rem">· %K estaba por debajo de %D en la vela anterior</span>
+                <span style="padding-left:0.7rem">· %K cruza %D hacia arriba (giro alcista)</span>
+                <span style="margin-top:0.15rem"><b style="color:rgba(255,77,77,0.85)">▼ Venta</b> — las 3 a la vez al cierre de vela:</span>
+                <span style="padding-left:0.7rem">· %K &gt; 80 (precio en la parte alta del rango → sobrecompra)</span>
+                <span style="padding-left:0.7rem">· %K estaba por encima de %D en la vela anterior</span>
+                <span style="padding-left:0.7rem">· %K cruza %D hacia abajo (giro bajista)</span>
+              </div>
+
+              <div style="color:rgba(173,170,170,0.4);border-top:1px solid rgba(72,72,71,0.3);padding-top:0.45rem;font-size:0.62rem">
+                Configuración estándar recomendada: <b style="color:rgba(173,170,170,0.65)">Periodo %K = 14 · Suavizado %D = 3 · Temporalidad = 5m</b>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-value" id="stoch-price-val">—</div>
+        <span class="hero-badge" id="stoch-status-badge">STOPPED</span>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">%K (rápido)</div>
+        <div class="mc-value" id="stoch-k-val">—</div>
+        <div class="mc-sub">periodo <span id="stoch-k-lbl">14</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">%D (señal)</div>
+        <div class="mc-value" id="stoch-d-val">—</div>
+        <div class="mc-sub">SMA(<span id="stoch-d-lbl">3</span>)</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Zona</div>
+        <div class="mc-value" id="stoch-zone-val">—</div>
+        <div class="mc-sub" id="stoch-zone-sub">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">PnL Total</div>
+        <div class="mc-value" id="stoch-pnl-val">$0.00</div>
+        <div class="mc-sub" id="stoch-trades-sub">0 trades</div>
+      </div>
+    </div>
+
+    <!-- Config + controls -->
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Periodo %K</div>
+          <input id="stoch-inp-k" type="number" value="14" min="2" max="200"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Suavizado %D</div>
+          <input id="stoch-inp-d" type="number" value="3" min="1" max="50"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Temporalidad</div>
+          <select id="stoch-inp-tf"
+            style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none"
+            onchange="stochChangeTf()">
+            <option value="1m">1m</option>
+            <option value="5m" selected>5m</option>
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+            <option value="4h">4h</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden (% portfolio)</div>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <input id="stoch-inp-size" type="number" value="5" min="0.1" max="100" step="0.1"
+              style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+            <span style="font-size:0.72rem;color:var(--muted)">%</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.5rem;padding-bottom:1px">
+          <button id="stoch-btn-start" onclick="stochStart()"
+            style="background:var(--primary);border:none;border-radius:0.35rem;color:#000;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            START
+          </button>
+          <button id="stoch-btn-stop" onclick="stochStop()"
+            style="background:transparent;border:1px solid var(--tertiary);border-radius:0.35rem;color:var(--tertiary);padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            STOP
+          </button>
+        </div>
+        <div id="stoch-ctrl-msg" style="font-size:0.72rem;color:var(--muted);padding-bottom:2px"></div>
+      </div>
+      <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted);line-height:1.6">
+        <b style="color:rgba(34,197,94,0.9)">Compra</b>: %K &lt; 20 (sobreventa) + cruce alcista (%K cruza %D hacia arriba) ·
+        <b style="color:rgba(255,77,77,0.9)">Venta</b>: %K &gt; 80 (sobrecompra) + cruce bajista (%K cruza %D hacia abajo)
+      </div>
+    </div>
+
+    <!-- Price chart -->
+    <div class="chart-panel" style="margin-bottom:0;padding:1rem 1.25rem;border-bottom-left-radius:0;border-bottom-right-radius:0">
+      <div class="cp-hd">
+        <div class="cp-title">BTC/USDT · Precio</div>
+        <div class="cp-sub">▲ señal de compra · ▼ señal de venta</div>
+      </div>
+      <div id="stoch-price-chart" style="height:360px;width:100%"></div>
+    </div>
+
+    <!-- Oscillator chart -->
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:0.5rem 1.25rem 1rem;border-top-left-radius:0;border-top-right-radius:0;border-top:1px solid rgba(72,72,71,0.3)">
+      <div style="display:flex;align-items:center;gap:1.2rem;padding:0.4rem 0 0.6rem;font-size:0.68rem;color:var(--muted)">
+        <span style="font-weight:600;letter-spacing:0.08em;text-transform:uppercase">Estocástico</span>
+        <span style="display:flex;align-items:center;gap:0.4rem"><span style="width:14px;height:2px;background:#00FFA3;display:inline-block;border-radius:1px"></span>%K</span>
+        <span style="display:flex;align-items:center;gap:0.4rem"><span style="width:14px;height:2px;background:#F97316;display:inline-block;border-radius:1px"></span>%D</span>
+        <span style="color:rgba(255,77,77,0.6)">── 80 sobrecompra</span>
+        <span style="color:rgba(34,197,94,0.6)">── 20 sobreventa</span>
+      </div>
+      <div id="stoch-osc-chart" style="height:220px;width:100%"></div>
+    </div>
+
+    <!-- Position activa -->
+    <div id="stoch-position-panel" class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem;display:none">
+      <div class="cp-hd"><div class="cp-title">Posición abierta</div></div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;font-size:0.82rem;margin-top:0.5rem" id="stoch-position-info"></div>
+    </div>
+
+    <!-- Signals -->
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Señales recientes</span>
+        <span class="table-badge" id="stoch-signals-badge">0 señales</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Precio</th>
+            <th>%K</th>
+            <th>%D</th>
+          </tr></thead>
+          <tbody id="tbl-stoch-signals"><tr><td colspan="5" class="empty">Sin señales todavía</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /tab-stoch-btc -->
+
 </main>
 
 <footer class="statusbar">
@@ -1218,7 +1428,7 @@ async function loadDashboard() {
 
   // Stats grid
   setText('d-capital-active', fmtU(d.capital_active));
-  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0) + (d.trade_counts?.grid || 0) + (d.trade_counts?.grid_pepe || 0);
+  const totalClosed = (d.trade_counts?.copy_trading || 0) + (d.trade_counts?.btc5m || 0) + (d.trade_counts?.arbitrage || 0) + (d.trade_counts?.grid || 0) + (d.trade_counts?.grid_pepe || 0) + (d.trade_counts?.stoch_btc || 0);
   setText('d-stat-open', d.open_positions || 0);
   setText('d-stat-closed', totalClosed);
 
@@ -1285,6 +1495,17 @@ async function loadDashboard() {
   const pepeWrEl = document.getElementById('pepe-dash-wr');
   if (pepeWrEl) { pepeWrEl.textContent = ps.trade_count > 0 ? fmtPct(ps.win_rate) : '—'; }
 
+  // Stochastic BTC stats
+  const ss = d.stoch_btc_stats || {};
+  const stochDashPnlEl = document.getElementById('stoch-dash-pnl');
+  if (stochDashPnlEl) { stochDashPnlEl.textContent = ss.pnl != null ? pnlSign(ss.pnl) : '—'; stochDashPnlEl.className = 'stat-value ' + pnlClass(ss.pnl); }
+  document.getElementById('stoch-dash-pnl-card')?.classList.toggle('border-pos', (ss.pnl || 0) > 0);
+  document.getElementById('stoch-dash-pnl-card')?.classList.toggle('border-neg', (ss.pnl || 0) < 0);
+  setText('stoch-dash-closed', ss.trade_count || 0);
+  setText('stoch-dash-signals', ss.signal_count || 0);
+  const stochWrEl = document.getElementById('stoch-dash-wr');
+  if (stochWrEl) { stochWrEl.textContent = ss.trade_count > 0 ? fmtPct(ss.win_rate) : '—'; }
+
   // AAVE
   const av = d.aave || {};
   setText('aave-today', '+' + fmtU(av.today_yield));
@@ -1341,19 +1562,19 @@ async function loadDashboard() {
   `).join('') : '<tr><td colspan="8" class="empty">Sin snapshots Kelly</td></tr>';
 
   // Historial stats
-  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0, gridPnl = gs.pnl || 0, pepePnl = ps.pnl || 0;
-  const netPnl = copyPnl + btcPnl + arbPnl + gridPnl + pepePnl;
+  const copyPnl = cs.pnl || 0, btcPnl = bs.pnl || 0, arbPnl = as.pnl || 0, gridPnl = gs.pnl || 0, pepePnl = ps.pnl || 0, stochPnl = ss.pnl || 0;
+  const netPnl = copyPnl + btcPnl + arbPnl + gridPnl + pepePnl + stochPnl;
   const histPnlEl = document.getElementById('hist-pnl');
   if (histPnlEl) { histPnlEl.textContent = pnlSign(netPnl); histPnlEl.className = 'stat-value ' + pnlClass(netPnl); }
   document.getElementById('hist-pnl-card')?.classList.toggle('border-pos', netPnl >= 0);
   document.getElementById('hist-pnl-card')?.classList.toggle('border-neg', netPnl < 0);
-  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0) + (gs.active_orders || 0) + (ps.active_orders || 0);
+  const openCount = (cs.open_count || 0) + (bs.open_count || 0) + (as.open_trades || 0) + (gs.active_orders || 0) + (ps.active_orders || 0) + (ss.open_trades || 0);
   setText('hist-open', openCount);
   setText('hist-closed', totalClosed);
 
   // Alloc chart/legend
   const pt = d.portfolio_total || 1;
-  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0, gridAc = d.capital_grid || 0, pepeAc = d.capital_pepe || 0;
+  const cash = d.bankroll || 0, copyAc = d.capital_copy || 0, btcAc = d.capital_btc5m || 0, gridAc = d.capital_grid || 0, pepeAc = d.capital_pepe || 0, stochAc = d.capital_stoch || 0;
   setText('alloc-total', fmtU(pt));
   setText('alloc-cash', fmtU(cash));
   setText('alloc-cash-pct', fmt(cash / pt * 100, 0) + '%');
@@ -1370,6 +1591,9 @@ async function loadDashboard() {
   setText('alloc-pepe', fmtU(pepeAc));
   setText('alloc-pepe-pct', fmt(pepeAc / pt * 100, 0) + '%');
   const pepeBar = document.getElementById('alloc-pepe-bar'); if (pepeBar) pepeBar.style.width = (pepeAc/pt*100).toFixed(1) + '%';
+  setText('alloc-stoch', fmtU(stochAc));
+  setText('alloc-stoch-pct', fmt(stochAc / pt * 100, 0) + '%');
+  const stochBar = document.getElementById('alloc-stoch-bar'); if (stochBar) stochBar.style.width = (stochAc/pt*100).toFixed(1) + '%';
   const pnlTot = d.pnl_total || 0;
   const allocPnlEl = document.getElementById('alloc-pnl');
   if (allocPnlEl) { allocPnlEl.textContent = pnlSign(pnlTot); allocPnlEl.className = 'alloc-item-value ' + pnlClass(pnlTot); }
@@ -1380,8 +1604,8 @@ async function loadDashboard() {
   allocChart = new Chart(document.getElementById('allocChart'), {
     type: 'doughnut',
     data: {
-      labels: ['Cash libre', 'Copy activo', '5m activo', 'Grid BTC', 'Grid PEPE'],
-      datasets: [{ data: [cash, copyAc, btcAc, gridAc, pepeAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)', 'rgba(249,115,22,0.8)', 'rgba(251,146,60,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b', '#f97316', '#fb923c'], borderWidth: 1.5, hoverOffset: 8 }],
+      labels: ['Cash libre', 'Copy activo', '5m activo', 'Grid BTC', 'Grid PEPE', 'Estocástico BTC'],
+      datasets: [{ data: [cash, copyAc, btcAc, gridAc, pepeAc, stochAc], backgroundColor: ['rgba(0,255,163,0.8)', 'rgba(129,140,248,0.8)', 'rgba(245,158,11,0.8)', 'rgba(249,115,22,0.8)', 'rgba(251,146,60,0.8)', 'rgba(234,179,8,0.8)'], borderColor: ['#00FFA3', '#818cf8', '#f59e0b', '#f97316', '#fb923c', '#eab308'], borderWidth: 1.5, hoverOffset: 8 }],
     },
     options: { responsive: true, maintainAspectRatio: false, cutout: '68%', layout: { padding: 8 }, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a1919', titleColor: '#ADAAAA', bodyColor: '#fff', borderColor: 'rgba(72,72,71,0.3)', borderWidth: 1, padding: 10, callbacks: { label: ctx => ' $' + ctx.parsed.toFixed(2) } } } },
   });
@@ -1497,6 +1721,7 @@ async function loadTrades() {
   (d.btc5m || []).forEach(t => rows.push({ _strategy: 'btc5m', _asset: t.asset, _date: t.opened_at, market_id: t.market_id, title: t.title, market_slug: t.slug, outcome: t.outcome, size_usdc: t.size_usdc, fee: (t.fee || 0) + (t.slippage || 0), status: t.status, pnl: t.pnl }));
   (d.grid || []).forEach(t => rows.push({ _strategy: 'grid', _asset: 'BTC', _date: t.closed_at, market_id: 'L' + t.level, title: 'Grid L' + t.level + ' · Buy $' + fmt(t.buy_price, 0) + ' → Sell $' + fmt(t.sell_price, 0), market_slug: null, outcome: 'BUY→SELL', size_usdc: t.order_size_usd, fee: t.fee, status: 'closed', pnl: t.pnl }));
   (d.grid_pepe || []).forEach(t => rows.push({ _strategy: 'grid_pepe', _asset: 'PEPE', _date: t.closed_at, market_id: 'Li' + t.level_index, title: 'PEPE Lv' + t.level_index + ' · Buy ' + fmtPepe(t.buy_price) + ' → Sell ' + fmtPepe(t.sell_price), market_slug: null, outcome: 'BUY→SELL', size_usdc: t.order_size_usd, fee: t.fee, status: 'closed', pnl: t.pnl }));
+  (d.stoch_btc || []).forEach(t => rows.push({ _strategy: 'stoch', _asset: 'BTC', _date: t.opened_at, market_id: 'stoch', title: 'Estocástico · Buy $' + fmt(t.buy_price, 0) + (t.sell_price ? ' → Sell $' + fmt(t.sell_price, 0) : ''), market_slug: null, outcome: t.status === 'open' ? 'EN POSICIÓN' : 'BUY→SELL', size_usdc: t.order_size, fee: t.fee, status: t.status === 'open' ? 'open' : 'closed', pnl: t.pnl }));
   rows.sort((a, b) => (b._date || 0) - (a._date || 0));
 
   setText('badge-tradelog', rows.length + ' OPS');
@@ -1507,7 +1732,9 @@ async function loadTrades() {
         ? '<span class="tl-badge tl-grid">Grid BTC</span>'
         : t._strategy === 'grid_pepe'
           ? '<span class="tl-badge tl-grid" style="background:rgba(251,146,60,0.15);color:#fb923c;border-color:rgba(251,146,60,0.3)">Grid PEPE</span>'
-          : `<span class="tl-badge tl-5m">5m · ${t._asset || 'BTC'}</span>`;
+          : t._strategy === 'stoch'
+            ? '<span class="tl-badge tl-grid" style="background:rgba(99,102,241,0.15);color:#818cf8;border-color:rgba(99,102,241,0.3)">Estocástico</span>'
+            : `<span class="tl-badge tl-5m">5m · ${t._asset || 'BTC'}</span>`;
     const assetCell = t._asset
       ? `<span class="asset-cell"><img class="asset-logo" src="${ASSET_LOGOS[t._asset] || ''}" alt="${t._asset}" onerror="this.style.display='none'"><span>${t._asset}</span></span>`
       : '—';
@@ -2284,6 +2511,20 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
         pepeStopSSE();
       }
     }
+    if (target === 'tab-stoch-btc') {
+      _stochTabActive = true;
+      stochStartSSE();
+      requestAnimationFrame(() => {
+        stochInitCharts();
+        stochChangeTf();
+      });
+    } else {
+      if (_stochTabActive) {
+        _stochTabActive = false;
+        stochStopWs();
+        stochStopSSE();
+      }
+    }
   });
 });
 
@@ -2973,6 +3214,471 @@ async function pepeStop() {
     if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ESTOCÁSTICO BTC
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _stochPriceChart    = null;
+let _stochPriceSeries   = null;
+let _stochOscChart      = null;
+let _stochKSeries       = null;
+let _stochDSeries       = null;
+let _stochWs            = null;
+let _stochSSE           = null;
+let _stochTabActive     = false;
+let _stochCandles       = [];           // completed candles [{time,open,high,low,close}]
+let _stochCurrentCandle = null;         // live incomplete candle
+let _stochCurrentTf     = '5m';
+let _stochSyncing       = false;        // prevent recursive time-scale sync
+let _stochAtRightEdge   = true;         // auto-follow latest bar
+let _stochLoadingTf     = false;        // suppress range handler during TF reload
+
+const _stochTfSeconds = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400 };
+
+// ── Stochastic calculation (mirrors backend) ─────────────────────────────────
+function stochCalc(candles, kPeriod, dPeriod) {
+  const result = [];
+  for (let i = kPeriod - 1; i < candles.length; i++) {
+    const window     = candles.slice(i - kPeriod + 1, i + 1);
+    const lowestLow  = Math.min(...window.map(c => c.low));
+    const highestHigh = Math.max(...window.map(c => c.high));
+    const denom = highestHigh - lowestLow;
+    const k = denom === 0 ? 50 : (candles[i].close - lowestLow) / denom * 100;
+    result.push({ time: candles[i].time, k, d: null });
+  }
+  for (let i = dPeriod - 1; i < result.length; i++) {
+    result[i].d = result.slice(i - dPeriod + 1, i + 1).reduce((s, r) => s + r.k, 0) / dPeriod;
+  }
+  return result;
+}
+
+// ── Chart init ────────────────────────────────────────────────────────────────
+function stochInitCharts() {
+  const baseOpts = {
+    layout: {
+      background: { type: 'solid', color: '#000' },
+      textColor: '#ADAAAA',
+    },
+    grid: {
+      vertLines: { color: 'rgba(72,72,71,0.12)' },
+      horzLines: { color: 'rgba(72,72,71,0.12)' },
+    },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    localization: {
+      locale: 'es-ES',
+      timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
+    },
+    timeScale: {
+      timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)',
+      rightOffset: 8,
+      tickMarkFormatter: (ts, type) => {
+        const d = new Date(ts * 1000);
+        if (type <= 2) return d.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' });
+        return d.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' });
+      },
+    },
+    rightPriceScale: { borderColor: 'rgba(72,72,71,0.3)' },
+    handleScroll: true,
+    handleScale: true,
+  };
+
+  if (!_stochPriceChart) {
+    const pc = document.getElementById('stoch-price-chart');
+    if (!pc) return;
+    _stochPriceChart  = LightweightCharts.createChart(pc, { ...baseOpts, autoSize: true });
+    _stochPriceSeries = _stochPriceChart.addCandlestickSeries({
+      upColor:          '#26a69a',
+      downColor:        '#ef5350',
+      borderUpColor:    '#26a69a',
+      borderDownColor:  '#ef5350',
+      wickUpColor:      '#26a69a',
+      wickDownColor:    '#ef5350',
+      priceLineVisible: false,
+      lastValueVisible: true,
+    });
+  }
+
+  if (!_stochOscChart) {
+    const oc = document.getElementById('stoch-osc-chart');
+    if (!oc) return;
+    _stochOscChart = LightweightCharts.createChart(oc, {
+      ...baseOpts,
+      autoSize:     true,
+      timeScale:    { ...baseOpts.timeScale, visible: false },
+      handleScroll: false,
+      handleScale:  false,
+    });
+
+    _stochKSeries = _stochOscChart.addLineSeries({
+      color: '#00FFA3', lineWidth: 1.5,
+      priceLineVisible: false, lastValueVisible: true, title: '%K',
+    });
+    _stochDSeries = _stochOscChart.addLineSeries({
+      color: '#F97316', lineWidth: 1.5,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      priceLineVisible: false, lastValueVisible: true, title: '%D',
+    });
+
+    // Fixed 0–100 scale
+    _stochKSeries.applyOptions({
+      autoscaleInfoProvider: () => ({
+        priceRange: { minValue: 0, maxValue: 100 },
+        margins: { above: 0.02, below: 0.02 },
+      }),
+    });
+
+    // Reference lines
+    _stochKSeries.createPriceLine({ price: 80, color: 'rgba(255,77,77,0.5)',   lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: '80' });
+    _stochKSeries.createPriceLine({ price: 20, color: 'rgba(34,197,94,0.5)',   lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: '20' });
+    _stochKSeries.createPriceLine({ price: 50, color: 'rgba(100,100,100,0.2)', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, title: ''   });
+
+  }
+
+  // Price chart is master — oscillator mirrors its time range on every change
+  _stochPriceChart.timeScale().subscribeVisibleTimeRangeChange(range => {
+    if (!range) return;
+    if (!_stochLoadingTf) {
+      const tfSec = _stochTfSeconds[_stochCurrentTf] || 300;
+      _stochAtRightEdge = (Date.now() / 1000 - range.to) < tfSec * 3;
+    }
+    if (_stochOscChart) _stochOscChart.timeScale().setVisibleRange(range);
+  });
+
+  // Sync crosshair — vertical line appears on both charts simultaneously
+  let _crosshairSyncing = false;
+  _stochPriceChart.subscribeCrosshairMove(param => {
+    if (_crosshairSyncing) return;
+    _crosshairSyncing = true;
+    if (!param.time || !_stochKSeries) { _stochOscChart.clearCrosshairPosition(); }
+    else { _stochOscChart.setCrosshairPosition(50, param.time, _stochKSeries); }
+    _crosshairSyncing = false;
+  });
+  _stochOscChart.subscribeCrosshairMove(param => {
+    if (_crosshairSyncing) return;
+    _crosshairSyncing = true;
+    if (!param.time || !_stochPriceSeries) { _stochPriceChart.clearCrosshairPosition(); }
+    else {
+      const candle = _stochCandles.find(c => c.time === param.time) || _stochCurrentCandle;
+      const price = candle ? candle.close : 0;
+      _stochPriceChart.setCrosshairPosition(price, param.time, _stochPriceSeries);
+    }
+    _crosshairSyncing = false;
+  });
+}
+
+
+// ── Apply 100-candle zoom ─────────────────────────────────────────────────────
+function stochApplyZoom() {
+  if (!_stochPriceChart) return;
+  const n = _stochCandles.length + (_stochCurrentCandle ? 1 : 0);
+  if (n < 10) return;
+  _stochPriceChart.timeScale().fitContent();
+  _stochPriceChart.timeScale().setVisibleLogicalRange({ from: n - 108, to: n - 1 });
+}
+
+// ── Load historical klines ────────────────────────────────────────────────────
+async function stochLoadHistory() {
+  try {
+    const tf   = _stochCurrentTf;
+    const url  = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${tf}&limit=300`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (!Array.isArray(data) || !_stochPriceSeries) return;
+
+    // All but last = completed candles; last = current incomplete
+    _stochCandles = data.slice(0, -1).map(k => ({
+      time:  Math.floor(k[0] / 1000),
+      open:  parseFloat(k[1]),
+      high:  parseFloat(k[2]),
+      low:   parseFloat(k[3]),
+      close: parseFloat(k[4]),
+    }));
+
+    const lastK = data[data.length - 1];
+    _stochCurrentCandle = {
+      time:  Math.floor(lastK[0] / 1000),
+      open:  parseFloat(lastK[1]),
+      high:  parseFloat(lastK[2]),
+      low:   parseFloat(lastK[3]),
+      close: parseFloat(lastK[4]),
+    };
+
+    const allCandles = [..._stochCandles, _stochCurrentCandle];
+    _stochPriceSeries.setData(allCandles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+    stochRecalcChart();
+    stochApplyZoom();
+  } catch (_) {}
+}
+
+// ── Full oscillator recalculation ─────────────────────────────────────────────
+function stochRecalcChart() {
+  if (!_stochKSeries || !_stochDSeries) return;
+  const kPeriod = Math.max(2, parseInt(document.getElementById('stoch-inp-k').value) || 14);
+  const dPeriod = Math.max(1, parseInt(document.getElementById('stoch-inp-d').value) || 3);
+  const all     = _stochCurrentCandle ? [..._stochCandles, _stochCurrentCandle] : [..._stochCandles];
+  if (all.length < kPeriod) return;
+
+  const stoch = stochCalc(all, kPeriod, dPeriod);
+  _stochKSeries.setData(stoch.map(r => ({ time: r.time, value: r.k })));
+  _stochDSeries.setData(stoch.filter(r => r.d !== null).map(r => ({ time: r.time, value: r.d })));
+}
+
+// ── Update last oscillator point on each tick ─────────────────────────────────
+function stochUpdateLastOscPoint() {
+  if (!_stochKSeries || !_stochDSeries || !_stochCurrentCandle) return;
+  const kPeriod = Math.max(2, parseInt(document.getElementById('stoch-inp-k').value) || 14);
+  const dPeriod = Math.max(1, parseInt(document.getElementById('stoch-inp-d').value) || 3);
+  const all     = [..._stochCandles, _stochCurrentCandle];
+  if (all.length < kPeriod) return;
+
+  const stoch = stochCalc(all, kPeriod, dPeriod);
+  if (!stoch.length) return;
+  const last = stoch[stoch.length - 1];
+  _stochKSeries.update({ time: last.time, value: last.k });
+  if (last.d !== null) _stochDSeries.update({ time: last.time, value: last.d });
+}
+
+// ── WebSocket (Binance kline stream — OHLC calculado por Binance) ─────────────
+function stochStartWs() {
+  if (_stochWs) return;
+  const url = `wss://stream.binance.com/ws/btcusdt@kline_${_stochCurrentTf}`;
+  _stochWs = new WebSocket(url);
+  _stochWs.onmessage = e => {
+    if (!_stochTabActive) return;
+    const msg = JSON.parse(e.data);
+    const k   = msg.k;
+    if (!k) return;
+    const candle = {
+      time:  Math.floor(k.t / 1000),
+      open:  parseFloat(k.o),
+      high:  parseFloat(k.h),
+      low:   parseFloat(k.l),
+      close: parseFloat(k.c),
+    };
+    stochOnKline(candle, k.x);
+  };
+  _stochWs.onerror = () => { _stochWs = null; };
+  _stochWs.onclose = () => {
+    _stochWs = null;
+    if (_stochTabActive) setTimeout(stochStartWs, 3000);
+  };
+}
+
+function stochStopWs() {
+  if (_stochWs) { _stochWs.close(); _stochWs = null; }
+}
+
+// ── Process each kline update from Binance ────────────────────────────────────
+function stochOnKline(candle, isClosed) {
+  // Update price display
+  const priceEl = document.getElementById('stoch-price-val');
+  if (priceEl) priceEl.textContent = '$' + candle.close.toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+  // Update current candle (forming or closed)
+  _stochCurrentCandle = candle;
+
+  if (isClosed) {
+    // Vela cerrada definitivamente → añadir al histórico y recalcular estocástico
+    const last = _stochCandles[_stochCandles.length - 1];
+    if (!last || last.time !== candle.time) {
+      _stochCandles.push(candle);
+      if (_stochCandles.length > 600) _stochCandles.shift();
+    }
+    if (_stochPriceSeries) _stochPriceSeries.update({ time: candle.time, open: candle.open, high: candle.high, low: candle.low, close: candle.close });
+    stochRecalcChart();
+  } else {
+    // Vela en formación → solo actualizar gráfico visualmente
+    if (_stochPriceSeries) _stochPriceSeries.update({ time: candle.time, open: candle.open, high: candle.high, low: candle.low, close: candle.close });
+    stochUpdateLastOscPoint();
+  }
+
+  if (_stochAtRightEdge && _stochPriceChart) _stochPriceChart.timeScale().scrollToRealTime();
+}
+
+// ── Timeframe change ──────────────────────────────────────────────────────────
+async function stochChangeTf() {
+  _stochLoadingTf     = true;
+  _stochAtRightEdge   = true;
+  _stochCurrentTf     = document.getElementById('stoch-inp-tf').value;
+  _stochCandles       = [];
+  _stochCurrentCandle = null;
+  stochStopWs();
+  await stochLoadHistory();
+  stochStartWs();
+  _stochLoadingTf     = false;
+}
+
+// ── SSE ───────────────────────────────────────────────────────────────────────
+function stochStartSSE() {
+  if (_stochSSE) return;
+  const token = getToken();
+  _stochSSE = new EventSource(`/api/stoch-btc/stream?token=${encodeURIComponent(token)}`);
+  _stochSSE.addEventListener('init', e => stochApplyStatus(JSON.parse(e.data)));
+  _stochSSE.onmessage = e => { stochApplyStatus(JSON.parse(e.data)); loadDashboard(); };
+  _stochSSE.onerror   = () => {};
+}
+
+function stochStopSSE() {
+  if (_stochSSE) { _stochSSE.close(); _stochSSE = null; }
+}
+
+// ── Apply backend status ──────────────────────────────────────────────────────
+function stochApplyStatus(d) {
+  if (!d) return;
+
+  // Status badge
+  const badge = document.getElementById('stoch-status-badge');
+  if (badge) {
+    badge.textContent = d.status === 'running' ? 'RUNNING' : 'STOPPED';
+    badge.style.background = d.status === 'running' ? 'rgba(0,255,163,0.15)' : 'rgba(72,72,71,0.3)';
+    badge.style.color      = d.status === 'running' ? 'var(--primary)'        : 'var(--muted)';
+  }
+
+  // Buttons
+  const btnStart = document.getElementById('stoch-btn-start');
+  const btnStop  = document.getElementById('stoch-btn-stop');
+  if (btnStart) btnStart.disabled = d.status === 'running';
+  if (btnStop)  btnStop.disabled  = d.status !== 'running';
+
+  // Sync tf selector to backend config if running
+  if (d.status === 'running' && d.candle_tf) {
+    const tfEl = document.getElementById('stoch-inp-tf');
+    if (tfEl && tfEl.value !== d.candle_tf) {
+      tfEl.value = d.candle_tf;
+      _stochCurrentTf = d.candle_tf;
+    }
+  }
+
+  // %K / %D metrics
+  const kEl   = document.getElementById('stoch-k-val');
+  const dEl   = document.getElementById('stoch-d-val');
+  const kLbl  = document.getElementById('stoch-k-lbl');
+  const dLbl  = document.getElementById('stoch-d-lbl');
+  if (kLbl && d.k_period) kLbl.textContent = d.k_period;
+  if (dLbl && d.d_period) dLbl.textContent = d.d_period;
+  if (kEl && d.current_k !== null && d.current_k !== undefined) {
+    kEl.textContent  = d.current_k.toFixed(1);
+    kEl.className    = 'mc-value ' + (d.current_k > 80 ? 'neg' : d.current_k < 20 ? 'pos' : '');
+  }
+  if (dEl && d.current_d !== null && d.current_d !== undefined) {
+    dEl.textContent = d.current_d.toFixed(1);
+  }
+
+  // Zone
+  const zoneEl  = document.getElementById('stoch-zone-val');
+  const zoneSub = document.getElementById('stoch-zone-sub');
+  const zoneMap = {
+    overbought: { label: 'SOBRECOMPRA', sub: 'Posible corrección', cls: 'neg' },
+    oversold:   { label: 'SOBREVENTA',  sub: 'Posible rebote',     cls: 'pos' },
+    neutral:    { label: 'NEUTRAL',     sub: 'Zona intermedia',    cls: ''    },
+  };
+  const zone = zoneMap[d.zone] || zoneMap.neutral;
+  if (zoneEl)  { zoneEl.textContent = zone.label; zoneEl.className = 'mc-value ' + zone.cls; }
+  if (zoneSub) zoneSub.textContent = zone.sub;
+
+  // PnL & trade count
+  const pnlEl = document.getElementById('stoch-pnl-val');
+  const tSub  = document.getElementById('stoch-trades-sub');
+  if (pnlEl && d.metrics) {
+    const pnl = d.metrics.total_pnl || 0;
+    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+    pnlEl.className   = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg');
+  }
+  if (tSub && d.metrics) tSub.textContent = (d.metrics.trade_count || 0) + ' trades';
+
+  // Open position panel
+  const posPanel = document.getElementById('stoch-position-panel');
+  const posInfo  = document.getElementById('stoch-position-info');
+  if (d.position && posPanel && posInfo) {
+    posPanel.style.display = '';
+    const upnl = d.position.unrealized_pnl;
+    posInfo.innerHTML = `
+      <span><b style="color:var(--muted);font-size:0.68rem">COMPRA</b><br>$${Number(d.position.buy_price).toLocaleString('en-US')}</span>
+      <span><b style="color:var(--muted);font-size:0.68rem">TAMAÑO</b><br>$${Number(d.position.order_size).toFixed(2)}</span>
+      <span><b style="color:var(--muted);font-size:0.68rem">%K entrada</b><br>${Number(d.position.k_at_buy).toFixed(1)}</span>
+      <span><b style="color:var(--muted);font-size:0.68rem">PnL no real.</b><br><span class="${upnl >= 0 ? 'pos' : 'neg'}">${upnl != null ? (upnl >= 0 ? '+' : '') + '$' + upnl.toFixed(4) : '—'}</span></span>
+    `;
+  } else if (posPanel) {
+    posPanel.style.display = 'none';
+  }
+
+  // Signals table
+  stochRenderSignals(d.recent_signals || []);
+}
+
+// ── Render tables ─────────────────────────────────────────────────────────────
+function stochRenderSignals(signals) {
+  const tbody = document.getElementById('tbl-stoch-signals');
+  const badge = document.getElementById('stoch-signals-badge');
+  if (badge) badge.textContent = signals.length + ' señales';
+  if (!signals.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Sin señales todavía</td></tr>';
+    return;
+  }
+  tbody.innerHTML = signals.map(s => {
+    const isBuy = s.signal_type === 'buy';
+    const dt    = new Date(s.triggered_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return `<tr>
+      <td>${dt}</td>
+      <td>${isBuy
+        ? '<span class="tl-badge tl-open" style="background:rgba(34,197,94,0.12);color:#22c55e">COMPRA</span>'
+        : '<span class="tl-badge" style="background:rgba(255,77,77,0.12);color:#FF4D4D">VENTA</span>'
+      }</td>
+      <td class="num">$${Number(s.price).toLocaleString('en-US')}</td>
+      <td class="num">${Number(s.k_val).toFixed(1)}</td>
+      <td class="num">${Number(s.d_val).toFixed(1)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Start / Stop ──────────────────────────────────────────────────────────────
+async function stochStart() {
+  const msg = document.getElementById('stoch-ctrl-msg');
+  const k   = parseInt(document.getElementById('stoch-inp-k').value)    || 14;
+  const d   = parseInt(document.getElementById('stoch-inp-d').value)    || 3;
+  const tf  = document.getElementById('stoch-inp-tf').value             || '5m';
+  const pct = parseFloat(document.getElementById('stoch-inp-size').value) || 5;
+  if (pct <= 0 || pct > 100) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = 'Tamaño de orden inválido'; }
+    return;
+  }
+  try {
+    const res = await apiFetch('/api/stoch-btc/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ k_period: k, d_period: d, candle_tf: tf, order_size_pct: pct / 100 }),
+    });
+    if (res.ok) {
+      if (msg) { msg.style.color = '#22c55e'; msg.textContent = `Estocástico iniciado · TF=${tf} · K=${k} · D=${d}`; }
+      _stochCurrentTf = tf;
+      await stochLoadHistory();
+    } else {
+      if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = res.error || 'Error'; }
+    }
+  } catch (e) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
+  }
+}
+
+async function stochStop() {
+  const msg = document.getElementById('stoch-ctrl-msg');
+  try {
+    await apiFetch('/api/stoch-btc/stop', { method: 'POST' });
+    if (msg) { msg.style.color = 'var(--muted)'; msg.textContent = 'Estocástico detenido'; }
+  } catch (e) {
+    if (msg) { msg.style.color = '#FF4D4D'; msg.textContent = e.message; }
+  }
+}
+
+// ── Info tooltip ──────────────────────────────────────────────────────────────
+(function () {
+  const icon    = document.getElementById('stoch-info-icon');
+  const tooltip = document.getElementById('stoch-info-tooltip');
+  if (!icon || !tooltip) return;
+  icon.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; });
+  icon.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+})();
 </script>
 </body>
 </html>

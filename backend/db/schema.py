@@ -263,6 +263,44 @@ CREATE TABLE IF NOT EXISTS pepe_grid_epoch_history (
     interval_pct  REAL    NOT NULL,
     started_at    INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS stoch_btc_config (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    k_period       INTEGER NOT NULL DEFAULT 14,
+    d_period       INTEGER NOT NULL DEFAULT 3,
+    candle_tf      TEXT    NOT NULL DEFAULT '5m',
+    order_size_pct REAL    NOT NULL DEFAULT 0.05,
+    status         TEXT    NOT NULL DEFAULT 'stopped',
+    created_at     INTEGER NOT NULL,
+    updated_at     INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS stoch_btc_signals (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_id    INTEGER NOT NULL REFERENCES stoch_btc_config(id),
+    signal_type  TEXT    NOT NULL,
+    k_val        REAL    NOT NULL,
+    d_val        REAL    NOT NULL,
+    price        REAL    NOT NULL,
+    triggered_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS stoch_btc_trades (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_id    INTEGER NOT NULL REFERENCES stoch_btc_config(id),
+    buy_price    REAL    NOT NULL,
+    sell_price   REAL,
+    order_size   REAL    NOT NULL,
+    pnl          REAL,
+    fee          REAL    NOT NULL DEFAULT 0,
+    k_at_buy     REAL    NOT NULL,
+    d_at_buy     REAL    NOT NULL,
+    k_at_sell    REAL,
+    d_at_sell    REAL,
+    status       TEXT    NOT NULL DEFAULT 'open',
+    opened_at    INTEGER NOT NULL,
+    closed_at    INTEGER
+);
 """
 
 MIGRATIONS = [

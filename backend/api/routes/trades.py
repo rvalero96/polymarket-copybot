@@ -53,4 +53,13 @@ async def get_trades(
             LIMIT ?
         """, (limit,))
 
+    if strategy in ("all", "stoch_btc"):
+        result["stoch_btc"] = await fetchall(db, """
+            SELECT id, buy_price, sell_price, order_size, pnl, fee,
+                   k_at_buy, d_at_buy, k_at_sell, d_at_sell, status, opened_at, closed_at
+            FROM stoch_btc_trades
+            ORDER BY opened_at DESC
+            LIMIT ?
+        """, (limit,))
+
     return result
