@@ -77,6 +77,7 @@ class Settings(BaseSettings):
 
     # Binance
     binance_base: str = "https://api.binance.us/api/v3"
+    binance_ws_base: str = "wss://stream.binance.com/ws"
     binance_api_key: str = ""
     binance_api_secret: str = ""
 

@@ -324,6 +324,8 @@ MIGRATIONS = [
     "ALTER TABLE pepe_grid_trades ADD COLUMN close_reason TEXT NOT NULL DEFAULT 'grid'",
     "ALTER TABLE grid_config ADD COLUMN order_size_pct REAL",
     "ALTER TABLE pepe_grid_config ADD COLUMN order_size_pct REAL",
+    "ALTER TABLE grid_orders ADD COLUMN binance_order_id TEXT",
+    "ALTER TABLE pepe_grid_orders ADD COLUMN binance_order_id TEXT",
     """CREATE TABLE IF NOT EXISTS pepe_grid_epoch_history (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     config_id     INTEGER NOT NULL REFERENCES pepe_grid_config(id),

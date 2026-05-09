@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TradeBot · Live</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
   <style>
@@ -197,6 +198,9 @@
   </div>
   <nav class="sidebar-nav">
     <div class="nav-item active" data-tab="tab-dashboard"><span class="ms">grid_view</span> Dashboard</div>
+    <div class="nav-sub-label" style="padding:0.55rem 1.5rem 0.2rem;font-size:0.5rem;font-weight:700;text-transform:uppercase;letter-spacing:0.18em;color:var(--muted);opacity:0.45">Estrategias</div>
+    <div class="nav-item" style="padding-left:2.75rem;font-size:0.75rem" data-tab="tab-live-grid"><span class="ms">grid_on</span> Grid BTC</div>
+    <div class="nav-item" style="padding-left:2.75rem;font-size:0.75rem" data-tab="tab-live-grid-pepe"><span class="ms">blur_on</span> Grid PEPE</div>
     <div class="nav-item" data-tab="tab-historial"><span class="ms">receipt_long</span> Historial</div>
   </nav>
   <div class="sidebar-footer">
@@ -236,10 +240,9 @@
         </div>
       </div>
       <div class="metric-card" style="border-left:2px solid rgba(245,158,11,0.4)">
-        <div class="mc-label">Win rate global</div>
+        <div class="mc-label">Posiciones abiertas</div>
         <div>
-          <div class="mc-value" id="d-winrate">—</div>
-          <div class="mc-sub" id="d-open-pos">—</div>
+          <div class="mc-value" id="d-open-pos">—</div>
         </div>
       </div>
     </div>
@@ -288,7 +291,263 @@
     </div>
 
 
+    <div class="sec-div" style="--accent:#f97316">
+      <div class="sec-dot" style="background:#f97316"></div><div class="sec-label">Grid BTC (live)</div><div class="sec-line"></div>
+    </div>
+    <div class="stats-grid" style="--accent:#f97316">
+      <div class="stat-card" id="lgrid-dash-pnl-card">
+        <div class="stat-label">P&amp;L realizado</div>
+        <div class="stat-value" id="lgrid-dash-pnl">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Órdenes activas</div>
+        <div class="stat-value" id="lgrid-dash-active">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trades cerrados</div>
+        <div class="stat-value" id="lgrid-dash-closed">—</div>
+      </div>
+    </div>
+
+    <div class="sec-div" style="--accent:#fb923c">
+      <div class="sec-dot" style="background:#fb923c"></div><div class="sec-label">Grid PEPE (live)</div><div class="sec-line"></div>
+    </div>
+    <div class="stats-grid" style="--accent:#fb923c">
+      <div class="stat-card" id="lpepe-dash-pnl-card">
+        <div class="stat-label">P&amp;L realizado</div>
+        <div class="stat-value" id="lpepe-dash-pnl">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Órdenes activas</div>
+        <div class="stat-value" id="lpepe-dash-active">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Trades cerrados</div>
+        <div class="stat-value" id="lpepe-dash-closed">—</div>
+      </div>
+    </div>
+
   </div><!-- /tab-dashboard -->
+
+  <!-- ══ Grid BTC Live ══ -->
+  <!-- ══ Grid BTC Live ══ -->
+  <div class="tab-pane" id="tab-live-grid">
+
+    <div id="lgrid-oor-alert" style="display:none;background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:0.5rem;padding:0.65rem 1rem;margin-bottom:0.75rem;font-size:0.78rem;color:#FF4D4D;">
+      <span class="ms" style="vertical-align:middle;margin-right:0.4rem;font-size:1rem">warning</span>
+      Precio fuera del rango del grid — el bot no opera. Ajusta el rango o detén el grid.
+    </div>
+
+    <div class="metrics-hd" style="margin-bottom:0.75rem">
+      <div class="metric-hero" id="lgrid-price-hero">
+        <div class="hero-icon-clip"><span class="ms hero-icon">currency_bitcoin</span></div>
+        <div class="hero-label">BTC / USDT · Tiempo real</div>
+        <div class="hero-value" id="lgrid-price-val" style="background:linear-gradient(135deg,#fed7aa 0%,#f97316 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">—</div>
+        <span class="hero-badge" id="lgrid-status-badge" style="background:rgba(249,115,22,0.1);color:#f97316">STOPPED</span>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">PnL Total</div>
+        <div class="mc-value" id="lgrid-pnl-val">$0.00</div>
+        <div class="mc-sub">live mode</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Trades cerrados</div>
+        <div class="mc-value" id="lgrid-trades-val">0</div>
+        <div class="mc-sub" id="lgrid-orders-sub">0 compras activas</div>
+      </div>
+    </div>
+
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Precio mín ($)</div>
+          <input id="lgrid-inp-min" type="number" value="80000" step="100" oninput="lgridUpdateViability()"
+            style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Precio máx ($)</div>
+          <input id="lgrid-inp-max" type="number" value="90000" step="100" oninput="lgridUpdateViability()"
+            style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Niveles</div>
+          <input id="lgrid-inp-levels" type="number" value="10" min="2" max="100" oninput="lgridUpdateViability()"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden (% portfolio)</div>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <input id="lgrid-inp-size-pct" type="number" value="5" min="0.1" max="100" step="0.1"
+              style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+            <span style="font-size:0.72rem;color:var(--muted)">≈ <b id="lgrid-inp-size-preview">$—</b></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.5rem;padding-bottom:1px">
+          <button id="lgrid-btn-start" onclick="lgridStart()"
+            style="background:#f97316;border:none;border-radius:0.35rem;color:#000;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            START
+          </button>
+          <button id="lgrid-btn-stop" onclick="lgridStop()"
+            style="background:transparent;border:1px solid var(--tertiary);border-radius:0.35rem;color:var(--tertiary);padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            STOP
+          </button>
+        </div>
+        <div id="lgrid-ctrl-msg" style="font-size:0.72rem;color:var(--muted);padding-bottom:2px"></div>
+      </div>
+      <div id="lgrid-viability" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted);display:flex;gap:1.5rem;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div class="cp-hd">
+        <div class="cp-title">BTC/USDT · Precio en tiempo real</div>
+        <div class="cp-sub">Líneas = niveles del grid · ▲ compra · ▼ venta</div>
+      </div>
+      <div id="lgrid-chart" style="height:380px;width:100%"></div>
+    </div>
+
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Órdenes activas del grid</span>
+        <span class="table-badge" id="lgrid-orders-badge">0 niveles</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th>Nivel</th><th>Compra</th><th>Venta</th><th>Estado</th><th>Tamaño</th><th>PnL potencial</th>
+        </tr></thead>
+        <tbody id="tbl-lgrid-orders"><tr><td colspan="6" class="empty">Grid no iniciado</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Historial de trades</span>
+        <span class="table-badge" id="lgrid-trades-badge">0 trades</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th>Fecha cierre</th><th>Nivel</th><th>Compra</th><th>Venta</th><th>Tamaño</th><th>Fee</th><th>PnL</th>
+        </tr></thead>
+        <tbody id="tbl-lgrid-trades"><tr><td colspan="7" class="empty">Sin trades todavía</td></tr></tbody>
+      </table></div>
+    </div>
+
+  </div><!-- /tab-live-grid -->
+
+  <!-- ══ Grid PEPE Live ══ -->
+  <div class="tab-pane" id="tab-live-grid-pepe">
+
+    <div class="metrics-hd" style="margin-bottom:0.75rem">
+      <div class="metric-hero" id="lpepe-price-hero">
+        <div class="hero-icon-clip"><span class="ms hero-icon">waterfall_chart</span></div>
+        <div class="hero-label">PEPE / USDT · Tiempo real</div>
+        <div class="hero-value" id="lpepe-price-val" style="background:linear-gradient(135deg,#fed7aa 0%,#fb923c 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">—</div>
+        <span class="hero-badge" id="lpepe-status-badge" style="background:rgba(251,146,60,0.1);color:#fb923c">STOPPED</span>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">PnL realizado</div>
+        <div class="mc-value" id="lpepe-pnl-val">$0.00</div>
+        <div class="mc-sub">live mode</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">PnL no realizado</div>
+        <div class="mc-value" id="lpepe-unrealized-val">—</div>
+        <div class="mc-sub" id="lpepe-orders-sub">0 compras activas</div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-label">Trades cerrados</div>
+        <div class="mc-value" id="lpepe-trades-val">0</div>
+        <div class="mc-sub" id="lpepe-trades-sub">—</div>
+      </div>
+    </div>
+
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Orden (% portfolio)</div>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <input id="lpepe-inp-size-pct" type="number" value="5" min="0.1" max="100" step="0.1"
+              style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+            <span style="font-size:0.72rem;color:var(--muted)">≈ <b id="lpepe-inp-size-preview">$—</b></span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">MA Type</div>
+          <select id="lpepe-inp-ma-type"
+            style="width:90px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+            <option value="EMA">EMA</option><option value="SMA">SMA</option>
+            <option value="TEMA" selected>TEMA</option><option value="LREG">LREG</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">MA Period</div>
+          <input id="lpepe-inp-ma-period" type="number" value="10" min="5" max="200"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Grid Interval (%)</div>
+          <input id="lpepe-inp-interval" type="number" value="2" min="0.1" max="49" step="0.1"
+            style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div>
+          <div style="font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.35rem">Laziness (%)</div>
+          <input id="lpepe-inp-laziness" type="number" value="1.5" min="0.1" max="49" step="0.1"
+            style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:0.35rem;color:var(--text);padding:0.45rem 0.6rem;font-size:0.82rem;font-family:'Inter',sans-serif;outline:none">
+        </div>
+        <div style="display:flex;gap:0.5rem;padding-bottom:1px">
+          <button id="lpepe-btn-start" onclick="lpepeStart()"
+            style="background:#fb923c;border:none;border-radius:0.35rem;color:#000;padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            START
+          </button>
+          <button id="lpepe-btn-stop" onclick="lpepeStop()"
+            style="background:transparent;border:1px solid var(--tertiary);border-radius:0.35rem;color:var(--tertiary);padding:0.5rem 1.1rem;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">
+            STOP
+          </button>
+        </div>
+        <div id="lpepe-ctrl-msg" style="font-size:0.72rem;color:var(--muted);padding-bottom:2px"></div>
+      </div>
+      <div id="lpepe-grid-info" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted);display:flex;gap:1.5rem;flex-wrap:wrap">
+        <span>AP: <b id="lpepe-info-ap">—</b></span>
+        <span>GI: <b id="lpepe-info-gi">—</b></span>
+        <span>MA: <b id="lpepe-info-ma">—</b></span>
+        <span>Epoch: <b id="lpepe-info-epoch">—</b></span>
+      </div>
+    </div>
+
+    <div class="chart-panel" style="margin-bottom:0.75rem;padding:1rem 1.25rem">
+      <div class="cp-hd">
+        <div class="cp-title">PEPE/USDT · Adaptive Grid</div>
+        <div class="cp-sub">Líneas de grid dinámicas · AP = Moving Average · <span style="color:#f97316">●</span> compra · <span style="color:#22c55e">●</span> venta</div>
+      </div>
+      <div id="lpepe-grid-chart" style="height:380px;width:100%"></div>
+    </div>
+
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Órdenes activas del grid PEPE</span>
+        <span class="table-badge" id="lpepe-orders-badge">0 niveles</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th>Level idx</th><th>Compra</th><th>Venta</th><th>Estado</th><th>Tamaño</th><th>PnL potencial</th><th>Epoch</th>
+        </tr></thead>
+        <tbody id="tbl-lpepe-orders"><tr><td colspan="7" class="empty">Grid no iniciado</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <div class="table-panel" style="margin-bottom:0.75rem">
+      <div class="table-header">
+        <span class="table-title">Historial de trades PEPE</span>
+        <span class="table-badge" id="lpepe-trades-badge">0 trades</span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr>
+          <th>Fecha cierre</th><th>Level</th><th>Epoch</th><th>Compra</th><th>Venta</th><th>Tamaño</th><th>Fee</th><th>PnL</th><th>Anchor</th>
+        </tr></thead>
+        <tbody id="tbl-lpepe-trades"><tr><td colspan="9" class="empty">Sin trades todavía</td></tr></tbody>
+      </table></div>
+    </div>
+
+  </div><!-- /tab-live-grid-pepe -->
 
   <!-- ══ Historial ══ -->
   <div class="tab-pane" id="tab-historial">
@@ -485,9 +744,7 @@ async function loadDashboard() {
   const pnlEl = document.getElementById('d-pnl');
   if (pnlEl) { pnlEl.textContent = pnlSign(d.pnl_total); pnlEl.className = 'mc-value ' + pnlClass(d.pnl_total); }
   setText('d-initial', 'Capital inicial: ' + fmtU(d.initial_bankroll));
-  const wrEl = document.getElementById('d-winrate');
-  if (wrEl) { wrEl.textContent = fmtPct((d.win_rate || 0) * 100); wrEl.className = 'mc-value ' + ((d.win_rate || 0) >= 0.5 ? 'pos' : 'neg'); }
-  setText('d-open-pos', (d.open_positions || 0) + ' posiciones abiertas');
+  setText('d-open-pos', d.open_positions || 0);
 
   const tc = d.trade_counts || {};
   const totalClosed = Object.values(tc).reduce((a, b) => a + (b || 0), 0);
@@ -580,6 +837,20 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     item.classList.add('active');
     document.getElementById(target).classList.add('active');
+
+    if (target === 'tab-live-grid') {
+      _lgridTabActive = true; _lgridInputsFilled = false;
+      lgridInitChart(); lgridLoadHistory(); lgridStartWs(); lgridStartSSE();
+    } else {
+      if (_lgridTabActive) { _lgridTabActive = false; lgridStopWs(); lgridStopSSE(); }
+    }
+
+    if (target === 'tab-live-grid-pepe') {
+      _lpepeTabActive = true; _lpepeInputsFilled = false;
+      lpepeInitChart(); lpepeLoadHistory(); lpepeStartWs(); lpepeStartSSE();
+    } else {
+      if (_lpepeTabActive) { _lpepeTabActive = false; lpepeStopWs(); lpepeStopSSE(); }
+    }
   });
 });
 
@@ -674,13 +945,421 @@ function initSortableTable(tbodyId, badgeId) {
   filterBtns.forEach(btn => { btn.addEventListener('click', e => { e.stopPropagation(); fpOpen(btn, tableFilters, apply); }); });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LIVE GRID BTC
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _lgridChart      = null;
+let _lgridSeries     = null;
+let _lgridPriceLines = [];
+let _lgridWs         = null;
+let _lgridSSE        = null;
+let _lgridTabActive  = false;
+let _lgridInputsFilled = false;
+let _lgridRangeMin   = null;
+let _lgridRangeMax   = null;
+
+function lgridInitChart() {
+  if (_lgridChart) return;
+  const container = document.getElementById('lgrid-chart');
+  if (!container) return;
+  _lgridChart = LightweightCharts.createChart(container, {
+    layout: { background: { type: 'solid', color: '#000' }, textColor: '#ADAAAA' },
+    grid: { vertLines: { color: 'rgba(72,72,71,0.12)' }, horzLines: { color: 'rgba(72,72,71,0.12)' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    localization: { locale: 'es-ES', timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }) },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)' },
+    rightPriceScale: { borderColor: 'rgba(72,72,71,0.3)' },
+    handleScroll: true, handleScale: true,
+  });
+  _lgridSeries = _lgridChart.addAreaSeries({
+    lineColor: '#f97316', topColor: 'rgba(249,115,22,0.08)', bottomColor: 'rgba(249,115,22,0)',
+    lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true,
+  });
+  _lgridChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (!range || !_lgridWs) return;
+    _lgridWs._atRightEdge = range.to >= -2;
+  });
+  new ResizeObserver(() => { if (_lgridChart) _lgridChart.applyOptions({ width: container.clientWidth }); }).observe(container);
+}
+
+function lgridSetPriceLines(gridMin, gridMax, levels) {
+  if (!_lgridSeries) return;
+  _lgridPriceLines.forEach(pl => _lgridSeries.removePriceLine(pl));
+  _lgridPriceLines = [];
+  if (!levels || levels < 1) { _lgridRangeMin = _lgridRangeMax = null; _lgridSeries.applyOptions({ autoscaleInfoProvider: null }); return; }
+  _lgridRangeMin = gridMin; _lgridRangeMax = gridMax;
+  _lgridSeries.applyOptions({ autoscaleInfoProvider: original => {
+    const res = original(); const lo = _lgridRangeMin, hi = _lgridRangeMax;
+    if (lo == null || hi == null) return res;
+    const pad = (hi - lo) * 0.08;
+    return { priceRange: { minValue: Math.min(res ? res.priceRange.minValue : lo, lo) - pad, maxValue: Math.max(res ? res.priceRange.maxValue : hi, hi) + pad }, margins: { above: 0.05, below: 0.05 } };
+  }});
+  const spacing = (gridMax - gridMin) / levels;
+  for (let i = 0; i <= levels; i++) {
+    const price = gridMin + i * spacing;
+    const isEdge = i === 0 || i === levels;
+    _lgridPriceLines.push(_lgridSeries.createPriceLine({ price, color: isEdge ? 'rgba(255,77,77,0.6)' : 'rgba(249,115,22,0.3)', lineWidth: isEdge ? 1.5 : 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: isEdge, title: isEdge ? (i === 0 ? 'MIN' : 'MAX') : '' }));
+  }
+}
+
+function lgridSetMarkers(trades, boughtOrders = []) {
+  if (!_lgridSeries) return;
+  const seen = new Set(), markers = [];
+  [...(trades || [])].reverse().forEach(t => {
+    if (t.opened_at && !seen.has('b_'+t.opened_at)) { seen.add('b_'+t.opened_at); markers.push({ time: Math.floor(t.opened_at/1000), position: 'belowBar', color: '#f97316', shape: 'arrowUp', size: 1, text: 'B $'+Number(t.buy_price).toFixed(0) }); }
+    if (t.closed_at && !seen.has('s_'+t.closed_at))  { seen.add('s_'+t.closed_at);  markers.push({ time: Math.floor(t.closed_at/1000),  position: 'aboveBar', color: '#FF4D4D',  shape: 'arrowDown', size: 1, text: 'S $'+Number(t.sell_price).toFixed(0) }); }
+  });
+  boughtOrders.forEach(o => { if (o.bought_at && o.buy_fill_price && !seen.has('ab_'+o.id)) { seen.add('ab_'+o.id); markers.push({ time: Math.floor(o.bought_at/1000), position: 'belowBar', color: '#f97316', shape: 'arrowUp', size: 1, text: 'B $'+Number(o.buy_fill_price).toFixed(0) }); } });
+  markers.sort((a,b) => a.time - b.time);
+  _lgridSeries.setMarkers(markers);
+}
+
+function lgridStartWs() {
+  if (_lgridWs) return;
+  _lgridWs = new WebSocket('wss://stream.binance.com/ws/btcusdt@aggTrade');
+  _lgridWs._atRightEdge = true;
+  _lgridWs.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      const price = parseFloat(msg.p);
+      const ts = Math.floor(parseInt(msg.T) / 1000);
+      document.getElementById('lgrid-price-val').textContent = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (_lgridSeries) { _lgridSeries.update({ time: ts, value: price }); if (_lgridWs._atRightEdge && _lgridChart) _lgridChart.timeScale().scrollToRealTime(); }
+    } catch(_) {}
+  };
+  _lgridWs.onerror = () => { _lgridWs = null; };
+  _lgridWs.onclose = () => { _lgridWs = null; if (_lgridTabActive) setTimeout(lgridStartWs, 3000); };
+}
+
+function lgridStopWs() { if (_lgridWs) { _lgridWs.close(); _lgridWs = null; } }
+
+async function lgridLoadHistory() {
+  try {
+    const resp = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=200');
+    const data = await resp.json();
+    if (!Array.isArray(data) || !_lgridSeries) return;
+    _lgridSeries.setData(data.map(k => ({ time: Math.floor(k[0]/1000), value: parseFloat(k[4]) })));
+    _lgridChart.timeScale().scrollToRealTime();
+  } catch(_) {}
+}
+
+function lgridRenderOrders(orders, gridMin, gridMax, levels) {
+  const tbody = document.getElementById('tbl-lgrid-orders');
+  const badge = document.getElementById('lgrid-orders-badge');
+  if (!orders || !orders.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Sin órdenes activas</td></tr>'; if (badge) badge.textContent = '0 niveles'; return; }
+  const spacing = levels ? (gridMax - gridMin) / levels : 0;
+  badge.textContent = orders.length + ' niveles';
+  tbody.innerHTML = orders.map(o => {
+    const isBought = o.status === 'bought';
+    const potPnl = spacing > 0 ? ((spacing / o.buy_price) * o.order_size - o.order_size * 0.002).toFixed(4) : '—';
+    return `<tr>
+      <td class="num">${o.level}</td>
+      <td class="num">$${Number(o.buy_price).toLocaleString('en-US')}</td>
+      <td class="num">$${Number(o.sell_price).toLocaleString('en-US')}</td>
+      <td>${isBought ? '<span class="tl-badge tl-open" style="background:rgba(249,115,22,0.12);color:#f97316">COMPRADO</span>' : '<span class="tl-badge" style="background:rgba(72,72,71,0.15);color:var(--muted)">EN ESPERA</span>'}</td>
+      <td class="num">$${Number(o.order_size).toFixed(2)}</td>
+      <td class="num ${potPnl > 0 ? 'pos' : ''}">$${potPnl}</td>
+    </tr>`;
+  }).join('');
+}
+
+function lgridRenderTrades(trades) {
+  const tbody = document.getElementById('tbl-lgrid-trades');
+  const badge = document.getElementById('lgrid-trades-badge');
+  if (!trades || !trades.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Sin trades todavía</td></tr>'; if (badge) badge.textContent = '0 trades'; return; }
+  badge.textContent = trades.length + ' trades';
+  tbody.innerHTML = trades.map(t => `<tr>
+    <td>${fmtDate(t.closed_at)}</td>
+    <td class="num">${t.level ?? '—'}</td>
+    <td class="num">$${Number(t.buy_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+    <td class="num">$${Number(t.sell_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+    <td class="num">$${Number(t.order_size_usd).toFixed(2)}</td>
+    <td class="num neg">-$${Number(t.fee).toFixed(4)}</td>
+    <td class="num ${t.pnl >= 0 ? 'pos' : 'neg'}">${t.pnl >= 0 ? '+' : ''}$${Number(t.pnl).toFixed(4)}</td>
+  </tr>`).join('');
+}
+
+function lgridUpdateViability() {
+  const el = document.getElementById('lgrid-viability'); if (!el) return;
+  const min = parseFloat(document.getElementById('lgrid-inp-min')?.value);
+  const max = parseFloat(document.getElementById('lgrid-inp-max')?.value);
+  const levels = parseInt(document.getElementById('lgrid-inp-levels')?.value);
+  if (isNaN(min) || isNaN(max) || isNaN(levels) || min >= max || levels < 1) { el.innerHTML = ''; return; }
+  const feePct = 0.001, avgPrice = (min + max) / 2, minSpacing = avgPrice * feePct * 2;
+  const spacing = (max - min) / levels, maxLevels = Math.floor((max - min) / minSpacing);
+  const profitable = spacing > minSpacing, pnlPerTrade = ((spacing / avgPrice) - feePct * 2) * 100;
+  const ok = '<span style="color:#f97316;font-weight:700">✓ RENTABLE</span>', nok = '<span style="color:#FF4D4D;font-weight:700">✗ PÉRDIDA</span>';
+  el.innerHTML = [`<span>Spacing: <b>$${spacing.toLocaleString('es-ES',{maximumFractionDigits:0})}</b></span>`, `<span>Mín: <b>$${minSpacing.toLocaleString('es-ES',{maximumFractionDigits:0})}</b></span>`, `<span>${profitable?ok:nok}</span>`, profitable ? `<span style="color:#f97316">PnL/trade ≈ ${pnlPerTrade.toFixed(3)}%</span>` : ''].join('');
+}
+
+function lgridApplyStatus(d) {
+  const running = d.status === 'running';
+  const badge = document.getElementById('lgrid-status-badge');
+  if (badge) { badge.textContent = running ? 'RUNNING' : 'STOPPED'; badge.className = 'hero-badge' + (running ? '' : ' neg-badge'); }
+  const btnStart = document.getElementById('lgrid-btn-start'), btnStop = document.getElementById('lgrid-btn-stop');
+  if (btnStart) { btnStart.disabled = running; btnStart.style.opacity = running ? '0.35' : '1'; }
+  if (btnStop)  { btnStop.disabled = !running; btnStop.style.opacity = running ? '1' : '0.35'; }
+  const chartEl = document.getElementById('lgrid-chart'); if (chartEl) chartEl.style.opacity = running ? '1' : '0.45';
+  const m = d.metrics || {};
+  const pnlEl = document.getElementById('lgrid-pnl-val');
+  if (pnlEl) { const pnl = m.total_pnl || 0; pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Number(pnl).toFixed(4); pnlEl.className = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg'); }
+  setText('lgrid-trades-val', m.trade_count ?? 0);
+  setText('lgrid-orders-sub', (m.bought_orders ?? 0) + ' compras activas');
+  const spEl = document.getElementById('lgrid-spacing-sub'); if (spEl && d.spacing) spEl.textContent = 'spacing $' + Number(d.spacing).toLocaleString('en-US');
+  if (d.grid_min !== undefined) {
+    lgridSetPriceLines(d.grid_min, d.grid_max, d.levels);
+    if (!_lgridInputsFilled) {
+      document.getElementById('lgrid-inp-min').value = d.grid_min;
+      document.getElementById('lgrid-inp-max').value = d.grid_max;
+      document.getElementById('lgrid-inp-levels').value = d.levels;
+      if (d.order_size_pct) document.getElementById('lgrid-inp-size-pct').value = (d.order_size_pct * 100).toFixed(2);
+      _lgridInputsFilled = true; lgridUpdateViability();
+    }
+  }
+  const boughtOrders = (d.orders || []).filter(o => o.status === 'bought');
+  lgridSetMarkers(d.trades, boughtOrders);
+  lgridRenderOrders(d.orders, d.grid_min, d.grid_max, d.levels);
+  lgridRenderTrades(d.trades);
+  // Dashboard stats
+  const totalOrders = (m.pending_orders || 0) + (m.bought_orders || 0);
+  const lgDashPnl = document.getElementById('lgrid-dash-pnl');
+  if (lgDashPnl) { lgDashPnl.textContent = pnlSign(m.total_pnl || 0); lgDashPnl.className = 'stat-value ' + pnlClass(m.total_pnl || 0); }
+  document.getElementById('lgrid-dash-pnl-card')?.classList.toggle('border-pos', (m.total_pnl || 0) > 0);
+  setText('lgrid-dash-closed', m.trade_count ?? 0);
+  setText('lgrid-dash-active', totalOrders);
+}
+
+function lgridStartSSE() {
+  if (_lgridSSE) return;
+  _lgridSSE = new EventSource(`/api/live-grid/stream?token=${encodeURIComponent(getToken())}`);
+  _lgridSSE.addEventListener('init', e => { lgridApplyStatus(JSON.parse(e.data)); });
+  _lgridSSE.onmessage = e => { lgridApplyStatus(JSON.parse(e.data)); loadDashboard(); };
+  _lgridSSE.onerror = () => { if (_lgridSSE?.readyState === EventSource.CLOSED) _lgridSSE = null; };
+}
+
+function lgridStopSSE() { if (_lgridSSE) { _lgridSSE.close(); _lgridSSE = null; } }
+
+async function lgridStart() {
+  const min = parseFloat(document.getElementById('lgrid-inp-min').value);
+  const max = parseFloat(document.getElementById('lgrid-inp-max').value);
+  const levels = parseInt(document.getElementById('lgrid-inp-levels').value);
+  const pct = parseFloat(document.getElementById('lgrid-inp-size-pct').value);
+  const msg = document.getElementById('lgrid-ctrl-msg');
+  if (isNaN(min) || isNaN(max) || min >= max) { if (msg) { msg.style.color='#FF4D4D'; msg.textContent='Precio mín debe ser menor que máx'; } return; }
+  try {
+    const res = await apiFetch('/api/live-grid/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ grid_min: min, grid_max: max, levels, order_size_pct: pct / 100 }) });
+    if (res.ok) { if (msg) { msg.style.color='#f97316'; msg.textContent=`Grid iniciado · ${res.orders} órdenes · ref $${Number(res.ref_price).toLocaleString('en-US',{maximumFractionDigits:0})}`; } }
+  } catch(e) { if (msg) { msg.style.color='#FF4D4D'; msg.textContent=e.message; } }
+}
+
+async function lgridStop() {
+  const msg = document.getElementById('lgrid-ctrl-msg');
+  if (!confirm('¿Detener Grid BTC live? Se cancelarán todas las órdenes abiertas en Binance.')) return;
+  try {
+    await apiFetch('/api/live-grid/stop', { method: 'POST' });
+    if (msg) { msg.style.color='var(--muted)'; msg.textContent='Grid detenido'; }
+  } catch(e) { if (msg) { msg.style.color='#FF4D4D'; msg.textContent=e.message; } }
+}
+
+async function lgridLoadStatus() {
+  try { const d = await apiFetch('/api/live-grid/status'); lgridApplyStatus(d); } catch(e) { console.error(e); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIVE GRID PEPE
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _lpepeChart      = null;
+let _lpepeSeries     = null;
+let _lpepePriceLines = [];
+let _lpepeWs         = null;
+let _lpepeSSE        = null;
+let _lpepeTabActive  = false;
+let _lpepeInputsFilled = false;
+
+function lpepeInitChart() {
+  if (_lpepeChart) return;
+  const container = document.getElementById('lpepe-grid-chart');
+  if (!container) return;
+  _lpepeChart = LightweightCharts.createChart(container, {
+    layout: { background: { type: 'solid', color: '#000' }, textColor: '#ADAAAA' },
+    grid: { vertLines: { color: 'rgba(72,72,71,0.12)' }, horzLines: { color: 'rgba(72,72,71,0.12)' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    localization: { locale: 'es-ES', timeFormatter: ts => new Date(ts * 1000).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }) },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(72,72,71,0.3)' },
+    rightPriceScale: { borderColor: 'rgba(72,72,71,0.3)' },
+    handleScroll: true, handleScale: true,
+  });
+  _lpepeSeries = _lpepeChart.addAreaSeries({
+    lineColor: '#fb923c', topColor: 'rgba(251,146,60,0.08)', bottomColor: 'rgba(251,146,60,0)',
+    lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true,
+  });
+  new ResizeObserver(() => { if (_lpepeChart) _lpepeChart.applyOptions({ width: container.clientWidth }); }).observe(container);
+}
+
+function lpepeStartWs() {
+  if (_lpepeWs) return;
+  _lpepeWs = new WebSocket('wss://stream.binance.com/ws/pepeusdt@aggTrade');
+  _lpepeWs.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      const price = parseFloat(msg.p), ts = Math.floor(parseInt(msg.T) / 1000);
+      document.getElementById('lpepe-price-val').textContent = price.toExponential(4);
+      if (_lpepeSeries) { _lpepeSeries.update({ time: ts, value: price }); if (_lpepeChart) _lpepeChart.timeScale().scrollToRealTime(); }
+    } catch(_) {}
+  };
+  _lpepeWs.onerror = () => { _lpepeWs = null; };
+  _lpepeWs.onclose = () => { _lpepeWs = null; if (_lpepeTabActive) setTimeout(lpepeStartWs, 3000); };
+}
+
+function lpepeStopWs() { if (_lpepeWs) { _lpepeWs.close(); _lpepeWs = null; } }
+
+async function lpepeLoadHistory() {
+  try {
+    const resp = await fetch('https://api.binance.com/api/v3/klines?symbol=PEPEUSDT&interval=1m&limit=200');
+    const data = await resp.json();
+    if (!Array.isArray(data) || !_lpepeSeries) return;
+    _lpepeSeries.setData(data.map(k => ({ time: Math.floor(k[0]/1000), value: parseFloat(k[4]) })));
+    _lpepeChart.timeScale().scrollToRealTime();
+  } catch(_) {}
+}
+
+function lpepeRenderOrders(orders) {
+  const tbody = document.getElementById('tbl-lpepe-orders');
+  const badge = document.getElementById('lpepe-orders-badge');
+  if (!orders || !orders.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Sin órdenes activas</td></tr>'; if (badge) badge.textContent = '0 niveles'; return; }
+  badge.textContent = orders.length + ' niveles';
+  tbody.innerHTML = orders.map(o => {
+    const isBought = o.status === 'bought';
+    return `<tr>
+      <td class="num">${o.level_index}</td>
+      <td class="num">${Number(o.buy_price).toExponential(4)}</td>
+      <td class="num">${Number(o.sell_price).toExponential(4)}</td>
+      <td>${isBought ? '<span class="tl-badge tl-open" style="background:rgba(251,146,60,0.12);color:#fb923c">COMPRADO</span>' : '<span class="tl-badge" style="background:rgba(72,72,71,0.15);color:var(--muted)">EN ESPERA</span>'}</td>
+      <td class="num">$${Number(o.order_size).toFixed(2)}</td>
+      <td class="num pos">—</td>
+      <td class="num">${o.grid_epoch ?? 0}</td>
+    </tr>`;
+  }).join('');
+}
+
+function lpepeRenderTrades(trades) {
+  const tbody = document.getElementById('tbl-lpepe-trades');
+  const badge = document.getElementById('lpepe-trades-badge');
+  if (!trades || !trades.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Sin trades todavía</td></tr>'; if (badge) badge.textContent = '0 trades'; return; }
+  badge.textContent = trades.length + ' trades';
+  tbody.innerHTML = trades.map(t => `<tr>
+    <td>${fmtDate(t.closed_at)}</td>
+    <td class="num">${t.level_index}</td>
+    <td class="num">${t.grid_epoch}</td>
+    <td class="num">${Number(t.buy_price).toExponential(4)}</td>
+    <td class="num">${Number(t.sell_price).toExponential(4)}</td>
+    <td class="num">$${Number(t.order_size_usd).toFixed(2)}</td>
+    <td class="num neg">-$${Number(t.fee).toFixed(6)}</td>
+    <td class="num ${t.pnl >= 0 ? 'pos' : 'neg'}">${t.pnl >= 0 ? '+' : ''}$${Number(t.pnl).toFixed(6)}</td>
+    <td class="num">${t.anchor_at_trade ? Number(t.anchor_at_trade).toExponential(4) : '—'}</td>
+  </tr>`).join('');
+}
+
+function lpepeApplyStatus(d) {
+  const running = d.status === 'running';
+  const badge = document.getElementById('lpepe-status-badge');
+  if (badge) { badge.textContent = running ? 'RUNNING' : 'STOPPED'; badge.className = 'hero-badge' + (running ? '' : ' neg-badge'); }
+  const btnStart = document.getElementById('lpepe-btn-start'), btnStop = document.getElementById('lpepe-btn-stop');
+  if (btnStart) { btnStart.disabled = running; btnStart.style.opacity = running ? '0.35' : '1'; }
+  if (btnStop)  { btnStop.disabled = !running; btnStop.style.opacity = running ? '1' : '0.35'; }
+  const m = d.metrics || {};
+  const pnlEl = document.getElementById('lpepe-pnl-val');
+  if (pnlEl) { const pnl = m.realized_pnl || 0; pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Number(pnl).toFixed(6); pnlEl.className = 'mc-value ' + (pnl >= 0 ? 'pos' : 'neg'); }
+  const unrEl = document.getElementById('lpepe-unrealized-val');
+  if (unrEl) { const u = m.unrealized_pnl; if (u != null) { unrEl.textContent = (u >= 0 ? '+' : '') + '$' + Number(u).toFixed(6); unrEl.className = 'mc-value ' + (u >= 0 ? 'pos' : 'neg'); } }
+  setText('lpepe-trades-val', m.trade_count ?? 0);
+  setText('lpepe-orders-sub', (m.bought_orders ?? 0) + ' compras activas');
+  const epEl = document.getElementById('lpepe-epoch-sub'); if (epEl && d.grid_epoch != null) epEl.textContent = 'epoch ' + d.grid_epoch;
+  // Info bar
+  if (d.anchor_price) {
+    setText('lpepe-info-ap', Number(d.anchor_price).toExponential(4));
+    setText('lpepe-info-gi', d.grid_interval ? Number(d.grid_interval).toExponential(3) : '—');
+    setText('lpepe-info-ma', d.ma_type ? d.ma_type + '-' + d.ma_period : '—');
+    setText('lpepe-info-epoch', d.grid_epoch ?? '—');
+  }
+  if (!_lpepeInputsFilled && d.order_size_pct) {
+    document.getElementById('lpepe-inp-size-pct').value = (d.order_size_pct * 100).toFixed(2);
+    if (d.ma_type) document.getElementById('lpepe-inp-ma-type').value = d.ma_type;
+    if (d.ma_period) document.getElementById('lpepe-inp-ma-period').value = d.ma_period;
+    if (d.interval_pct) document.getElementById('lpepe-inp-interval').value = (d.interval_pct * 100).toFixed(1);
+    if (d.laziness_pct) document.getElementById('lpepe-inp-laziness').value = (d.laziness_pct * 100).toFixed(1);
+    _lpepeInputsFilled = true;
+  }
+  // Grid lines on chart
+  if (_lpepeSeries && d.anchor_price && d.grid_interval) {
+    _lpepePriceLines.forEach(pl => _lpepeSeries.removePriceLine(pl)); _lpepePriceLines = [];
+    const ap = d.anchor_price, gi = d.grid_interval;
+    for (let i = -4; i <= 4; i++) {
+      const p = ap + i * gi;
+      _lpepePriceLines.push(_lpepeSeries.createPriceLine({ price: p, color: i === 0 ? 'rgba(251,146,60,0.8)' : 'rgba(251,146,60,0.2)', lineWidth: i === 0 ? 2 : 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: i === 0, title: i === 0 ? 'AP' : '' }));
+    }
+  }
+  lpepeRenderOrders(d.orders);
+  lpepeRenderTrades(d.trades);
+  // Dashboard stats
+  const lpDashPnl = document.getElementById('lpepe-dash-pnl');
+  if (lpDashPnl) { lpDashPnl.textContent = pnlSign(m.realized_pnl || 0); lpDashPnl.className = 'stat-value ' + pnlClass(m.realized_pnl || 0); }
+  document.getElementById('lpepe-dash-pnl-card')?.classList.toggle('border-pos', (m.realized_pnl || 0) > 0);
+  setText('lpepe-dash-closed', m.trade_count ?? 0);
+  setText('lpepe-dash-active', (m.pending_orders || 0) + (m.bought_orders || 0));
+}
+
+function lpepeStartSSE() {
+  if (_lpepeSSE) return;
+  _lpepeSSE = new EventSource(`/api/live-grid-pepe/stream?token=${encodeURIComponent(getToken())}`);
+  _lpepeSSE.addEventListener('init', e => { lpepeApplyStatus(JSON.parse(e.data)); });
+  _lpepeSSE.onmessage = e => { lpepeApplyStatus(JSON.parse(e.data)); loadDashboard(); };
+  _lpepeSSE.onerror = () => { if (_lpepeSSE?.readyState === EventSource.CLOSED) _lpepeSSE = null; };
+}
+
+function lpepeStopSSE() { if (_lpepeSSE) { _lpepeSSE.close(); _lpepeSSE = null; } }
+
+async function lpepeStart() {
+  const pct = parseFloat(document.getElementById('lpepe-inp-size-pct').value);
+  const msg = document.getElementById('lpepe-ctrl-msg');
+  try {
+    const res = await apiFetch('/api/live-grid-pepe/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({
+      order_size_pct: pct / 100,
+      ma_type:        document.getElementById('lpepe-inp-ma-type').value,
+      ma_period:      parseInt(document.getElementById('lpepe-inp-ma-period').value),
+      interval_pct:   parseFloat(document.getElementById('lpepe-inp-interval').value) / 100,
+      laziness_pct:   parseFloat(document.getElementById('lpepe-inp-laziness').value) / 100,
+    })});
+    if (res.ok && msg) { msg.style.color='#fb923c'; msg.textContent=`Grid iniciado · AP ${Number(res.anchor).toExponential(3)} · ref ${Number(res.ref_price).toExponential(3)}`; }
+  } catch(e) { if (msg) { msg.style.color='#FF4D4D'; msg.textContent=e.message; } }
+}
+
+async function lpepeStop() {
+  const msg = document.getElementById('lpepe-ctrl-msg');
+  if (!confirm('¿Detener Grid PEPE live? Se cancelarán todas las órdenes abiertas en Binance.')) return;
+  try {
+    await apiFetch('/api/live-grid-pepe/stop', { method: 'POST' });
+    if (msg) { msg.style.color='var(--muted)'; msg.textContent='Grid PEPE detenido'; }
+  } catch(e) { if (msg) { msg.style.color='#FF4D4D'; msg.textContent=e.message; } }
+}
+
+async function lgridLoadStatus() {
+  try { const d = await apiFetch('/api/live-grid/status'); lgridApplyStatus(d); } catch(e) { console.error(e); }
+}
+
+async function lpepeLoadStatus() {
+  try { const d = await apiFetch('/api/live-grid-pepe/status'); lpepeApplyStatus(d); } catch(e) { console.error(e); }
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
   const token = getToken();
   if (!token) { showLogin(); return; }
   showApp();
   try {
-    await Promise.all([loadDashboard(), loadTrades()]);
+    await Promise.all([loadDashboard(), loadTrades(), lgridLoadStatus(), lpepeLoadStatus()]);
     initSortableTable('tbl-tradelog', 'badge-tradelog');
   } catch (err) {
     console.error(err);
