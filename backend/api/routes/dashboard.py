@@ -1,3 +1,7 @@
+import asyncio
+import datetime
+import time
+
 from fastapi import APIRouter, Depends, Query
 from api.auth import require_token
 from db.connection import get_db, fetchone, fetchall
@@ -5,6 +9,41 @@ from defi.aave import get_aave_stats
 from config import CONFIG
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
+
+
+async def _get_live_balances() -> dict:
+    """Fetches real balances from Binance."""
+    from services.binance import get_account_balances
+
+    try:
+        binance_bal = await get_account_balances()
+    except Exception:
+        binance_bal = {}
+
+    return {"binance": binance_bal}
+
+
+async def _save_live_snapshot(db, bankroll: float, portfolio_total: float, open_positions: int):
+    """Saves a daily snapshot to live.db with the real balance."""
+    today = datetime.date.today().isoformat()
+    existing = await fetchone(db, "SELECT bankroll FROM snapshots WHERE date = ?", (today,))
+    prev = await fetchone(db, "SELECT bankroll FROM snapshots ORDER BY date DESC LIMIT 1")
+    prev_bankroll = (prev or {}).get("bankroll") or bankroll
+    pnl_day = round(bankroll - prev_bankroll, 4) if existing is None else (existing.get("pnl_day") or 0)
+    pnl_total = round(portfolio_total - CONFIG.live_bankroll, 4)
+    now_ms = int(time.time() * 1000)
+
+    await db.execute(
+        """INSERT INTO snapshots (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
+           VALUES (?, ?, ?, ?, ?, 0, ?)
+           ON CONFLICT(date) DO UPDATE SET
+               bankroll=excluded.bankroll,
+               pnl_total=excluded.pnl_total,
+               open_positions=excluded.open_positions,
+               created_at=excluded.created_at""",
+        (today, round(bankroll, 4), pnl_day, pnl_total, open_positions, now_ms),
+    )
+    await db.commit()
 
 
 @router.get("")
@@ -15,14 +54,67 @@ async def get_dashboard(
     db = await get_db(mode)
     initial_bankroll = CONFIG.live_bankroll if mode == "live" else CONFIG.paper_bankroll
 
+    # ── Live mode: real balances from external sources ─────────────────────
+    sources = {}
+    btc_price = 0.0
+    if mode == "live":
+        from services.binance import fetch_spot_price
+        raw = await _get_live_balances()
+        sources = raw
+
+        # BTC price for valuation
+        try:
+            btc_price = await fetch_spot_price("BTCUSDT")
+        except Exception:
+            btc_price = 0.0
+
+        binance = raw.get("binance", {})
+
+        binance_usdt       = (binance.get("USDT") or {}).get("free", 0.0)
+        binance_usdc       = (binance.get("USDC") or {}).get("free", 0.0)
+        binance_btc        = (binance.get("BTC")  or {}).get("free", 0.0)
+        binance_btc_locked = (binance.get("BTC")  or {}).get("locked", 0.0)
+
+        bankroll        = binance_usdt + binance_usdc
+        btc_value       = (binance_btc + binance_btc_locked) * btc_price
+        portfolio_total = bankroll + btc_value
+        capital_active  = btc_value
+
+        await _save_live_snapshot(db, bankroll, portfolio_total, 0)
+
+        snaps_history = await fetchall(db, "SELECT date, bankroll, pnl_day FROM snapshots ORDER BY date ASC")
+
+        return {
+            "bankroll":         round(bankroll, 2),
+            "portfolio_total":  round(portfolio_total, 2),
+            "initial_bankroll": initial_bankroll,
+            "pnl_total":        round(portfolio_total - initial_bankroll, 2) if initial_bankroll else 0,
+            "pnl_total_pct":    round((portfolio_total - initial_bankroll) / initial_bankroll * 100, 2) if initial_bankroll else 0,
+            "pnl_day":          0.0,
+            "win_rate":         0.0,
+            "open_positions":   0,
+            "capital_active":   round(capital_active, 2),
+            "snapshots":        snaps_history,
+            "trade_counts":     {},
+            "last_updated":     int(time.time() * 1000),
+            "sources": {
+                "binance": {
+                    "usdt":      round(binance_usdt, 2),
+                    "usdc":      round(binance_usdc, 2),
+                    "btc":       round(binance_btc + binance_btc_locked, 8),
+                    "btc_usd":   round(btc_value, 2),
+                    "btc_price": round(btc_price, 2),
+                },
+            },
+        }
+
+    # ── Paper mode: existing logic ─────────────────────────────────────────
     snap = await fetchone(db, "SELECT * FROM snapshots ORDER BY date DESC LIMIT 1")
 
-    bankroll     = (snap or {}).get("bankroll") or initial_bankroll
-    pnl_day      = (snap or {}).get("pnl_day") or 0
-    win_rate     = (snap or {}).get("win_rate") or 0
-    open_pos_snap = (snap or {}).get("open_positions") or 0
+    bankroll      = (snap or {}).get("bankroll") or initial_bankroll
+    pnl_day       = (snap or {}).get("pnl_day") or 0
+    win_rate      = (snap or {}).get("win_rate") or 0
 
-    # Capital activo (live)
     copy_active   = (await fetchone(db, "SELECT COALESCE(SUM(size_usdc), 0) AS s FROM positions"))["s"] or 0
     btc5m_active  = (await fetchone(db, "SELECT COALESCE(SUM(size_usdc), 0) AS s FROM btc5m_positions"))["s"] or 0
     grid_capital  = (await fetchone(db, "SELECT COALESCE(SUM(order_size), 0) AS s FROM grid_orders WHERE status='bought'"))["s"] or 0
@@ -31,56 +123,46 @@ async def get_dashboard(
     capital_active = copy_active + btc5m_active + grid_capital + pepe_capital + stoch_capital
     portfolio_total = bankroll + capital_active
 
-    # Snapshot history for charts
     snaps_history = await fetchall(db, "SELECT date, bankroll, pnl_day FROM snapshots ORDER BY date ASC")
 
-    # AAVE
     aave = await get_aave_stats(db)
     aave_history = await fetchall(db, "SELECT * FROM aave_yields ORDER BY created_at DESC LIMIT 100")
 
-    # Kelly
     kelly = await fetchone(db, "SELECT * FROM kelly_snapshots ORDER BY created_at DESC LIMIT 1")
     kelly_history = await fetchall(db, "SELECT * FROM kelly_snapshots ORDER BY created_at DESC LIMIT 100")
 
-    # Trade counts
     copy_trades  = (await fetchone(db, "SELECT COUNT(*) AS n FROM trades WHERE status = 'closed'"))["n"]
     btc5m_trades = (await fetchone(db, "SELECT COUNT(*) AS n FROM btc5m_trades WHERE status != 'open'"))["n"]
     arb_trades   = (await fetchone(db, "SELECT COUNT(*) AS n FROM arb_trades WHERE status = 'closed'"))["n"]
     grid_trades  = (await fetchone(db, "SELECT COUNT(*) AS n FROM grid_trades"))["n"]
     pepe_trades  = (await fetchone(db, "SELECT COUNT(*) AS n FROM pepe_grid_trades"))["n"]
 
-    # Copy stats
-    copy_open   = (await fetchone(db, "SELECT COUNT(*) AS n FROM positions"))["n"]
-    copy_wins   = (await fetchone(db, "SELECT COUNT(*) AS n FROM trades WHERE status = 'closed' AND pnl > 0"))["n"]
-    copy_pnl    = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM trades WHERE status = 'closed'"))["s"] or 0
+    copy_open  = (await fetchone(db, "SELECT COUNT(*) AS n FROM positions"))["n"]
+    copy_wins  = (await fetchone(db, "SELECT COUNT(*) AS n FROM trades WHERE status = 'closed' AND pnl > 0"))["n"]
+    copy_pnl   = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM trades WHERE status = 'closed'"))["s"] or 0
 
-    # BTC5m stats
-    btc5m_open  = (await fetchone(db, "SELECT COUNT(*) AS n FROM btc5m_positions"))["n"]
-    btc5m_wins  = (await fetchone(db, "SELECT COUNT(*) AS n FROM btc5m_trades WHERE status != 'open' AND pnl > 0"))["n"]
-    btc5m_pnl   = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM btc5m_trades WHERE status != 'open'"))["s"] or 0
+    btc5m_open = (await fetchone(db, "SELECT COUNT(*) AS n FROM btc5m_positions"))["n"]
+    btc5m_wins = (await fetchone(db, "SELECT COUNT(*) AS n FROM btc5m_trades WHERE status != 'open' AND pnl > 0"))["n"]
+    btc5m_pnl  = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM btc5m_trades WHERE status != 'open'"))["s"] or 0
 
-    # Arb stats
-    arb_open    = (await fetchone(db, "SELECT COUNT(*) AS n FROM arb_trades WHERE status = 'open'"))["n"]
-    arb_wins    = (await fetchone(db, "SELECT COUNT(*) AS n FROM arb_trades WHERE status = 'closed' AND pnl > 0"))["n"]
-    arb_pnl     = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM arb_trades WHERE status = 'closed'"))["s"] or 0
+    arb_open       = (await fetchone(db, "SELECT COUNT(*) AS n FROM arb_trades WHERE status = 'open'"))["n"]
+    arb_wins       = (await fetchone(db, "SELECT COUNT(*) AS n FROM arb_trades WHERE status = 'closed' AND pnl > 0"))["n"]
+    arb_pnl        = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM arb_trades WHERE status = 'closed'"))["s"] or 0
     arb_active_opps = (await fetchone(db, "SELECT COUNT(*) AS n FROM arb_opportunities WHERE status = 'open'"))["n"]
     arb_avg_profit = (await fetchone(db, "SELECT AVG(expected_profit) AS v FROM arb_opportunities WHERE status = 'open'"))["v"]
 
-    # Grid BTC stats
     grid_pnl      = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM grid_trades"))["s"] or 0
     grid_wins     = (await fetchone(db, "SELECT COUNT(*) AS n FROM grid_trades WHERE pnl > 0"))["n"]
     grid_win_rate = round(grid_wins / grid_trades * 100, 1) if grid_trades > 0 else 0
     grid_active   = (await fetchone(db, "SELECT COUNT(*) AS n FROM grid_orders WHERE status IN ('pending','bought')"))["n"]
     grid_bought   = (await fetchone(db, "SELECT COUNT(*) AS n FROM grid_orders WHERE status='bought'"))["n"]
 
-    # Grid PEPE stats
     pepe_pnl      = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM pepe_grid_trades"))["s"] or 0
     pepe_wins     = (await fetchone(db, "SELECT COUNT(*) AS n FROM pepe_grid_trades WHERE pnl > 0"))["n"]
     pepe_win_rate = round(pepe_wins / pepe_trades * 100, 1) if pepe_trades > 0 else 0
     pepe_active   = (await fetchone(db, "SELECT COUNT(*) AS n FROM pepe_grid_orders WHERE status IN ('pending','bought')"))["n"]
     pepe_bought   = (await fetchone(db, "SELECT COUNT(*) AS n FROM pepe_grid_orders WHERE status='bought'"))["n"]
 
-    # Stoch BTC stats
     stoch_trades   = (await fetchone(db, "SELECT COUNT(*) AS n FROM stoch_btc_trades WHERE status='closed'"))["n"]
     stoch_pnl      = (await fetchone(db, "SELECT COALESCE(SUM(pnl), 0) AS s FROM stoch_btc_trades WHERE status='closed'"))["s"] or 0
     stoch_wins     = (await fetchone(db, "SELECT COUNT(*) AS n FROM stoch_btc_trades WHERE status='closed' AND pnl > 0"))["n"]
@@ -88,14 +170,13 @@ async def get_dashboard(
     stoch_signals  = (await fetchone(db, "SELECT COUNT(*) AS n FROM stoch_btc_signals"))["n"]
     stoch_open     = (await fetchone(db, "SELECT COUNT(*) AS n FROM stoch_btc_trades WHERE status='open'"))["n"]
 
-    # Active wallets
     active_wallets = await fetchall(
         db, "SELECT address, win_rate, roi, score, name FROM wallets WHERE active = 1 ORDER BY score DESC"
     )
 
     return {
-        "bankroll":         bankroll,          # cash libre
-        "portfolio_total":  portfolio_total,   # bankroll + capital_active
+        "bankroll":         bankroll,
+        "portfolio_total":  portfolio_total,
         "initial_bankroll": initial_bankroll,
         "pnl_total":        portfolio_total - initial_bankroll,
         "pnl_total_pct":    ((portfolio_total - initial_bankroll) / initial_bankroll * 100) if initial_bankroll else 0,

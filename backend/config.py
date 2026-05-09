@@ -77,6 +77,12 @@ class Settings(BaseSettings):
 
     # Binance
     binance_base: str = "https://api.binance.us/api/v3"
+    binance_api_key: str = ""
+    binance_api_secret: str = ""
+
+    # Live wallet (Polygon / Polymarket)
+    live_wallet_address: str = ""
+    polygon_rpc_url: str = "https://polygon-rpc.com"
 
     # DefiLlama
     defillama_pools_api: str = "https://yields.llama.fi/pools"

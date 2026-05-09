@@ -219,6 +219,7 @@
         <div class="hero-label">Valor del portfolio (USDC)</div>
         <div class="hero-value" id="d-portfolio">—</div>
         <span class="hero-badge" id="d-pnl-badge">—</span>
+        <div id="d-sources" style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.3rem"></div>
       </div>
       <div class="metric-card" style="border-left:2px solid rgba(245,158,11,0.25)">
         <div class="mc-label">Cash libre</div>
@@ -273,7 +274,7 @@
     </div>
     <div class="stats-grid" style="--accent:var(--primary)">
       <div class="stat-card">
-        <div class="stat-label">Capital activo ahora</div>
+        <div class="stat-label">Capital activo (BTC)</div>
         <div class="stat-value" id="d-capital-active">—</div>
       </div>
       <div class="stat-card">
@@ -285,6 +286,7 @@
         <div class="stat-value" id="d-stat-closed">—</div>
       </div>
     </div>
+
 
   </div><!-- /tab-dashboard -->
 
@@ -492,6 +494,16 @@ async function loadDashboard() {
   setText('d-capital-active', fmtU(d.capital_active));
   setText('d-stat-open', d.open_positions || 0);
   setText('d-stat-closed', totalClosed);
+
+  // Fuentes bajo el KPI de bankroll
+  const sourcesEl = document.getElementById('d-sources');
+  if (sourcesEl) {
+    const chips = [];
+    const bin = (d.sources || {}).binance || {};
+    if (Object.keys(bin).length)
+      chips.push(`<span style="font-size:0.55rem;font-family:monospace;background:rgba(245,158,11,0.1);color:#F59E0B;padding:0.1rem 0.4rem;border-radius:0.25rem;letter-spacing:0.04em">Binance</span>`);
+    sourcesEl.innerHTML = chips.join('');
+  }
 
   renderCharts(0);
 
