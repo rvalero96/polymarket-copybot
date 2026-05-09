@@ -3,29 +3,33 @@ import aiosqlite
 from db.schema import SCHEMA, MIGRATIONS
 from config import CONFIG
 
-_db: aiosqlite.Connection | None = None
+_dbs: dict[str, aiosqlite.Connection | None] = {"paper": None, "live": None}
 
 
-async def get_db() -> aiosqlite.Connection:
-    global _db
-    if _db is not None:
-        return _db
+async def get_db(mode: str = "paper") -> aiosqlite.Connection:
+    global _dbs
+    if _dbs.get(mode) is not None:
+        return _dbs[mode]
 
-    os.makedirs(os.path.dirname(CONFIG.db_path), exist_ok=True)
+    path = CONFIG.db_path if mode == "paper" else CONFIG.live_db_path
+    dir_ = os.path.dirname(path)
+    if dir_:
+        os.makedirs(dir_, exist_ok=True)
 
-    _db = await aiosqlite.connect(CONFIG.db_path)
-    _db.row_factory = aiosqlite.Row
+    db = await aiosqlite.connect(path)
+    db.row_factory = aiosqlite.Row
 
-    await _db.executescript(SCHEMA)
+    await db.executescript(SCHEMA)
 
     for migration in MIGRATIONS:
         try:
-            await _db.execute(migration)
+            await db.execute(migration)
         except Exception:
             pass  # column already exists
 
-    await _db.commit()
-    return _db
+    await db.commit()
+    _dbs[mode] = db
+    return db
 
 
 async def fetchall(db: aiosqlite.Connection, sql: str, params: tuple = ()) -> list[dict]:

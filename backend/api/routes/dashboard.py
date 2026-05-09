@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from api.auth import require_token
 from db.connection import get_db, fetchone, fetchall
 from defi.aave import get_aave_stats
@@ -8,12 +8,16 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 @router.get("")
-async def get_dashboard(_: str = Depends(require_token)):
-    db = await get_db()
+async def get_dashboard(
+    mode: str = Query(default="paper"),
+    _: str = Depends(require_token),
+):
+    db = await get_db(mode)
+    initial_bankroll = CONFIG.live_bankroll if mode == "live" else CONFIG.paper_bankroll
 
     snap = await fetchone(db, "SELECT * FROM snapshots ORDER BY date DESC LIMIT 1")
 
-    bankroll     = (snap or {}).get("bankroll") or CONFIG.paper_bankroll
+    bankroll     = (snap or {}).get("bankroll") or initial_bankroll
     pnl_day      = (snap or {}).get("pnl_day") or 0
     win_rate     = (snap or {}).get("win_rate") or 0
     open_pos_snap = (snap or {}).get("open_positions") or 0
@@ -92,9 +96,9 @@ async def get_dashboard(_: str = Depends(require_token)):
     return {
         "bankroll":         bankroll,          # cash libre
         "portfolio_total":  portfolio_total,   # bankroll + capital_active
-        "initial_bankroll": CONFIG.paper_bankroll,
-        "pnl_total":        portfolio_total - CONFIG.paper_bankroll,
-        "pnl_total_pct":    ((portfolio_total - CONFIG.paper_bankroll) / CONFIG.paper_bankroll) * 100,
+        "initial_bankroll": initial_bankroll,
+        "pnl_total":        portfolio_total - initial_bankroll,
+        "pnl_total_pct":    ((portfolio_total - initial_bankroll) / initial_bankroll * 100) if initial_bankroll else 0,
         "pnl_day":          pnl_day,
         "win_rate":         win_rate,
         "open_positions":   copy_open + btc5m_open + arb_open + grid_active + stoch_open,

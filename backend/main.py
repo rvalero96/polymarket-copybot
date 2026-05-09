@@ -6,10 +6,12 @@ FastAPI + APScheduler
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from config import CONFIG
 from strategies.copy_trading import CopyTradingStrategy, DiscoveryStrategy
 from strategies.btc5m import Btc5mStrategy
 from strategies.arbitrage import ArbitrageStrategy
@@ -66,11 +68,26 @@ async def _safe_run(strategy):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import time as _time
-    # Inicializar DB
+    # Inicializar ambas BDs
     from db.connection import get_db
-    import time as _time
-    db = await get_db()
+    import datetime as _dt
+    db = await get_db("paper")
+    db_live = await get_db("live")
     logger.info("app:db:ready")
+
+    # Sembrar snapshot inicial en live si la BD está vacía
+    live_snap = await db_live.execute("SELECT COUNT(*) FROM snapshots")
+    live_snap_row = await live_snap.fetchone()
+    if (live_snap_row[0] if live_snap_row else 0) == 0:
+        _now_ms = int(_time.time() * 1000)
+        await db_live.execute(
+            """INSERT OR IGNORE INTO snapshots
+               (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
+               VALUES (?, ?, 0, 0, 0, 0, ?)""",
+            (_dt.date.today().isoformat(), CONFIG.live_bankroll, _now_ms),
+        )
+        await db_live.commit()
+        logger.info("app:db:live:seeded")
 
     # Clean up stale 'running' state left by any ungraceful previous shutdown
     _now_ms = int(_time.time() * 1000)
@@ -133,6 +150,15 @@ app.include_router(reset_router)
 
 # Inyectar instancias de estrategias en el router de strategies
 set_strategies(STRATEGIES)
+
+# Rutas de dashboards (deben ir antes del mount estático)
+@app.get("/paper", include_in_schema=False)
+async def paper_dashboard():
+    return FileResponse("../frontend/paper.html")
+
+@app.get("/live", include_in_schema=False)
+async def live_dashboard():
+    return FileResponse("../frontend/live.html")
 
 # Frontend estático (un nivel arriba de backend/)
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")

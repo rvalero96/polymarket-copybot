@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from api.auth import require_token
 from db.connection import get_db, fetchall
 
@@ -6,8 +6,11 @@ router = APIRouter(prefix="/api/positions", tags=["positions"])
 
 
 @router.get("")
-async def get_positions(_: str = Depends(require_token)):
-    db = await get_db()
+async def get_positions(
+    mode: str = Query(default="paper"),
+    _: str = Depends(require_token),
+):
+    db = await get_db(mode)
 
     copy_positions = await fetchall(db, """
         SELECT p.*, w.score AS wallet_score

@@ -9,9 +9,10 @@ router = APIRouter(prefix="/api/trades", tags=["trades"])
 async def get_trades(
     limit: int = Query(default=50, le=500),
     strategy: str = Query(default="all"),
+    mode: str = Query(default="paper"),
     _: str = Depends(require_token),
 ):
-    db = await get_db()
+    db = await get_db(mode)
     result = {}
 
     if strategy in ("all", "copy_trading"):

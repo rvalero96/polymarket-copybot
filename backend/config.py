@@ -14,10 +14,12 @@ class Settings(BaseSettings):
     trading_mode: str = "paper"
     log_level: str = "info"
     db_path: str = "data/state.db"
+    live_db_path: str = "data/live.db"
     api_token: str = "changeme"
 
     # Bankroll
     paper_bankroll: float = 1000.0
+    live_bankroll: float = 0.0
     position_size_pct: float = 0.05
     max_open_positions: int = 10
     slippage_pct: float = 0.003
