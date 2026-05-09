@@ -23,15 +23,27 @@ async def _get_live_balances() -> dict:
     return {"binance": binance_bal}
 
 
-async def _save_live_snapshot(db, bankroll: float, portfolio_total: float, open_positions: int):
+async def _get_live_initial_bankroll(db, current_bankroll: float) -> float:
+    """
+    Returns the initial bankroll reference for P&L calculation.
+    Uses the oldest snapshot in live.db. If none exists yet (first ever load),
+    seeds it with the current balance so P&L starts at 0.
+    """
+    first = await fetchone(db, "SELECT bankroll FROM snapshots ORDER BY date ASC LIMIT 1")
+    if first and first.get("bankroll"):
+        return float(first["bankroll"])
+    return current_bankroll
+
+
+async def _save_live_snapshot(db, bankroll: float, portfolio_total: float, open_positions: int, initial_bankroll: float):
     """Saves a daily snapshot to live.db with the real balance."""
     today = datetime.date.today().isoformat()
     existing = await fetchone(db, "SELECT bankroll FROM snapshots WHERE date = ?", (today,))
     prev = await fetchone(db, "SELECT bankroll FROM snapshots ORDER BY date DESC LIMIT 1")
     prev_bankroll = (prev or {}).get("bankroll") or bankroll
-    pnl_day = round(bankroll - prev_bankroll, 4) if existing is None else (existing.get("pnl_day") or 0)
-    pnl_total = round(portfolio_total - CONFIG.live_bankroll, 4)
-    now_ms = int(time.time() * 1000)
+    pnl_day   = round(bankroll - prev_bankroll, 4) if existing is None else (existing.get("pnl_day") or 0)
+    pnl_total = round(portfolio_total - initial_bankroll, 4)
+    now_ms    = int(time.time() * 1000)
 
     await db.execute(
         """INSERT INTO snapshots (date, bankroll, pnl_day, pnl_total, open_positions, win_rate, created_at)
@@ -52,7 +64,7 @@ async def get_dashboard(
     _: str = Depends(require_token),
 ):
     db = await get_db(mode)
-    initial_bankroll = CONFIG.live_bankroll if mode == "live" else CONFIG.paper_bankroll
+    initial_bankroll = CONFIG.paper_bankroll
 
     # ── Live mode: real balances from external sources ─────────────────────
     sources = {}
@@ -80,7 +92,8 @@ async def get_dashboard(
         portfolio_total = bankroll + btc_value
         capital_active  = btc_value
 
-        await _save_live_snapshot(db, bankroll, portfolio_total, 0)
+        initial_bankroll = await _get_live_initial_bankroll(db, portfolio_total)
+        await _save_live_snapshot(db, bankroll, portfolio_total, 0, initial_bankroll)
 
         snaps_history = await fetchall(db, "SELECT date, bankroll, pnl_day FROM snapshots ORDER BY date ASC")
 

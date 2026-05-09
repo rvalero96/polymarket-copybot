@@ -19,7 +19,6 @@ class Settings(BaseSettings):
 
     # Bankroll
     paper_bankroll: float = 1000.0
-    live_bankroll: float = 0.0
     position_size_pct: float = 0.05
     max_open_positions: int = 10
     slippage_pct: float = 0.003
