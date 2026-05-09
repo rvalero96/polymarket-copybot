@@ -841,6 +841,7 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
     if (target === 'tab-live-grid') {
       _lgridTabActive = true; _lgridInputsFilled = false;
       lgridInitChart(); lgridLoadHistory(); lgridStartWs(); lgridStartSSE();
+      lgridSetDefaultRange();
     } else {
       if (_lgridTabActive) { _lgridTabActive = false; lgridStopWs(); lgridStopSSE(); }
     }
@@ -959,6 +960,21 @@ let _lgridInputsFilled = false;
 let _lgridRangeMin   = null;
 let _lgridRangeMax   = null;
 
+async function lgridSetDefaultRange() {
+  // Solo si el grid no está corriendo (para no pisar una config activa)
+  if (document.getElementById('lgrid-status-badge')?.textContent === 'RUNNING') return;
+  try {
+    const resp = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+    const data = await resp.json();
+    const price = parseFloat(data.price);
+    if (!price) return;
+    const pct = 0.05;
+    document.getElementById('lgrid-inp-min').value = Math.round(price * (1 - pct));
+    document.getElementById('lgrid-inp-max').value = Math.round(price * (1 + pct));
+    lgridUpdateViability();
+  } catch(_) {}
+}
+
 function lgridInitChart() {
   if (_lgridChart) return;
   const container = document.getElementById('lgrid-chart');
@@ -989,12 +1005,21 @@ function lgridSetPriceLines(gridMin, gridMax, levels) {
   _lgridPriceLines = [];
   if (!levels || levels < 1) { _lgridRangeMin = _lgridRangeMax = null; _lgridSeries.applyOptions({ autoscaleInfoProvider: null }); return; }
   _lgridRangeMin = gridMin; _lgridRangeMax = gridMax;
-  _lgridSeries.applyOptions({ autoscaleInfoProvider: original => {
-    const res = original(); const lo = _lgridRangeMin, hi = _lgridRangeMax;
-    if (lo == null || hi == null) return res;
-    const pad = (hi - lo) * 0.08;
-    return { priceRange: { minValue: Math.min(res ? res.priceRange.minValue : lo, lo) - pad, maxValue: Math.max(res ? res.priceRange.maxValue : hi, hi) + pad }, margins: { above: 0.05, below: 0.05 } };
-  }});
+  _lgridSeries.applyOptions({
+    autoscaleInfoProvider: original => {
+      const res = original();
+      const lo = _lgridRangeMin, hi = _lgridRangeMax;
+      if (lo == null || hi == null) return res;
+      const pad = (hi - lo) * 0.08;
+      return {
+        priceRange: {
+          minValue: Math.min(res ? res.priceRange.minValue : lo, lo) - pad,
+          maxValue: Math.max(res ? res.priceRange.maxValue : hi, hi) + pad,
+        },
+        margins: { above: 0.05, below: 0.05 },
+      };
+    },
+  });
   const spacing = (gridMax - gridMin) / levels;
   for (let i = 0; i <= levels; i++) {
     const price = gridMin + i * spacing;
@@ -1107,7 +1132,7 @@ function lgridApplyStatus(d) {
   setText('lgrid-trades-val', m.trade_count ?? 0);
   setText('lgrid-orders-sub', (m.bought_orders ?? 0) + ' compras activas');
   const spEl = document.getElementById('lgrid-spacing-sub'); if (spEl && d.spacing) spEl.textContent = 'spacing $' + Number(d.spacing).toLocaleString('en-US');
-  if (d.grid_min !== undefined) {
+  if (d.grid_min && d.grid_max) {
     lgridSetPriceLines(d.grid_min, d.grid_max, d.levels);
     if (!_lgridInputsFilled) {
       document.getElementById('lgrid-inp-min').value = d.grid_min;
